@@ -57,16 +57,31 @@ For adapter-only work where shots are locked in prose but formal continuity IDs 
 - Never invent model names, limits, modes, sizes, audio features, or request parameters. Put unresolved provider fields in `requires_manual_configuration`.
 - Never let a provider adaptation add story facts absent from the current canonical storyboard. Preserve its `approval_status`; draft adaptations remain non-executable.
 - Never depend on generated pixels for exact brand text, numbers, subtitles, UI, or legal copy; specify a post-production path.
+- When the requested delivery reaches storyboard, label every shot's `story_function`, `opening_state`, `closing_state`, `continuity_ids`, and `risk_triggers` literally in the user-facing output; do not leave required fields implicit in prose.
+- When prompt or job compilation is requested, materialize one individually addressable record per shot and per requested provider. Do not use shot ranges as a substitute for records. Every job record must name its `job_id`, `shot_id`, `prompt_source`, `duration_seconds`, `approval_status`, and unresolved provider choices in `requires_manual_configuration`; a compact table is acceptable.
+
+## Failure Recovery Matrix
+
+Before advancing, match any failure to this table. Apply the first repair, then rerun the relevant stage checklist or validator. If that repair still fails, use the final fallback and stop; do not mask the failure with more prompt detail.
+
+| Trigger | First repair | If the repair still fails |
+|---|---|---|
+| A material brief field is missing, ambiguous, or conflicts with another hard constraint | Return to the earliest affected field, show its consequence, and ask exactly one decision question | Keep downstream objects `draft` or absent, print the active checkpoint, and end the response without fabricating a choice |
+| Rights, consent, minor, identifiable-person, or voice-clone evidence is unresolved | Isolate the affected asset and request only the minimum authorization evidence needed for the stated use | Block the affected stage; offer a fictional, project-owned, or otherwise authorized replacement only as a user-approved alternative |
+| A shot is overloaded or its acceptance check is likely to fail | Reduce it to one primary change, or create a lower-risk same-slot fallback that preserves duration, story function, boundary states, and continuity IDs | If a hard user constraint forbids both repairs, mark the shot `blocked`, explain the exact conflict, and request a path choice instead of compiling a prompt |
+| Explicit canonical IDs, boundary states, references, or active runtime contradict one another | Repair the earliest conflicting screenplay, bible, or storyboard record, then regenerate every dependent prompt and job. A missing relationship, message carrier, location, or cross-shot identity is not a contradiction: keep it `unresolved` instead of inferring a link | Invalidate the dependent objects, return to the earliest broken stage, and never patch only the downstream prose; if the missing link is material, ask one decision question |
+| Full-package validation reports errors | Repair every reported error in the canonical records and rerun `scripts/validate_package.py` | Do not set `ready: true`; return the exact remaining errors and hand off only a clearly labeled partial, non-executable package |
+| Provider documentation is unavailable, a field is unverified, or an official limit conflicts with the locked shot | Move unknowns to `requires_manual_configuration`; use a generic job until an official mapping exists | Mark the provider job `blocked` or manual-only; do not invent a model, field, duration, trim, reference mode, audio feature, or fallback capability |
 
 ## Approval State Machine
 
-Use three gates only:
+Use three visible hard checkpoints only. In standard mode, print the active checkpoint label below as a heading; deliver only the current-stage artifacts, ask exactly one decision question, then end the response. Continue only after the user approves that checkpoint. Omit checkpoint headings only when explicit `one-pass draft` bypasses all three boundaries or locked partial work starts downstream without crossing a gate.
 
-1. **Brief Gate** — approve objective, audience, duration, delivery, constraints, assumptions, and risks.
-2. **Direction Gate** — select one of three distinct mechanisms or an explicit mix.
-3. **Screenplay + Storyboard Gate** — jointly approve story objects and storyboard before final prompt/job compilation.
+1. **🔴 CHECKPOINT 1 · Brief Gate · 🛑 STOP** — approve objective, audience, duration, delivery, constraints, assumptions, and risks.
+2. **🔴 CHECKPOINT 2 · Direction Gate · 🛑 STOP** — select one of three distinct mechanisms or an explicit mix.
+3. **🔴 CHECKPOINT 3 · Screenplay + Storyboard Gate · 🛑 STOP** — jointly approve story objects and storyboard before final prompt/job compilation.
 
-Allow draft story objects to enter storyboard development after Direction Gate. Approval of a treatment or screenplay is not an extra gate. In `one-pass draft`, allow a draft brief and provisional duration to flow forward, while blocking real execution.
+Allow draft story objects to enter storyboard development after Direction Gate. Approval of a treatment or screenplay is not an extra gate. Explicit `one-pass draft` bypasses these three turn boundaries, but every gate state remains `draft` or `unapproved` and real execution stays blocked. Safety or rights blockers never bypass a `🛑 STOP`.
 
 ## Reference Router
 
