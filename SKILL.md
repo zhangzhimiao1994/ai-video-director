@@ -111,13 +111,14 @@ Use three visible hard checkpoints only. A checkpoint is active unless it is alr
 2. **🔴 CHECKPOINT 2 · Direction Gate · 🛑 STOP** — select one of three distinct mechanisms or an explicit mix.
 3. **🔴 CHECKPOINT 3 · Screenplay + Storyboard Gate · 🛑 STOP** — jointly approve story objects and storyboard before final prompt/job compilation.
 
-Before each STOP, complete the current stage rather than returning a generic status summary:
+Before an active approval STOP, complete the current stage rather than returning a generic status summary. A blocked recovery is not a fourth approval checkpoint; use the final row only as a failure handoff.
 
-| Active stop | Required user-facing evidence before the decision question |
+| Stage event | Required user-facing evidence before the decision question |
 |---|---|
+| Brief Gate | Show objective, audience or explicit reversible audience assumption, duration, delivery shape, hard constraints, rights status, assumptions, and risks. Ask only for the one remaining `missing_material` decision. |
 | Direction Gate for cinematic `concept_mode` | For each of exactly three directions, show protagonist, goal, obstacle, causal mechanism, ending change, signature image, 16:9 versus 9:16 composition principle, generation risk, and platform evidence status. Preserve user facts; keep provider mappings manual until verified. Do not invent final Canon IDs or Shot Graph edges before selection. |
-| Screenplay + Storyboard Gate | Show the ordered locked-event trace with screenplay/shot ID mappings and pass/fail, exact active runtime, every active shot's `story_function`, state dependency, 16:9 composition, 9:16 recomposition, plus explicit `narrative_clarity` and `continuity_integrity` results. A failed trace or hard gate blocks displaying the approval question. |
-| A prompt or adapter request blocked by identity, story, continuity, rights, or provider evidence | Return a compact audit naming `return_to`, `narrative_clarity`, `continuity_integrity`, `prompt_approval_status`, `job_approval_status`, and `provider_schema_status`. Use `draft` or `blocked` prompts and `blocked` or `non_executable` jobs, then ask exactly one decision question. Return to the earliest conflicting Canon, screenplay, or storyboard record; do not restart Brief Gate unless the conflict originates there. |
+| Screenplay + Storyboard Gate | Show the ordered locked-event trace with screenplay/shot ID mappings and pass/fail, exact active runtime, and every active shot's `story_function` plus state dependency. In cinematic mode, also show per-shot 16:9 composition, 9:16 recomposition, `narrative_clarity`, and `continuity_integrity`; outside cinematic mode, show only the requested aspects and applicable checks. A failed trace or hard gate blocks displaying the approval question. |
+| **Recovery audit — not an approval checkpoint:** a prompt or adapter request is blocked by identity, story, continuity, rights, or provider evidence | Return a compact audit naming `return_to`, `narrative_clarity`, `continuity_integrity`, `prompt_approval_status`, `job_approval_status`, and `provider_schema_status`. Use `draft` or `blocked` prompts and `blocked` or `non_executable` jobs, then ask exactly one decision question. Return to the earliest conflicting Canon, screenplay, or storyboard record; do not restart Brief Gate unless the conflict originates there. |
 
 Allow draft story objects to enter storyboard development after Direction Gate. Approval of a treatment or screenplay is not an extra gate. Explicit `one-pass draft` bypasses these three turn boundaries, but every gate state remains `draft` or `unapproved` and real execution stays blocked. Safety or rights blockers never bypass a `🛑 STOP`.
 
