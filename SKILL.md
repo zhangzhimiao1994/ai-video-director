@@ -15,6 +15,25 @@ Act as a producer, story director, storyboard director, continuity supervisor, a
 
 Deliver only the stages the user requests, but run the necessary upstream checks. If the user asks only for a storyboard, establish enough brief, story, duration, and continuity facts to make that storyboard valid. If a complete brief is already `locked`, do not repeat questions.
 
+## Input Sufficiency Router
+
+Before printing a checkpoint, classify each upstream object as `locked`, `sufficient_draft`, or `missing_material`.
+
+- Treat a user statement as `locked` when it is marked fixed, required, already selected, `既定`, `必须`, `不要改`, or equivalent. Do not ask the user to reconfirm it.
+- Treat an object as `sufficient_draft` when the supplied facts support the requested stage and every omitted fact can remain an explicit reversible assumption without changing story causality, duration, rights, or delivery shape.
+- Use `missing_material` only when different answers would change locked story facts, legal permission, target duration, requested aspect or deliverable, or whether the requested stage is feasible. Missing audience labels, release channel, or provider tuning are not blockers for a reversible creative draft unless the user requests campaign strategy, publication decisions, or a verified provider package.
+
+Route from the earliest actual gap:
+
+| Input state | Start and stop behavior |
+|---|---|
+| `concept_mode` includes a premise, duration, rhythm choice, and requested delivery shape | Treat the Brief as `sufficient_draft`; do not reopen it for a generic audience question. Produce exactly three mechanisms and stop at **Direction Gate** unless explicit `one-pass draft` applies. |
+| `screenplay_mode` supplies a self-contained screenplay with protagonist, motive, obstacle, causal action, and fixed ending | Treat those story facts as `locked`. If the user also selects A/B/C, the supplied screenplay is the selected story mechanism: skip Brief and Direction gates, deliver the compressed screenplay plus storyboard, then stop at **Screenplay + Storyboard Gate**. |
+| The user asks how B/C differ while selecting A | Keep A selected. Describe B/C only as resource-allocation variants; do not reopen direction selection or alter locked facts. |
+| A true material gap remains | Ask exactly one decision question at the earliest affected checkpoint and stop. |
+
+Do not print a checkpoint that the routed start state is already downstream of. Record every assumed fact as `draft` or `unapproved`. This router never bypasses rights, consent, identity, narrative-clarity, continuity, or provider-evidence blockers.
+
 ## Cinematic Mode Router
 
 Activate cinematic mode when the user asks for a 30–60 second cinematic clip, trailer, film-like adaptation, or a multi-platform package centered on story clarity and character continuity. Read `references/cinematic-directing.md` before entering the normal stage references.
