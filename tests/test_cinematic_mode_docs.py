@@ -73,6 +73,22 @@ class CinematicModeDocsTests(unittest.TestCase):
                 self.assertIn("30–60", document)
                 self.assertNotIn("30–90", document)
 
+    def test_happyhorse_adapter_is_verified_and_mode_specific(self):
+        adapters = self.read("references/model-adapters.md")
+        required_tokens = (
+            "## HappyHorse on Alibaba Cloud Model Studio",
+            "happyhorse-1.1-t2v",
+            "happyhorse-1.1-i2v",
+            "happyhorse-1.1-r2v",
+            "create_task_then_poll",
+            "result_url_valid_for_24_hours",
+            "i2v_request_schema",
+            "r2v_request_schema",
+        )
+        for token in required_tokens:
+            with self.subTest(token=token):
+                self.assertIn(token, adapters)
+
 
 if __name__ == "__main__":
     unittest.main()
