@@ -106,6 +106,19 @@ ID 一经进入下游引用，不因排序、改名或文案润色而变化。
 
 相邻镜头必须满足：前镜 `closing_state` 能成为后镜 `opening_state`，或由明确转场解释差异。不要用“保持一致”代替具体状态。
 
+### 电影化 Shot Graph 扩展
+
+仅当 `project_brief.cinematic_mode` 存在时，每个镜头增加：
+
+- `rhythm_role`：`world_building`、`performance`、`reaction`、`insert`、`hero`、`suspense` 或 `transition`。
+- `state_dependencies`：本镜状态依赖的上游 `shot_id` 数组；上游按经过类型校验的数字 `sequence` 判断，只允许引用 `sequence` 更小的镜头，不按 storyboard 数组位置判断。不得引用自身、未知或相同/更大序号的镜头，active 镜头不得重复有效序号；所有依赖合起来必须是有向无环图。
+- `state_before`、`state_after`：非空对象，分别记录进入本镜前与离开本镜后的可比较 Canon 状态。每条依赖都要求下游 `state_before` 包含上游 `state_after` 的全部字段且对应值相同；缺失或值不同就是依赖交接冲突，必须在编译前修复。下游可以补充来自其他已声明依赖的状态字段。
+- `composition_16x9`：非空字符串，记录电影母版构图、人物调度和前中后景关系。
+- `recomposition_9x16`：包含 `strategy`、`composition`、`safe_areas`；`strategy` 只能为 `recompose` 或 `independent_generation`，`composition` 必须为非空字符串，`safe_areas` 必须为非空的字符串数组且每项非空。
+- `platform_capability_needs`：实现该镜所需的参考图、首帧、尾帧、音频或编辑能力，不在此映射厂商字段。
+
+两种画幅共享 `story_function`、角色 ID、事件、对白意义、`opening_state`、`closing_state`、`state_before` 和 `state_after`。16:9 导演文本必须包含 `composition_16x9`，9:16 导演文本必须包含 `recomposition_9x16.composition`；无论策略是 `recompose` 还是 `independent_generation`，两份文本都必须不同。9:16 不得写成对 16:9 的机械裁切。完整制作包必须为每个镜头和每个 `delivery_aspects` 值生成可追踪 job。
+
 ## 三层分镜
 
 每个 `shot_id` 只代表一个剪辑单元，同时从三层描述同一个镜头。

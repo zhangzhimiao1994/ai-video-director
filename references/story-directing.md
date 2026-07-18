@@ -32,6 +32,16 @@
 
 本阶段只输出三个顶层对象：`selected_treatment`、`story_structure`、`screenplay`，不增加交接包装层。把“观众为什么继续看”“每场改变了什么”“如何用画面和声音证明”写清楚。
 
+### 电影化输入路由
+
+当 `project_brief.cinematic_mode` 存在时，先记录输入模式：
+
+- `concept_mode`：从用户事实生成可逆草案，不把补全内容写成用户事实。
+- `screenplay_mode`：锁定原剧本的核心事件、动机和因果，只压缩节奏、场景与对白。
+- 长篇小说不是首版可用模式；请求用户选择一个自包含片段或提供剧本。
+
+电影化故事结构使用 `cinematic_six_beats`：`hook`、`goal`、`escalation`、`reversal`、`climax_choice`、`aftertaste`。每个 beat 必须声明进入状态、可见变化、原因、结果和时长。六段可合并，但不得让目标、阻碍、因果或结尾变化消失。
+
 ## 结构选择器
 
 根据题材目标选择结构，不要把同一种营销模板套给所有视频。

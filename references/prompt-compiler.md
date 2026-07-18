@@ -97,6 +97,29 @@ opening/closing state -> continuity constraints -> audio -> exclusions
 
 正向提示结尾可保留极少量关键禁项，但完整禁止项放入独立 `negative_prompt_en`，避免正负混写。
 
+### 电影化三层编译
+
+启用电影化模式时，仍只保留一个 canonical prompt record，但按以下三层组织语义：
+
+1. `global_lock_block`：每镜唯一的角色、服装、道具、场景、时代、材质、色彩、故事/状态锁与禁止项；两个画幅共同引用，不得复制成互相漂移的两份锁。
+2. `shot_direction_block`：在同一 prompt record 的 `direction_variants` 中分别提供非空 `16:9` 与 `9:16` 导演文本。每份文本都写单一主动作、表演、该画幅构图、一个主要运镜、光线、时间进程、声音和边界状态；16:9 文本必须逐字包含 storyboard 的 `composition_16x9`，9:16 文本必须逐字包含 `recomposition_9x16.composition`。两份文本始终必须不同，不因 `recompose` 或 `independent_generation` 策略而放宽。
+3. `platform_compile_block`：把前两层映射成所选平台已核实的格式、参考输入和参数；不得新增故事事实。
+
+反奇怪感检查要求每镜只有一个主要动作、一个主要运镜、一个主要情绪转折和一个视觉关注点。发现两个独立动作、相互冲突的运镜或无法同时验收的特效时，返回分镜阶段拆分或选择 fallback，而不是继续堆形容词。
+
+电影化 prompt 必须有 `approval_status`：只能为 `draft`、`blocked` 或 `final`。每个电影化 job 同样必须有可审计的 `approval_status`：只能为 `blocked`、`non_executable` 或 `approved`。其 `prompt_source` 使用一个明确对象，同时绑定共享锁与该 job 的画幅导演文本：
+
+```json
+{
+  "global_lock_source": "shot_prompts[shot_id=SH001].global_lock_block",
+  "direction_source": "shot_prompts[shot_id=SH001].direction_variants[16:9]"
+}
+```
+
+`global_lock_source` 必须引用同一 `shot_id` 的唯一共享锁；`direction_source` 必须引用同一 `shot_id` 且与 job `aspect` 完全相同的方向。旧包直接把 `prompt_source` 指向 `universal_prompt_en` 的规则是 legacy-only，不适用于电影化 job。
+
+最终平台编译发生在硬门之后：`narrative_clarity` 或 `continuity_integrity` 任一失败时，`quality_report.ready` 必须为 `false`，prompt 只能是 `draft`/`blocked`，job 只能是 `blocked`/`non_executable`。即使两个硬门都通过，只要 `ready: false`，也仍使用同一组草案/阻塞状态。只有 `quality_report.ready: true` 且两个硬门都通过时，prompt 才能为 `final`，job 才能为 `approved`。
+
 ## 可观察措辞
 
 将抽象形容词翻译成可见选择：

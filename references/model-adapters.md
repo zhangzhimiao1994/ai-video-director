@@ -32,9 +32,18 @@
 - `documented_durations`
 - `documented_aspect_ratios_or_sizes`
 - `documented_parameters`
+- `async_job_model`
+- `result_expiry`
 - `unsupported_or_unverified`
 - `requires_manual_configuration`
 - `adaptation_notes`
+
+电影化模式还要记录异步与留存语义：
+
+- `async_job_model`：同步、创建后轮询或未核实。
+- `result_expiry`：官方明确的结果有效期；未明确时记为 `unsupported_or_unverified`。
+
+这两个字段只描述任务交接，不授权 Skill 提交、轮询或下载任务。
 
 ## Sora / OpenAI Videos API
 
@@ -287,6 +296,8 @@
 - 保留 canonical prompt、storyboard 和空 `documented_parameters`；不得生成看似可调用的 Kling 请求体。
 - 用户若能提供当前官方 schema 或可访问文档，再逐字段核实并更新 `verified_at`；在此之前选 generic/manual job 或另一个已核实 provider。
 
+**cinematic_adapter_status**：`manual_only_until_official_request_schema_is_readable`。
+
 ## Seedance / Volcano Engine
 
 **official_docs**
@@ -359,6 +370,88 @@
 
 - 保留 canonical prompt 和已批准镜头；`documented_parameters` 使用空对象，并把所有 provider 配置列入手动数组。
 - 只有能从当前官方页面逐字段读取 schema 后，才创建 Seedance/Volcano 专用 job；不得用二手文章或旧记忆回填。
+
+**cinematic_adapter_status**：`manual_only_until_official_request_schema_is_readable`。
+
+## HappyHorse on Alibaba Cloud Model Studio
+
+**official_docs**
+
+- https://www.alibabacloud.com/help/en/model-studio/video-generate-edit-model
+- https://www.alibabacloud.com/help/en/model-studio/happyhorse-text-to-video-api-reference
+
+**verified_at**：2026-07-18
+
+**verified_models**
+
+- `happyhorse-1.1-t2v`
+- `happyhorse-1.1-i2v`
+- `happyhorse-1.1-r2v`
+
+**supported_generation_modes**
+
+- text-to-video：`happyhorse-1.1-t2v`
+- first-frame image-to-video：`happyhorse-1.1-i2v`
+- reference-image-to-video：`happyhorse-1.1-r2v`
+
+**prompt_language**
+
+- text-to-video 官方字段 `input.prompt` 支持任意语言。
+
+**reference_inputs**
+
+- `t2v` 不需要图像参考。
+- `i2v` 与 `r2v` 的模型和用途已由官方模型表核实，但本次没有从独立 API 正文逐字段读取输入 schema；job 中保留 Canon 资产引用，并把 `i2v_request_schema` 和 `r2v_request_schema` 放入手动配置。
+
+**first_last_frame_support**
+
+- `unsupported_or_unverified`；不得把其他阿里云视频模型的首尾帧能力写成 HappyHorse 能力。
+
+**audio_support**
+
+- 官方模型表将 HappyHorse 1.1 的 t2v、i2v、r2v 标记为音画输出。自定义音频输入方式未在所选 HappyHorse 正文中核实。
+
+**documented_durations**
+
+- 3–15 秒。
+
+**documented_aspect_ratios_or_sizes**
+
+- t2v 比例：`16:9`、`9:16`、`1:1`、`4:3`、`3:4`、`4:5`、`5:4`、`9:21`、`21:9`。
+- 分辨率：`720P`、`1080P`。
+- i2v 与 r2v 的比例控制方式需按各自请求 schema 再核实。
+
+**documented_parameters**
+
+- t2v：`model`、`input.prompt`、`parameters.resolution`、`parameters.ratio`、`parameters.duration`、`parameters.watermark`、`parameters.seed`。
+- 异步请求头：`X-DashScope-Async: enable`。
+- 状态流转：`PENDING`、`RUNNING`、`SUCCEEDED`、`FAILED`、`CANCELED`、`UNKNOWN`。
+
+**async_job_model**：`create_task_then_poll`
+
+**result_expiry**：`result_url_valid_for_24_hours`；任务 ID 查询有效期同为 24 小时，应提示用户的编排程序及时归档。
+
+**unsupported_or_unverified**
+
+- i2v 和 r2v 的精确 endpoint、输入字段与参考数量。
+- 自定义音频、首尾帧、相机控制和编辑字段。
+- 用户账户对应的区域、workspace domain、配额和价格。
+
+**requires_manual_configuration**
+
+- `workspace_id`
+- `region_endpoint`
+- `authentication`
+- `input_asset_urls`
+- `i2v_request_schema`
+- `r2v_request_schema`
+- `result_persistence`
+
+**adaptation_notes**
+
+- 有稳定角色参考资产时，优先建议 r2v；只有首帧时建议 i2v；素材未完成时保留 t2v 或 generic/manual job。
+- 只有 t2v 正文中逐字段核实的字段可以进入可执行 `documented_parameters`。i2v/r2v job 在独立 schema 核实前保持 manual-only。
+- Skill 只交付任务清单，不提交、轮询或下载真实任务。
 
 ## Generic fallback
 
