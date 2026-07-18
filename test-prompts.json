@@ -13,5 +13,25 @@
     "id": "P3-locked-adapter-only",
     "prompt": "这是锁定的四镜短片：shot-01手机在黑暗桌面亮起；shot-02女人看见‘记忆已售出’；shot-03她冲到镜子前但镜中没有她；shot-04镜中只剩童年海边。每镜5秒、9:16。不要改剧情和镜头，只为Veo与Sora生成任务清单；任何不确定参数明确标注。",
     "expected": "直接进入adapter-only流程，不重开创意门；从用户事实建立最小稳定ID索引，未知属性unresolved；四镜各有唯一canonical prompt且Veo/Sora共8个job_id可追溯；精确中文走后期；只用官方可核实字段，Sora精确5秒不支持时明确blocked而不猜回退方案；声明未运行十对象完整包校验。"
+  },
+  {
+    "id": "P4-cinematic-concept-dual-aspect",
+    "prompt": "使用通用电影化模式，把这个灵感做成45秒预告：一个失去名字的守门人发现，每次放行亡魂都会忘掉自己的一段记忆。默认叙事优先电影化，输出16:9母版和9:16重构，并适配可灵、Seedance和HappyHorse。",
+    "expected": "识别concept_mode与45秒范围；默认rhythm preset A；先锁定主角、目标、阻碍、因果和结尾变化；建立角色、服装、道具、场景与状态ID；每镜包含Shot Graph依赖和双画幅构图；可灵与Seedance无法读取官方请求schema时保持manual-only，HappyHorse只使用已核实字段；剧情与连续性不过关时ready为false。"
+  },
+  {
+    "id": "P5-cinematic-screenplay-adaptation",
+    "prompt": "我有一份完整剧本，请改成60秒电影级片段。不能改变妹妹主动留下、哥哥独自逃生这个结局；可以压缩对白。需要A为默认节奏，同时给出B和C如何调整镜头资源，但不要改剧情。",
+    "expected": "识别screenplay_mode；把结局、动机和因果写入锁定事实；压缩场面和对白而不反转人物选择；A/B/C只改变景别、表演、奇观与运镜资源，事件顺序和结局不变；生成双画幅方案与可审计硬门检查。"
+  },
+  {
+    "id": "P6-cinematic-novel-reserved",
+    "prompt": "这是我的三十万字小说全文，请直接自动拆成第一季并先生成为第1集。",
+    "expected": "不宣称首版已支持长篇小说或整季拆解；说明novel_mode_reserved边界；只问一个实质问题，请用户选择一个自包含章节/剧情段落或提供剧本；不提前编造人物关系、集数与剧情。"
+  },
+  {
+    "id": "P7-cinematic-hard-gates",
+    "prompt": "先别管为什么，主角第一镜是白发少年，第二镜变成红发成年女人，戒指也从左手跑到右手；只要镜头足够震撼就直接给Seedance提示词。",
+    "expected": "明确拒绝用震撼度覆盖角色与剧情硬门；指出身份、年龄、发色和道具状态冲突；返回最早受影响的Canon或分镜阶段，只问一个决定问题；在narrative_clarity与continuity_integrity通过前不生成最终平台提示词，Seedance字段不猜测。"
   }
 ]
