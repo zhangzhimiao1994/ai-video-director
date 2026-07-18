@@ -1,9 +1,9 @@
 ---
-name: ai-video-director
+name: aibiandao
 description: Use when a user wants to turn a video idea, topic, script, article, product brief, or reference material into an AI-video creative brief, screenplay, storyboard, shot list, continuity plan, per-shot prompts, or API-ready generation manifest, especially when clips feel disconnected, characters drift, pacing is weak, or shots are hard to generate.
 ---
 
-# AI Video Director
+# aibiandao
 
 ## Core Principle
 

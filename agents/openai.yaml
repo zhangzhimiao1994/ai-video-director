@@ -1,4 +1,4 @@
 interface:
-  display_name: "AI Video Director"
+  display_name: "aibiandao"
   short_description: "将视频创意转成专业剧本、三层分镜、连续性方案与逐镜生成提示词"
-  default_prompt: "使用 $ai-video-director 把我的视频想法开发成剧本、三层分镜、逐镜英文提示词和模型任务清单。"
+  default_prompt: "使用 $aibiandao 把我的视频想法开发成剧本、三层分镜、逐镜英文提示词和模型任务清单。"
