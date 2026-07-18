@@ -1263,6 +1263,72 @@ class CinematicBriefValidationTests(unittest.TestCase):
             validate_package(package),
         )
 
+    def test_cinematic_job_aspect_must_be_a_supported_non_empty_string(self):
+        cases = (
+            ("1:1", "1:1"),
+            (1, "1"),
+            ({}, "{}"),
+        )
+        for aspect, source_aspect in cases:
+            with self.subTest(aspect=aspect):
+                package = cinematic_package()
+                job = package["model_job_manifest"][0]
+                job["aspect"] = aspect
+                job["prompt_source"]["direction_source"] = (
+                    "shot_prompts[shot_id=shot-01]."
+                    f"direction_variants[{source_aspect}]"
+                )
+                self.assertIn(
+                    "model_job_manifest job-01: aspect must be a non-empty "
+                    "string in project_brief.cinematic_mode.delivery_aspects",
+                    validate_package(package),
+                )
+
+    def test_cinematic_job_direction_source_must_resolve_to_existing_variant(self):
+        package = cinematic_package()
+        package["shot_prompts"][0]["direction_variants"].pop("9:16")
+        self.assertIn(
+            "model_job_manifest job-02: prompt_source.direction_source must "
+            "resolve to shot_prompt shot-01 direction_variants[9:16]",
+            validate_package(package),
+        )
+
+    def test_cinematic_job_sources_must_resolve_to_the_bound_shot_prompt(self):
+        package = cinematic_package()
+        package["shot_prompts"] = []
+        errors = validate_package(package)
+        self.assertIn(
+            "model_job_manifest job-01: prompt_source.global_lock_source must "
+            "resolve to shot_prompt shot-01 global_lock_block",
+            errors,
+        )
+        self.assertIn(
+            "model_job_manifest job-01: prompt_source.direction_source must "
+            "resolve to shot_prompt shot-01 direction_variants[16:9]",
+            errors,
+        )
+
+    def test_cinematic_wrong_sources_do_not_resolve(self):
+        package = cinematic_package()
+        source = package["model_job_manifest"][0]["prompt_source"]
+        source["global_lock_source"] = (
+            "shot_prompts[shot_id=shot-99].global_lock_block"
+        )
+        source["direction_source"] = (
+            "shot_prompts[shot_id=shot-99].direction_variants[16:9]"
+        )
+        errors = validate_package(package)
+        self.assertIn(
+            "model_job_manifest job-01: prompt_source.global_lock_source must "
+            "resolve to shot_prompt shot-01 global_lock_block",
+            errors,
+        )
+        self.assertIn(
+            "model_job_manifest job-01: prompt_source.direction_source must "
+            "resolve to shot_prompt shot-01 direction_variants[16:9]",
+            errors,
+        )
+
     def test_cinematic_job_requires_canonical_global_lock_source(self):
         package = cinematic_package()
         package["model_job_manifest"][0]["prompt_source"].pop(
@@ -1273,6 +1339,11 @@ class CinematicBriefValidationTests(unittest.TestCase):
             "global_lock_source",
             validate_package(package),
         )
+
+    def test_legacy_job_aspect_remains_unrestricted(self):
+        package = valid_package()
+        package["model_job_manifest"][0]["aspect"] = "1:1"
+        self.assertEqual(validate_package(package), [])
 
     def test_cinematic_manifest_requires_each_delivery_aspect_per_shot(self):
         package = cinematic_package()

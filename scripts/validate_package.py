@@ -479,9 +479,22 @@ def _validate_cinematic_job_prompt_source(
     job_id: str,
     shot_id: str,
     aspect: Any,
+    delivery_aspects: set[str],
     prompt_source: Any,
+    shot_prompt: dict[str, Any] | None,
     errors: list[str],
 ) -> None:
+    valid_aspect = (
+        isinstance(aspect, str)
+        and bool(aspect.strip())
+        and aspect in delivery_aspects
+    )
+    if not valid_aspect:
+        errors.append(
+            f"model_job_manifest {job_id}: aspect must be a non-empty "
+            "string in project_brief.cinematic_mode.delivery_aspects"
+        )
+
     label = f"model_job_manifest {job_id} prompt_source"
     if not isinstance(prompt_source, dict):
         errors.append(
@@ -499,19 +512,54 @@ def _validate_cinematic_job_prompt_source(
     expected_lock_source = (
         f"shot_prompts[shot_id={shot_id}].global_lock_block"
     )
-    if prompt_source.get("global_lock_source") != expected_lock_source:
+    lock_source_matches = (
+        prompt_source.get("global_lock_source") == expected_lock_source
+    )
+    if not lock_source_matches:
         errors.append(
             f"model_job_manifest {job_id}: "
             f"prompt_source.global_lock_source must equal {expected_lock_source}"
         )
+    if not (
+        lock_source_matches
+        and isinstance(shot_prompt, dict)
+        and _is_nonempty(shot_prompt.get("global_lock_block"))
+    ):
+        errors.append(
+            f"model_job_manifest {job_id}: "
+            "prompt_source.global_lock_source must resolve to "
+            f"shot_prompt {shot_id} global_lock_block"
+        )
+
+    if not valid_aspect:
+        return
+
     expected_direction_source = (
         f"shot_prompts[shot_id={shot_id}].direction_variants[{aspect}]"
     )
-    if prompt_source.get("direction_source") != expected_direction_source:
+    direction_source_matches = (
+        prompt_source.get("direction_source") == expected_direction_source
+    )
+    if not direction_source_matches:
         errors.append(
             f"model_job_manifest {job_id}: "
             "prompt_source.direction_source must equal "
             f"{expected_direction_source}"
+        )
+    direction_variants = (
+        shot_prompt.get("direction_variants")
+        if isinstance(shot_prompt, dict)
+        else None
+    )
+    if not (
+        direction_source_matches
+        and isinstance(direction_variants, dict)
+        and _is_nonempty(direction_variants.get(aspect))
+    ):
+        errors.append(
+            f"model_job_manifest {job_id}: "
+            "prompt_source.direction_source must resolve to "
+            f"shot_prompt {shot_id} direction_variants[{aspect}]"
         )
 
 
@@ -1164,6 +1212,7 @@ def validate_package(package: Any) -> list[str]:
         shot_prompts = []
 
     prompt_counts: Counter[str] = Counter()
+    prompts_by_shot: dict[str, list[dict[str, Any]]] = {}
     cinematic_prompt_statuses: list[tuple[str, str | None]] = []
     for index, prompt in enumerate(shot_prompts, start=1):
         if not isinstance(prompt, dict):
@@ -1178,6 +1227,7 @@ def validate_package(package: Any) -> list[str]:
         _require_fields(prompt, PROMPT_REQUIRED_FIELDS, f"shot_prompt {label}", errors)
         if isinstance(prompt_shot_id, str) and prompt_shot_id.strip():
             prompt_counts[prompt_shot_id] += 1
+            prompts_by_shot.setdefault(prompt_shot_id, []).append(prompt)
             if (
                 prompt_shot_id not in known_shot_ids
                 and not has_invalid_shot_id
@@ -1235,6 +1285,20 @@ def validate_package(package: Any) -> list[str]:
     job_counts: Counter[str] = Counter()
     job_aspects_by_shot: dict[str, set[str]] = {}
     cinematic_job_statuses: list[tuple[str, str | None]] = []
+    declared_delivery_aspects = (
+        cinematic_mode.get("delivery_aspects")
+        if cinematic_mode is not None
+        else None
+    )
+    cinematic_delivery_aspects = {
+        aspect
+        for aspect in (
+            declared_delivery_aspects
+            if isinstance(declared_delivery_aspects, list)
+            else []
+        )
+        if isinstance(aspect, str) and aspect.strip()
+    }
     for index, job in enumerate(jobs, start=1):
         if not isinstance(job, dict):
             errors.append(f"model_job_manifest item {index}: expected object")
@@ -1312,11 +1376,14 @@ def validate_package(package: Any) -> list[str]:
                         f"must match shot {job_shot_id}"
                     )
             if cinematic_mode is not None:
+                bound_prompts = prompts_by_shot.get(job_shot_id, [])
                 _validate_cinematic_job_prompt_source(
                     job_id,
                     job_shot_id,
                     job.get("aspect"),
+                    cinematic_delivery_aspects,
                     job.get("prompt_source"),
+                    bound_prompts[0] if len(bound_prompts) == 1 else None,
                     errors,
                 )
             else:
