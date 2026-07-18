@@ -35,6 +35,37 @@ class CinematicModeDocsTests(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, reference)
 
+    def test_stage_references_expose_the_cinematic_contract(self):
+        expected_tokens = {
+            "references/story-directing.md": (
+                "cinematic_six_beats",
+                "concept_mode",
+                "screenplay_mode",
+            ),
+            "references/continuity-storyboard.md": (
+                "rhythm_role",
+                "state_dependencies",
+                "composition_16x9",
+                "recomposition_9x16",
+                "platform_capability_needs",
+            ),
+            "references/prompt-compiler.md": (
+                "global_lock_block",
+                "shot_direction_block",
+                "platform_compile_block",
+            ),
+            "references/output-contract.md": (
+                "project_brief.cinematic_mode",
+                "narrative_clarity",
+                "continuity_integrity",
+            ),
+        }
+        for path, tokens in expected_tokens.items():
+            content = self.read(path)
+            for token in tokens:
+                with self.subTest(path=path, token=token):
+                    self.assertIn(token, content)
+
     def test_cinematic_duration_is_limited_to_thirty_to_sixty_seconds(self):
         for relative_path in ("SKILL.md", "references/cinematic-directing.md"):
             with self.subTest(relative_path=relative_path):

@@ -106,6 +106,18 @@ ID 一经进入下游引用，不因排序、改名或文案润色而变化。
 
 相邻镜头必须满足：前镜 `closing_state` 能成为后镜 `opening_state`，或由明确转场解释差异。不要用“保持一致”代替具体状态。
 
+### 电影化 Shot Graph 扩展
+
+仅当 `project_brief.cinematic_mode` 存在时，每个镜头增加：
+
+- `rhythm_role`：`world_building`、`performance`、`reaction`、`insert`、`hero`、`suspense` 或 `transition`。
+- `state_dependencies`：本镜状态依赖的上游 `shot_id` 数组；不得引用自身或不存在的镜头。
+- `composition_16x9`：电影母版构图、人物调度和前中后景关系。
+- `recomposition_9x16`：包含 `strategy`、`composition`、`safe_areas`；`strategy` 只能为 `recompose` 或 `independent_generation`。
+- `platform_capability_needs`：实现该镜所需的参考图、首帧、尾帧、音频或编辑能力，不在此映射厂商字段。
+
+两种画幅共享 `story_function`、角色 ID、事件、对白意义、`opening_state` 和 `closing_state`。9:16 不得写成对 16:9 的机械裁切。完整制作包必须为每个镜头和每个 `delivery_aspects` 值生成可追踪 job。
+
 ## 三层分镜
 
 每个 `shot_id` 只代表一个剪辑单元，同时从三层描述同一个镜头。

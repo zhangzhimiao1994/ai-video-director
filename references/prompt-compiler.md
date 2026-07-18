@@ -97,6 +97,16 @@ opening/closing state -> continuity constraints -> audio -> exclusions
 
 正向提示结尾可保留极少量关键禁项，但完整禁止项放入独立 `negative_prompt_en`，避免正负混写。
 
+### 电影化三层编译
+
+启用电影化模式时，仍只保留一个 canonical prompt record，但按以下三层组织语义：
+
+1. `global_lock_block`：角色、服装、道具、场景、时代、材质、色彩和禁止项。
+2. `shot_direction_block`：单一主动作、表演、构图、一个主要运镜、光线、时间进程、声音和边界状态。
+3. `platform_compile_block`：把前两层映射成所选平台已核实的格式、参考输入和参数；不得新增故事事实。
+
+反奇怪感检查要求每镜只有一个主要动作、一个主要运镜、一个主要情绪转折和一个视觉关注点。发现两个独立动作、相互冲突的运镜或无法同时验收的特效时，返回分镜阶段拆分或选择 fallback，而不是继续堆形容词。
+
 ## 可观察措辞
 
 将抽象形容词翻译成可见选择：

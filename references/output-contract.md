@@ -30,6 +30,25 @@ Markdown 标题与 JSON 顶层键必须严格按以下顺序出现：
 - `runtime_role` 可为 `active` 或 `fallback`，缺省视为 `active`。只有 active 镜头计入目标时长；fallback 仍须有独立 canonical prompt 和至少一个 job。
 - `risk_level: "high"` 必须具有非空 `fallback_shot`。该 ID 必须引用一个风险更低、`runtime_role: "fallback"` 的完整镜头，并逐项保持相同 `sequence`、`duration_seconds`、`scene_id`、`story_function`、`beat_change`、`opening_state`、`closing_state`、`character_ids`、`location_id`、`wardrobe_ids`、`prop_ids`、`look_id`。
 
+### 可选电影化扩展
+
+旧制作包无需增加字段。启用时，`project_brief.cinematic_mode` 使用：
+
+```json
+{
+  "input_mode": "concept_mode",
+  "rhythm_preset": "A",
+  "delivery_aspects": ["16:9", "9:16"],
+  "style_preset": "dark-fantasy"
+}
+```
+
+此时 storyboard 每镜必须包含 `rhythm_role`、`state_dependencies`、`composition_16x9`、`recomposition_9x16` 和 `platform_capability_needs`。每镜必须有 16:9 与 9:16 job 覆盖。
+
+`quality_report.checks.narrative_clarity` 必须逐项记录 `protagonist`、`goal`、`obstacle`、`causality`、`ending_change` 的 `pass` 或 `fail`。`quality_report.checks.continuity_integrity` 必须记录 `status` 与 `unresolved_conflicts`。任一硬门失败时，`quality_report.ready` 只能是 `false`。
+
+导演摘要、剧本、Canon 与资产圣经、Shot Graph、关键帧、平台包、双画幅方案和质检报告是逻辑交付部分。默认在 Markdown 或十对象 JSON 中表达；只有用户明确要求保存文件时才创建实际目录。
+
 ## 1. `project_brief`
 
 Markdown 写“制片简报”；JSON 使用 `project_brief` 对象。至少包含获批状态、正数 `target_duration_seconds`、画幅、平台、目标、期望反应、约束、假设和风险。未经用户批准的事实必须保留草案或假设状态。
