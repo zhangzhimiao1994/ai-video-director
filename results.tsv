@@ -1,3 +1,4 @@
 timestamp	commit	skill	old_score	new_score	status	dimension	note	eval_mode
 2026-07-18T11:30:38+08:00	c631156	ai-video-director	-	82.0	baseline	-	raw=81.2/99; normalized=82.0/100; D8=9.0; baseline_mean=4.4; runtime_warn=0; full_tests=3/3	full_test
 2026-07-18T11:57:52+08:00	5493106	ai-video-director	82.0	86.3	keep	D4-checkpoints	D4=3->10; conservative D8 held at 9.0; effect judges split and tiebreak=keep; P2 visible checkpoint probe pass; runtime_warn=0	full_test
+2026-07-18T12:17:52+08:00	68522ee	ai-video-director	86.3	93.5	keep	D3-recovery	D3=4->10; conservative D8 held at 9.0; P3 fact-expansion regression caught by split judges, repaired in-round, targeted retest and tiebreak=keep; runtime_warn=0	full_test
