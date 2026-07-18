@@ -58,6 +58,19 @@ For adapter-only work where shots are locked in prose but formal continuity IDs 
 - Never let a provider adaptation add story facts absent from the current canonical storyboard. Preserve its `approval_status`; draft adaptations remain non-executable.
 - Never depend on generated pixels for exact brand text, numbers, subtitles, UI, or legal copy; specify a post-production path.
 
+## Failure Recovery Matrix
+
+Before advancing, match any failure to this table. Apply the first repair, then rerun the relevant stage checklist or validator. If that repair still fails, use the final fallback and stop; do not mask the failure with more prompt detail.
+
+| Trigger | First repair | If the repair still fails |
+|---|---|---|
+| A material brief field is missing, ambiguous, or conflicts with another hard constraint | Return to the earliest affected field, show its consequence, and ask exactly one decision question | Keep downstream objects `draft` or absent, print the active checkpoint, and end the response without fabricating a choice |
+| Rights, consent, minor, identifiable-person, or voice-clone evidence is unresolved | Isolate the affected asset and request only the minimum authorization evidence needed for the stated use | Block the affected stage; offer a fictional, project-owned, or otherwise authorized replacement only as a user-approved alternative |
+| A shot is overloaded or its acceptance check is likely to fail | Reduce it to one primary change, or create a lower-risk same-slot fallback that preserves duration, story function, boundary states, and continuity IDs | If a hard user constraint forbids both repairs, mark the shot `blocked`, explain the exact conflict, and request a path choice instead of compiling a prompt |
+| IDs, boundary states, references, or active runtime do not reconcile | Repair the earliest canonical screenplay, bible, or storyboard record, then regenerate every dependent prompt and job | Invalidate the dependent objects, return to the earliest broken stage, and never patch only the downstream prose |
+| Full-package validation reports errors | Repair every reported error in the canonical records and rerun `scripts/validate_package.py` | Do not set `ready: true`; return the exact remaining errors and hand off only a clearly labeled partial, non-executable package |
+| Provider documentation is unavailable, a field is unverified, or an official limit conflicts with the locked shot | Move unknowns to `requires_manual_configuration`; use a generic job until an official mapping exists | Mark the provider job `blocked` or manual-only; do not invent a model, field, duration, trim, reference mode, audio feature, or fallback capability |
+
 ## Approval State Machine
 
 Use three visible hard checkpoints only. In standard mode, print the active checkpoint label below as a heading; deliver only the current-stage artifacts, ask exactly one decision question, then end the response. Continue only after the user approves that checkpoint. Omit checkpoint headings only when explicit `one-pass draft` bypasses all three boundaries or locked partial work starts downstream without crossing a gate.
