@@ -60,13 +60,13 @@ For adapter-only work where shots are locked in prose but formal continuity IDs 
 
 ## Approval State Machine
 
-Use three gates only:
+Use three visible hard checkpoints only. In standard mode, each checkpoint is a turn boundary: deliver only the current-stage artifacts, ask exactly one decision question, then end the response. Continue only after the user approves that checkpoint.
 
-1. **Brief Gate** — approve objective, audience, duration, delivery, constraints, assumptions, and risks.
-2. **Direction Gate** — select one of three distinct mechanisms or an explicit mix.
-3. **Screenplay + Storyboard Gate** — jointly approve story objects and storyboard before final prompt/job compilation.
+1. **🔴 CHECKPOINT 1 · Brief Gate · 🛑 STOP** — approve objective, audience, duration, delivery, constraints, assumptions, and risks.
+2. **🔴 CHECKPOINT 2 · Direction Gate · 🛑 STOP** — select one of three distinct mechanisms or an explicit mix.
+3. **🔴 CHECKPOINT 3 · Screenplay + Storyboard Gate · 🛑 STOP** — jointly approve story objects and storyboard before final prompt/job compilation.
 
-Allow draft story objects to enter storyboard development after Direction Gate. Approval of a treatment or screenplay is not an extra gate. In `one-pass draft`, allow a draft brief and provisional duration to flow forward, while blocking real execution.
+Allow draft story objects to enter storyboard development after Direction Gate. Approval of a treatment or screenplay is not an extra gate. Explicit `one-pass draft` bypasses these three turn boundaries, but every gate state remains `draft` or `unapproved` and real execution stays blocked. Safety or rights blockers never bypass a `🛑 STOP`.
 
 ## Reference Router
 
