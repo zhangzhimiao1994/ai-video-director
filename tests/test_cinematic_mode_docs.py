@@ -89,6 +89,15 @@ class CinematicModeDocsTests(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, adapters)
 
+        self.assertIn("3–15 秒", adapters)
+        self.assertNotIn("3–5 秒", adapters)
+
+        manual_only_status = (
+            "**cinematic_adapter_status**："
+            "`manual_only_until_official_request_schema_is_readable`。"
+        )
+        self.assertEqual(adapters.count(manual_only_status), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

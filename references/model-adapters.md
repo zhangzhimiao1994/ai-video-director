@@ -296,7 +296,7 @@
 - 保留 canonical prompt、storyboard 和空 `documented_parameters`；不得生成看似可调用的 Kling 请求体。
 - 用户若能提供当前官方 schema 或可访问文档，再逐字段核实并更新 `verified_at`；在此之前选 generic/manual job 或另一个已核实 provider。
 
-**cinematic_adapter_status**：`manual_only_until_official_request_schema_is_readable`
+**cinematic_adapter_status**：`manual_only_until_official_request_schema_is_readable`。
 
 ## Seedance / Volcano Engine
 
@@ -371,7 +371,7 @@
 - 保留 canonical prompt 和已批准镜头；`documented_parameters` 使用空对象，并把所有 provider 配置列入手动数组。
 - 只有能从当前官方页面逐字段读取 schema 后，才创建 Seedance/Volcano 专用 job；不得用二手文章或旧记忆回填。
 
-**cinematic_adapter_status**：`manual_only_until_official_request_schema_is_readable`
+**cinematic_adapter_status**：`manual_only_until_official_request_schema_is_readable`。
 
 ## HappyHorse on Alibaba Cloud Model Studio
 
@@ -413,7 +413,7 @@
 
 **documented_durations**
 
-- 3–5 秒。
+- 3–15 秒。
 
 **documented_aspect_ratios_or_sizes**
 
