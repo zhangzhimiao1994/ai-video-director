@@ -134,6 +134,55 @@ def valid_package():
     }
 
 
+def cinematic_package():
+    package = valid_package()
+    package["project_brief"]["target_duration_seconds"] = 30
+    package["project_brief"]["cinematic_mode"] = {
+        "input_mode": "concept_mode",
+        "rhythm_preset": "A",
+        "delivery_aspects": ["16:9", "9:16"],
+        "style_preset": "dark-fantasy",
+    }
+    shot = package["storyboard"][0]
+    shot["duration_seconds"] = 30
+    shot.update(
+        {
+            "rhythm_role": "performance",
+            "state_dependencies": [],
+            "composition_16x9": "Centered medium shot with foreground depth",
+            "recomposition_9x16": {
+                "strategy": "recompose",
+                "composition": "Vertical medium shot with clear lower third",
+                "safe_areas": ["lower third clear for subtitles"],
+            },
+            "platform_capability_needs": ["reference-image-to-video"],
+        }
+    )
+    landscape_job = package["model_job_manifest"][0]
+    landscape_job["duration_seconds"] = 30
+    landscape_job["aspect"] = "16:9"
+    portrait_job = copy.deepcopy(landscape_job)
+    portrait_job["job_id"] = "job-02"
+    portrait_job["aspect"] = "9:16"
+    package["model_job_manifest"].append(portrait_job)
+    package["quality_report"]["checks"].update(
+        {
+            "narrative_clarity": {
+                "protagonist": "pass",
+                "goal": "pass",
+                "obstacle": "pass",
+                "causality": "pass",
+                "ending_change": "pass",
+            },
+            "continuity_integrity": {
+                "status": "pass",
+                "unresolved_conflicts": [],
+            },
+        }
+    )
+    return package
+
+
 def run_cli(path):
     stdout = io.StringIO()
     stderr = io.StringIO()
@@ -764,6 +813,64 @@ class ValidatePackageTests(unittest.TestCase):
                     self.assertEqual(stdout, "")
                     self.assertIn("ERROR: invalid JSON", stderr)
                     self.assertNotIn("Traceback", stderr)
+
+
+class CinematicBriefValidationTests(unittest.TestCase):
+    def test_valid_cinematic_package_has_no_errors(self):
+        self.assertEqual(validate_package(cinematic_package()), [])
+
+    def test_cinematic_mode_requires_all_brief_fields(self):
+        for field in (
+            "input_mode",
+            "rhythm_preset",
+            "delivery_aspects",
+            "style_preset",
+        ):
+            with self.subTest(field=field):
+                package = cinematic_package()
+                package["project_brief"]["cinematic_mode"].pop(field)
+                self.assertIn(
+                    f"project_brief.cinematic_mode: missing required field {field}",
+                    validate_package(package),
+                )
+
+    def test_cinematic_mode_rejects_invalid_input_rhythm_and_duration(self):
+        cases = (
+            (
+                "input_mode",
+                "novel",
+                "project_brief.cinematic_mode: input_mode must be concept_mode or screenplay_mode",
+            ),
+            (
+                "rhythm_preset",
+                "D",
+                "project_brief.cinematic_mode: rhythm_preset must be A, B, or C",
+            ),
+        )
+        for field, value, expected_error in cases:
+            with self.subTest(field=field):
+                package = cinematic_package()
+                package["project_brief"]["cinematic_mode"][field] = value
+                self.assertIn(expected_error, validate_package(package))
+
+        for duration in (29, 61):
+            with self.subTest(duration=duration):
+                package = cinematic_package()
+                package["project_brief"]["target_duration_seconds"] = duration
+                self.assertIn(
+                    "project_brief: cinematic target_duration_seconds must be between 30 and 60",
+                    validate_package(package),
+                )
+
+    def test_cinematic_mode_requires_exact_dual_aspects(self):
+        for aspects in (["16:9"], ["9:16"], ["16:9", "16:9"]):
+            with self.subTest(aspects=aspects):
+                package = cinematic_package()
+                package["project_brief"]["cinematic_mode"]["delivery_aspects"] = aspects
+                self.assertIn(
+                    "project_brief.cinematic_mode: delivery_aspects must contain exactly 16:9 and 9:16",
+                    validate_package(package),
+                )
 
 
 if __name__ == "__main__":

@@ -122,6 +122,17 @@ QUALITY_REPORT_REQUIRED_FIELDS = (
     "unresolved_provider_fields",
 )
 
+CINEMATIC_MODE_REQUIRED_FIELDS = (
+    "input_mode",
+    "rhythm_preset",
+    "delivery_aspects",
+    "style_preset",
+)
+
+CINEMATIC_INPUT_MODES = {"concept_mode", "screenplay_mode"}
+CINEMATIC_RHYTHM_PRESETS = {"A", "B", "C"}
+CINEMATIC_DELIVERY_ASPECTS = {"16:9", "9:16"}
+
 BIBLE_ID_FIELDS = {
     "characters": "character_id",
     "locations": "location_id",
@@ -163,6 +174,55 @@ def _require_fields(
     for field in fields:
         if field not in value:
             errors.append(f"{label}: missing required field {field}")
+
+
+def _validate_cinematic_mode(
+    project_brief: Any, errors: list[str]
+) -> dict[str, Any] | None:
+    if not isinstance(project_brief, dict):
+        return None
+    mode = project_brief.get("cinematic_mode")
+    if mode is None:
+        return None
+    if not isinstance(mode, dict):
+        errors.append("project_brief.cinematic_mode: expected object")
+        return None
+
+    _require_fields(
+        mode,
+        CINEMATIC_MODE_REQUIRED_FIELDS,
+        "project_brief.cinematic_mode",
+        errors,
+    )
+
+    if mode.get("input_mode") not in CINEMATIC_INPUT_MODES:
+        errors.append(
+            "project_brief.cinematic_mode: input_mode must be concept_mode or screenplay_mode"
+        )
+    if mode.get("rhythm_preset") not in CINEMATIC_RHYTHM_PRESETS:
+        errors.append(
+            "project_brief.cinematic_mode: rhythm_preset must be A, B, or C"
+        )
+    aspects = mode.get("delivery_aspects")
+    if (
+        not isinstance(aspects, list)
+        or len(aspects) != 2
+        or any(not isinstance(aspect, str) for aspect in aspects)
+        or set(aspects) != CINEMATIC_DELIVERY_ASPECTS
+    ):
+        errors.append(
+            "project_brief.cinematic_mode: delivery_aspects must contain exactly 16:9 and 9:16"
+        )
+    style_preset = mode.get("style_preset")
+    if not isinstance(style_preset, str) or not style_preset.strip():
+        errors.append("project_brief.cinematic_mode: style_preset must not be empty")
+
+    duration = _positive_decimal(project_brief.get("target_duration_seconds"))
+    if duration is not None and not (Decimal(30) <= duration <= Decimal(60)):
+        errors.append(
+            "project_brief: cinematic target_duration_seconds must be between 30 and 60"
+        )
+    return mode
 
 
 def _validate_bible(
@@ -286,6 +346,8 @@ def validate_package(package: Any) -> list[str]:
 
     bible_ids = _validate_bible(package.get("continuity_bible"), errors)
     known_scene_ids = _scene_ids(package.get("screenplay"))
+    project_brief = package.get("project_brief")
+    cinematic_mode = _validate_cinematic_mode(project_brief, errors)
 
     storyboard = package.get("storyboard")
     if not isinstance(storyboard, list):
@@ -522,7 +584,6 @@ def validate_package(package: Any) -> list[str]:
             )
 
     target_duration = None
-    project_brief = package.get("project_brief")
     if isinstance(project_brief, dict):
         target_duration = _positive_decimal(
             project_brief.get("target_duration_seconds")
