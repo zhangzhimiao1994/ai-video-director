@@ -24,7 +24,7 @@ Markdown 标题与 JSON 顶层键必须严格按以下顺序出现：
 - 每个 `storyboard[].shot_id` 恰好对应一个 canonical `shot_prompts` 记录。
 - 每个镜头至少对应一个 `model_job_manifest` 记录；需要参考图准备、主生成、扩展或变体时可对应多个 job。
 - 每个 job 必须引用已存在的 `shot_id`，且不得引入已批准 storyboard 中不存在的人物、地点、道具、动作、台词、产品事实或结局。
-- `prompt_source` 必须指向该镜唯一的 `universal_prompt_en`，模型差异只能进入 `model_variants` 和 job 的正式映射。
+- legacy-only 包的 `prompt_source` 必须指向该镜唯一的 `universal_prompt_en`，模型差异只能进入 `model_variants` 和 job 的正式映射；电影化包使用下方同时绑定共享锁与画幅方向的对象契约。
 - `documented_parameters` 必须是对象，只能包含在当前官方一手文档中核实过的请求字段和值；没有可核实字段时使用空对象。
 - `requires_manual_configuration` 必须是数组，逐项列出尚未解析的 provider 字段、项目配置或能力选择；没有未决项时使用空数组。
 - `runtime_role` 可为 `active` 或 `fallback`，缺省视为 `active`。只有 active 镜头计入目标时长；fallback 仍须有独立 canonical prompt 和至少一个 job。
@@ -43,11 +43,18 @@ Markdown 标题与 JSON 顶层键必须严格按以下顺序出现：
 }
 ```
 
-此时 storyboard 每镜必须包含 `rhythm_role`、`state_dependencies`、非空对象 `state_before`/`state_after`、非空字符串 `composition_16x9`、`recomposition_9x16` 和 `platform_capability_needs`。`state_dependencies` 必须形成只指向更早镜头的有向无环图；本镜 `state_before` 必须包含每个依赖镜头 `state_after` 的全部字段并保持对应值相同，可额外包含其他已声明依赖交接的状态。`recomposition_9x16.composition` 是非空字符串，`safe_areas` 是非空字符串数组。
+此时 storyboard 每镜必须包含 `rhythm_role`、`state_dependencies`、非空对象 `state_before`/`state_after`、非空字符串 `composition_16x9`、`recomposition_9x16` 和 `platform_capability_needs`。`state_dependencies` 必须按有效数字 `sequence` 形成只指向更小序号镜头的有向无环图；不得用数组位置推断上游，active 镜头序号不得重复。本镜 `state_before` 必须包含每个依赖镜头 `state_after` 的全部字段并保持对应值相同，可额外包含其他已声明依赖交接的状态。`recomposition_9x16.composition` 是非空字符串，`safe_areas` 是非空数组且每项为非空字符串。
 
-每镜仍只有一个 canonical prompt record 和一个共享 `global_lock_block`，但必须在 `direction_variants` 中分别提供非空 `16:9` 与 `9:16` 导演文本。9:16 文本必须包含 `recomposition_9x16.composition`；`independent_generation` 时两个文本不得相同。每镜必须有 16:9 与 9:16 job 覆盖，每个 job 的 `prompt_source` 必须引用与自身画幅匹配的 `direction_variants` 项。
+每镜仍只有一个 canonical prompt record 和一个共享 `global_lock_block`，但必须在 `direction_variants` 中分别提供非空 `16:9` 与 `9:16` 导演文本。16:9 文本必须包含 `composition_16x9`，9:16 文本必须包含 `recomposition_9x16.composition`，并且两份文本在两种重构策略下都不得相同。每镜必须有 16:9 与 9:16 job 覆盖，每个电影化 job 使用以下 `prompt_source` 对象，同时引用同镜共享锁和与自身画幅匹配的方向：
 
-`quality_report.checks.narrative_clarity` 必须逐项记录 `protagonist`、`goal`、`obstacle`、`causality`、`ending_change` 的 `pass` 或 `fail`。`quality_report.checks.continuity_integrity` 必须记录 `status` 与 `unresolved_conflicts`。prompt 的 `approval_status` 为 `draft`、`blocked` 或 `final`；job 的 `approval_status` 为 `blocked`、`non_executable` 或 `approved`。任一硬门失败时，`quality_report.ready` 只能是 `false`，prompt 只能为 `draft`/`blocked`，job 只能为 `blocked`/`non_executable`；只有 `ready: true` 且两道硬门通过时，prompt 才能为 `final`、job 才能为 `approved`。
+```json
+{
+  "global_lock_source": "shot_prompts[shot_id=SH001].global_lock_block",
+  "direction_source": "shot_prompts[shot_id=SH001].direction_variants[9:16]"
+}
+```
+
+`quality_report.checks.narrative_clarity` 必须逐项记录 `protagonist`、`goal`、`obstacle`、`causality`、`ending_change` 的 `pass` 或 `fail`。`quality_report.checks.continuity_integrity` 必须记录 `status` 与 `unresolved_conflicts`。prompt 的 `approval_status` 为 `draft`、`blocked` 或 `final`；job 的 `approval_status` 为 `blocked`、`non_executable` 或 `approved`。任一硬门失败时，`quality_report.ready` 只能是 `false`，prompt 只能为 `draft`/`blocked`，job 只能为 `blocked`/`non_executable`；硬门通过但 `ready: false` 时也保持这组非最终状态。只有 `ready: true` 且两道硬门通过时，prompt 才能为 `final`、job 才能为 `approved`。
 
 导演摘要、剧本、Canon 与资产圣经、Shot Graph、关键帧、平台包、双画幅方案和质检报告是逻辑交付部分。默认在 Markdown 或十对象 JSON 中表达；只有用户明确要求保存文件时才创建实际目录。
 

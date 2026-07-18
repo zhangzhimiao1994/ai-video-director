@@ -354,6 +354,11 @@ def _validate_cinematic_shot(
                 f"shot {shot_id}: recomposition_9x16.safe_areas must be a list"
             )
         else:
+            if not safe_areas:
+                errors.append(
+                    f"shot {shot_id}: recomposition_9x16.safe_areas "
+                    "must not be empty"
+                )
             _validate_nonempty_string_list(
                 f"shot {shot_id} recomposition_9x16",
                 safe_areas,
@@ -406,6 +411,17 @@ def _validate_cinematic_prompt(
             valid_variants[aspect] = direction.strip()
 
     if isinstance(shot, dict):
+        landscape_composition = shot.get("composition_16x9")
+        landscape_direction = valid_variants.get("16:9")
+        if (
+            isinstance(landscape_composition, str)
+            and landscape_composition.strip()
+            and landscape_direction is not None
+            and landscape_composition.strip() not in landscape_direction
+        ):
+            errors.append(
+                f"{label}: 16:9 direction variant must include composition_16x9"
+            )
         portrait = shot.get("recomposition_9x16")
         if isinstance(portrait, dict):
             portrait_composition = portrait.get("composition")
@@ -420,14 +436,17 @@ def _validate_cinematic_prompt(
                     f"{label}: 9:16 direction variant must include "
                     "recomposition_9x16.composition"
                 )
-            if (
-                portrait.get("strategy") == "independent_generation"
-                and valid_variants.get("16:9") == valid_variants.get("9:16")
-            ):
-                errors.append(
-                    f"{label}: independent_generation requires distinct "
-                    "16:9 and 9:16 direction variants"
-                )
+            if valid_variants.get("16:9") == valid_variants.get("9:16"):
+                if portrait.get("strategy") == "independent_generation":
+                    errors.append(
+                        f"{label}: independent_generation requires distinct "
+                        "16:9 and 9:16 direction variants"
+                    )
+                else:
+                    errors.append(
+                        f"{label}: 16:9 and 9:16 direction variants "
+                        "must be distinct"
+                    )
 
     return approval_status if isinstance(approval_status, str) else None
 
@@ -454,6 +473,46 @@ def _cinematic_dependencies_have_cycle(
         return False
 
     return any(visit(shot_id) for shot_id in dependencies_by_shot)
+
+
+def _validate_cinematic_job_prompt_source(
+    job_id: str,
+    shot_id: str,
+    aspect: Any,
+    prompt_source: Any,
+    errors: list[str],
+) -> None:
+    label = f"model_job_manifest {job_id} prompt_source"
+    if not isinstance(prompt_source, dict):
+        errors.append(
+            f"model_job_manifest {job_id}: prompt_source must be an object "
+            "for cinematic jobs"
+        )
+        return
+
+    _require_fields(
+        prompt_source,
+        ("global_lock_source", "direction_source"),
+        label,
+        errors,
+    )
+    expected_lock_source = (
+        f"shot_prompts[shot_id={shot_id}].global_lock_block"
+    )
+    if prompt_source.get("global_lock_source") != expected_lock_source:
+        errors.append(
+            f"model_job_manifest {job_id}: "
+            f"prompt_source.global_lock_source must equal {expected_lock_source}"
+        )
+    expected_direction_source = (
+        f"shot_prompts[shot_id={shot_id}].direction_variants[{aspect}]"
+    )
+    if prompt_source.get("direction_source") != expected_direction_source:
+        errors.append(
+            f"model_job_manifest {job_id}: "
+            "prompt_source.direction_source must equal "
+            f"{expected_direction_source}"
+        )
 
 
 def _validate_bible(
@@ -672,6 +731,27 @@ def _validate_cinematic_compilation_statuses(
                     f"{label}: approval_status must be blocked or "
                     "non_executable while cinematic hard gates fail"
                 )
+        return
+
+    if not ready:
+        for label, status in prompt_statuses:
+            if status in CINEMATIC_PROMPT_APPROVAL_STATUSES and status not in {
+                "draft",
+                "blocked",
+            }:
+                errors.append(
+                    f"{label}: approval_status must be draft or blocked "
+                    "while quality_report.ready is false"
+                )
+        for label, status in job_statuses:
+            if status in CINEMATIC_JOB_APPROVAL_STATUSES and status not in {
+                "blocked",
+                "non_executable",
+            }:
+                errors.append(
+                    f"{label}: approval_status must be blocked or "
+                    "non_executable while quality_report.ready is false"
+                )
 
 
 def _validate_reference(
@@ -717,7 +797,7 @@ def validate_package(package: Any) -> list[str]:
     shot_by_id: dict[str, dict[str, Any]] = {}
     runtime_roles: dict[str, str] = {}
     cinematic_dependencies: dict[str, list[str]] = {}
-    cinematic_positions: dict[str, int] = {}
+    cinematic_sequences: dict[str, int] = {}
     sequences: list[int] = []
     durations: list[Decimal] = []
     active_shot_count = 0
@@ -747,7 +827,6 @@ def validate_package(package: Any) -> list[str]:
                 cinematic_dependencies[raw_shot_id] = _validate_cinematic_shot(
                     raw_shot_id, shot, errors
                 )
-                cinematic_positions[raw_shot_id] = index
         else:
             errors.append("storyboard: shot_id must be a non-empty string")
             has_invalid_shot_id = True
@@ -767,6 +846,12 @@ def validate_package(package: Any) -> list[str]:
         if isinstance(sequence, int) and not isinstance(sequence, bool):
             if runtime_role == "active":
                 sequences.append(sequence)
+            if (
+                cinematic_mode is not None
+                and isinstance(raw_shot_id, str)
+                and raw_shot_id.strip()
+            ):
+                cinematic_sequences[raw_shot_id] = sequence
         elif "sequence" in shot:
             errors.append(f"shot {shot_id}: sequence must be an integer")
 
@@ -951,10 +1036,16 @@ def validate_package(package: Any) -> list[str]:
                     f"shot {shot_id}: unknown state_dependency {dependency}"
                 )
             else:
-                if cinematic_positions[dependency] >= cinematic_positions[shot_id]:
+                dependency_sequence = cinematic_sequences.get(dependency)
+                shot_sequence = cinematic_sequences.get(shot_id)
+                if (
+                    dependency_sequence is not None
+                    and shot_sequence is not None
+                    and dependency_sequence >= shot_sequence
+                ):
                     errors.append(
                         f"shot {shot_id}: state_dependency {dependency} "
-                        "must reference an earlier shot"
+                        "must reference a lower sequence"
                     )
                 source_state = shot_by_id[dependency].get("state_after")
                 incoming_state = shot_by_id[shot_id].get("state_before")
@@ -978,6 +1069,11 @@ def validate_package(package: Any) -> list[str]:
             "storyboard: cinematic state_dependencies must be acyclic"
         )
 
+    for sequence, count in sorted(Counter(sequences).items()):
+        if count > 1:
+            errors.append(
+                f"storyboard: duplicate active sequence {sequence}"
+            )
     if len(sequences) == active_shot_count:
         expected_sequences = list(range(1, active_shot_count + 1))
         if sorted(sequences) != expected_sequences:
@@ -1216,19 +1312,22 @@ def validate_package(package: Any) -> list[str]:
                         f"must match shot {job_shot_id}"
                     )
             if cinematic_mode is not None:
-                expected_prompt_source = (
-                    f"shot_prompts[shot_id={job_shot_id}]."
-                    f"direction_variants[{job.get('aspect')}]"
+                _validate_cinematic_job_prompt_source(
+                    job_id,
+                    job_shot_id,
+                    job.get("aspect"),
+                    job.get("prompt_source"),
+                    errors,
                 )
             else:
                 expected_prompt_source = (
                     f"shot_prompts[shot_id={job_shot_id}].universal_prompt_en"
                 )
-            if job.get("prompt_source") != expected_prompt_source:
-                errors.append(
-                    f"model_job_manifest {job_id}: prompt_source must equal "
-                    f"{expected_prompt_source}"
-                )
+                if job.get("prompt_source") != expected_prompt_source:
+                    errors.append(
+                        f"model_job_manifest {job_id}: prompt_source must equal "
+                        f"{expected_prompt_source}"
+                    )
         else:
             errors.append(
                 f"model_job_manifest {job_id}: "

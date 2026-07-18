@@ -76,7 +76,7 @@ class CinematicModeDocsTests(unittest.TestCase):
         continuity = self.read("references/continuity-storyboard.md")
         for token in (
             "有向无环图",
-            "只允许引用更早的镜头",
+            "只允许引用 `sequence` 更小的镜头",
             "state_after",
             "state_before",
             "依赖交接冲突",
@@ -98,6 +98,19 @@ class CinematicModeDocsTests(unittest.TestCase):
                 "approved",
             ):
                 with self.subTest(document=relative_path, token=token):
+                    self.assertIn(token, document)
+
+    def test_cinematic_job_source_contract_binds_lock_and_aspect_direction(self):
+        prompt_contract = self.read("references/prompt-compiler.md")
+        output_contract = self.read("references/output-contract.md")
+        for document in (prompt_contract, output_contract):
+            for token in (
+                "global_lock_source",
+                "direction_source",
+                "composition_16x9",
+                "legacy-only",
+            ):
+                with self.subTest(token=token):
                     self.assertIn(token, document)
 
     def test_cinematic_duration_is_limited_to_thirty_to_sixty_seconds(self):
