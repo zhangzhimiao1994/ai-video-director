@@ -17,7 +17,7 @@ Deliver only the stages the user requests, but run the necessary upstream checks
 
 ## Input Sufficiency Router
 
-Before printing a checkpoint, classify each upstream object as `locked`, `sufficient_draft`, or `missing_material`.
+Before printing a checkpoint, classify each upstream object as `locked`, `sufficient_draft`, or `missing_material`. This section is the single authority for deciding the earliest prerequisite; the Cinematic Mode Router, Required Workflow, and Approval State Machine consume this classification rather than recomputing it.
 
 - Treat a user statement as `locked` when it is marked fixed, required, already selected, `既定`, `必须`, `不要改`, or equivalent. Do not ask the user to reconfirm it.
 - Treat an object as `sufficient_draft` when the supplied facts support the requested stage and every omitted fact can remain an explicit reversible assumption without changing story causality, duration, rights, or delivery shape.
@@ -27,12 +27,12 @@ Route from the earliest actual gap:
 
 | Input state | Start and stop behavior |
 |---|---|
-| `concept_mode` includes a premise, duration, rhythm choice, and requested delivery shape | Treat the Brief as `sufficient_draft`; do not reopen it for a generic audience question. Produce exactly three mechanisms and stop at **Direction Gate** unless explicit `one-pass draft` applies. |
-| `screenplay_mode` supplies a self-contained screenplay with protagonist, motive, obstacle, causal action, and fixed ending | Treat those story facts as `locked`. If the user also selects A/B/C, the supplied screenplay is the selected story mechanism: skip Brief and Direction gates, deliver the compressed screenplay plus storyboard, then stop at **Screenplay + Storyboard Gate**. |
+| `concept_mode` includes a premise, duration, rhythm choice, and requested delivery shape | Treat the Brief as `sufficient_draft` and record Brief Gate as `satisfied_by_user_input`; do not reopen it for a generic audience question. Produce exactly three mechanisms and stop at **Direction Gate** unless explicit `one-pass draft` applies. |
+| `screenplay_mode` supplies a self-contained screenplay with protagonist, motive, obstacle, causal action, fixed ending, target duration, and delivery shape | Treat the supplied facts as `locked`; rights and unspecified production facts must be either user-supplied or explicit reversible assumptions. If the user also selects A/B/C, the supplied screenplay is the selected story mechanism: record Brief and Direction gates as `satisfied_by_user_input`, deliver the compressed screenplay plus storyboard, then stop at **Screenplay + Storyboard Gate**. |
 | The user asks how B/C differ while selecting A | Keep A selected. Describe B/C only as resource-allocation variants; do not reopen direction selection or alter locked facts. |
 | A true material gap remains | Ask exactly one decision question at the earliest affected checkpoint and stop. |
 
-Do not print a checkpoint that the routed start state is already downstream of. Record every assumed fact as `draft` or `unapproved`. This router never bypasses rights, consent, identity, narrative-clarity, continuity, or provider-evidence blockers.
+Do not print a checkpoint recorded as `satisfied_by_user_input`; it is satisfied, not bypassed. Record every assumed fact as `draft` or `unapproved`. If any required field cannot be a reversible assumption, classify it `missing_material` instead. This router never satisfies or bypasses rights, consent, identity, narrative-clarity, continuity, or provider-evidence blockers.
 
 ## Cinematic Mode Router
 
@@ -40,7 +40,7 @@ Activate cinematic mode when the user asks for a 30–60 second cinematic clip, 
 
 Accept `concept_mode` for an idea or premise and `screenplay_mode` for a complete or partial screenplay. `novel_mode_reserved` is not a shipped input mode: for a long novel, explain the current boundary and request one self-contained excerpt or screenplay segment.
 
-Use rhythm preset A by default. B and C require an explicit user choice. Cinematic mode produces a 16:9 master plan and a separately recomposed 9:16 plan. It does not bypass the existing Brief, Direction, or Screenplay + Storyboard checkpoints, and it never authorizes an API call.
+Use rhythm preset A by default. B and C require an explicit user choice. Cinematic mode produces a 16:9 master plan and a separately recomposed 9:16 plan. It satisfies checkpoints only through the Input Sufficiency Router; unresolved checkpoints remain hard stops. It never authorizes an API call.
 
 Determine the requested delivery stage first. Reuse user-provided `approved` or `locked` upstream objects after checking their references and invariants; start at the earliest materially missing prerequisite. Do not recreate a brief, three directions, treatment, or screenplay merely because it appears earlier in the full workflow.
 
@@ -85,6 +85,7 @@ For adapter-only work where shots are locked in prose but formal continuity IDs 
 - Never hide risk behind more adjectives. Record `risk_triggers` with a failure mode, acceptance check, and fallback condition.
 - Never invent model names, limits, modes, sizes, audio features, or request parameters. Put unresolved provider fields in `requires_manual_configuration`.
 - Never let a provider adaptation add story facts absent from the current canonical storyboard. Preserve its `approval_status`; draft adaptations remain non-executable.
+- Before Screenplay + Storyboard Gate, list every user-locked event as an ordered trace and map each event to screenplay and shot IDs. If any action, dialogue meaning, cause, choice, or ending is missing, reordered, or contradicted, repair the earliest record and rerun the trace; do not present the gate for approval.
 - Never depend on generated pixels for exact brand text, numbers, subtitles, UI, or legal copy; specify a post-production path.
 - When the requested delivery reaches storyboard, label every shot's `story_function`, `opening_state`, `closing_state`, `continuity_ids`, and `risk_triggers` literally in the user-facing output; do not leave required fields implicit in prose.
 - When prompt or job compilation is requested, materialize one individually addressable record per shot and per requested provider. Do not use shot ranges as a substitute for records. Every job record must name its `job_id`, `shot_id`, `prompt_source`, `duration_seconds`, `approval_status`, and unresolved provider choices in `requires_manual_configuration`; a compact table is acceptable.
@@ -104,7 +105,7 @@ Before advancing, match any failure to this table. Apply the first repair, then 
 
 ## Approval State Machine
 
-Use three visible hard checkpoints only. In standard mode, print the active checkpoint label below as a heading; deliver only the current-stage artifacts, ask exactly one decision question, then end the response. Continue only after the user approves that checkpoint. Omit checkpoint headings only when explicit `one-pass draft` bypasses all three boundaries or locked partial work starts downstream without crossing a gate.
+Use three visible hard checkpoints only. A checkpoint is active unless it is already approved or the Input Sufficiency Router records it as `satisfied_by_user_input`; this is the only precedence rule. In standard mode, print the active checkpoint label below as a heading; deliver only the current-stage artifacts, ask exactly one decision question, then end the response. Continue only after the user approves that checkpoint. Omit checkpoint headings only when explicit `one-pass draft` bypasses all three boundaries or routed partial work starts downstream with prior gates satisfied.
 
 1. **🔴 CHECKPOINT 1 · Brief Gate · 🛑 STOP** — approve objective, audience, duration, delivery, constraints, assumptions, and risks.
 2. **🔴 CHECKPOINT 2 · Direction Gate · 🛑 STOP** — select one of three distinct mechanisms or an explicit mix.
