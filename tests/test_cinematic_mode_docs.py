@@ -9,6 +9,14 @@ class CinematicModeDocsTests(unittest.TestCase):
     def read(self, relative_path):
         return (ROOT / relative_path).read_text(encoding="utf-8")
 
+    def test_skill_identity_is_aibiandao(self):
+        skill = self.read("SKILL.md")
+        agent_metadata = self.read("agents/openai.yaml")
+        self.assertTrue(skill.startswith("---\nname: aibiandao\n"))
+        self.assertIn('display_name: "aibiandao"', agent_metadata)
+        self.assertIn("$aibiandao", agent_metadata)
+        self.assertNotIn("$ai-video-director", agent_metadata)
+
     def test_skill_routes_cinematic_mode(self):
         skill = self.read("SKILL.md")
         self.assertIn("## Cinematic Mode Router", skill)
