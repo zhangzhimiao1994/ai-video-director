@@ -929,6 +929,49 @@ class CinematicBriefValidationTests(unittest.TestCase):
             validate_package(package),
         )
 
+    def test_cinematic_quality_requires_both_hard_gate_records(self):
+        for field in ("narrative_clarity", "continuity_integrity"):
+            with self.subTest(field=field):
+                package = cinematic_package()
+                package["quality_report"]["checks"].pop(field)
+                self.assertIn(
+                    f"quality_report.checks: missing required field {field}",
+                    validate_package(package),
+                )
+
+    def test_ready_cinematic_package_rejects_failed_narrative_gate(self):
+        package = cinematic_package()
+        package["quality_report"]["checks"]["narrative_clarity"][
+            "goal"
+        ] = "fail"
+        self.assertIn(
+            "quality_report: ready cannot be true while cinematic hard gates fail",
+            validate_package(package),
+        )
+
+    def test_ready_cinematic_package_rejects_continuity_conflicts(self):
+        package = cinematic_package()
+        continuity = package["quality_report"]["checks"][
+            "continuity_integrity"
+        ]
+        continuity["status"] = "fail"
+        continuity["unresolved_conflicts"] = ["prop-01 changes hands"]
+        self.assertIn(
+            "quality_report: ready cannot be true while cinematic hard gates fail",
+            validate_package(package),
+        )
+
+    def test_unready_cinematic_draft_may_report_a_failed_gate(self):
+        package = cinematic_package()
+        package["quality_report"]["ready"] = False
+        package["quality_report"]["checks"]["narrative_clarity"][
+            "goal"
+        ] = "fail"
+        self.assertNotIn(
+            "quality_report: ready cannot be true while cinematic hard gates fail",
+            validate_package(package),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -137,6 +137,14 @@ CINEMATIC_SHOT_REQUIRED_FIELDS = (
     "platform_capability_needs",
 )
 
+CINEMATIC_NARRATIVE_FIELDS = (
+    "protagonist",
+    "goal",
+    "obstacle",
+    "causality",
+    "ending_change",
+)
+
 CINEMATIC_INPUT_MODES = {"concept_mode", "screenplay_mode"}
 CINEMATIC_RHYTHM_PRESETS = {"A", "B", "C"}
 CINEMATIC_DELIVERY_ASPECTS = {"16:9", "9:16"}
@@ -407,6 +415,89 @@ def _validate_nonempty_string_list(
             errors.append(
                 f"{owner}: {field} item {index} must be a non-empty string"
             )
+
+
+def _validate_cinematic_quality(
+    quality_report: dict[str, Any], errors: list[str]
+) -> None:
+    checks = quality_report.get("checks")
+    if not isinstance(checks, dict):
+        return
+    _require_fields(
+        checks,
+        ("narrative_clarity", "continuity_integrity"),
+        "quality_report.checks",
+        errors,
+    )
+
+    gate_failed = False
+    narrative = checks.get("narrative_clarity")
+    if not isinstance(narrative, dict):
+        if "narrative_clarity" in checks:
+            errors.append("quality_report.checks.narrative_clarity: expected object")
+        gate_failed = True
+    else:
+        _require_fields(
+            narrative,
+            CINEMATIC_NARRATIVE_FIELDS,
+            "quality_report.checks.narrative_clarity",
+            errors,
+        )
+        for field in CINEMATIC_NARRATIVE_FIELDS:
+            value = narrative.get(field)
+            if value not in ("pass", "fail"):
+                errors.append(
+                    "quality_report.checks.narrative_clarity."
+                    f"{field} must be pass or fail"
+                )
+                gate_failed = True
+            elif value == "fail":
+                gate_failed = True
+
+    continuity = checks.get("continuity_integrity")
+    if not isinstance(continuity, dict):
+        if "continuity_integrity" in checks:
+            errors.append(
+                "quality_report.checks.continuity_integrity: expected object"
+            )
+        gate_failed = True
+    else:
+        _require_fields(
+            continuity,
+            ("status", "unresolved_conflicts"),
+            "quality_report.checks.continuity_integrity",
+            errors,
+        )
+        status = continuity.get("status")
+        if status not in ("pass", "fail"):
+            errors.append(
+                "quality_report.checks.continuity_integrity.status "
+                "must be pass or fail"
+            )
+            gate_failed = True
+        elif status == "fail":
+            gate_failed = True
+        conflicts = continuity.get("unresolved_conflicts")
+        if not isinstance(conflicts, list):
+            errors.append(
+                "quality_report.checks.continuity_integrity."
+                "unresolved_conflicts must be a list"
+            )
+            gate_failed = True
+        else:
+            _validate_nonempty_string_list(
+                "quality_report.checks.continuity_integrity",
+                conflicts,
+                "unresolved_conflicts",
+                errors,
+            )
+            if conflicts:
+                gate_failed = True
+
+    if quality_report.get("ready") is True and gate_failed:
+        errors.append(
+            "quality_report: ready cannot be true while cinematic hard gates fail"
+        )
 
 
 def _validate_reference(
@@ -989,6 +1080,8 @@ def validate_package(package: Any) -> list[str]:
                 "unresolved_provider_fields",
                 errors,
             )
+        if cinematic_mode is not None:
+            _validate_cinematic_quality(quality_report, errors)
 
     return errors
 
