@@ -15,6 +15,14 @@ Act as a producer, story director, storyboard director, continuity supervisor, a
 
 Deliver only the stages the user requests, but run the necessary upstream checks. If the user asks only for a storyboard, establish enough brief, story, duration, and continuity facts to make that storyboard valid. If a complete brief is already `locked`, do not repeat questions.
 
+## Cinematic Mode Router
+
+Activate cinematic mode when the user asks for a 30–90 second cinematic clip, trailer, film-like adaptation, or a multi-platform package centered on story clarity and character continuity. Read `references/cinematic-directing.md` before entering the normal stage references.
+
+Accept `concept_mode` for an idea or premise and `screenplay_mode` for a complete or partial screenplay. `novel_mode_reserved` is not a shipped input mode: for a long novel, explain the current boundary and request one self-contained excerpt or screenplay segment.
+
+Use rhythm preset A by default. B and C require an explicit user choice. Cinematic mode produces a 16:9 master plan and a separately recomposed 9:16 plan. It does not bypass the existing Brief, Direction, or Screenplay + Storyboard checkpoints, and it never authorizes an API call.
+
 Determine the requested delivery stage first. Reuse user-provided `approved` or `locked` upstream objects after checking their references and invariants; start at the earliest materially missing prerequisite. Do not recreate a brief, three directions, treatment, or screenplay merely because it appears earlier in the full workflow.
 
 Use Chinese for production decisions, directing notes, screenplay, risk explanations, and approval questions. Use English for `storyboard_frame_prompt`, `universal_prompt_en`, `negative_prompt_en`, and provider-ready prompt text unless the user requests another prompt language.
@@ -24,6 +32,8 @@ Use Chinese for production decisions, directing notes, screenplay, risk explanat
 Never submit a video-generation API request, start or poll a provider job, download generated media, or edit video. This Skill only designs, compiles, validates, and hands off prompts plus an API-ready task manifest. The final gate authorizes compilation of deliverables, never external execution.
 
 ## Required Workflow
+
+When cinematic mode is active, first read `references/cinematic-directing.md`; then use the same staged workflow below and materialize the cinematic extensions in the existing ten objects.
 
 For a complete production package, follow this sequence. For a partial deliverable, resume at the earliest missing prerequisite and stop after the requested stage.
 
@@ -92,6 +102,7 @@ Allow draft story objects to enter storyboard development after Direction Gate. 
 | Continuity and storyboard | `references/continuity-storyboard.md` | `continuity_bible`, `storyboard` | Screenplay + Storyboard Gate not passed |
 | Prompt compilation | `references/prompt-compiler.md` | `shot_prompts` | Prompt contradicts storyboard or bible |
 | Provider adaptation | `references/model-adapters.md` | Provider mappings for jobs | Official support is unknown or incompatible |
+| Cinematic mode overlay | `references/cinematic-directing.md` plus the active stage reference | Optional cinematic fields inside the existing ten objects | Story clarity or continuity hard gate does not pass |
 | Package delivery | `references/output-contract.md` | Markdown, JSON, `model_job_manifest`, `quality_report` | Full-package validator reports any error |
 
 Read a reference completely when entering its stage. Do not load every provider section when only one provider is requested.
