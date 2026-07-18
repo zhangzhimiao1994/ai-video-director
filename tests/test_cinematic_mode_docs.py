@@ -35,6 +35,13 @@ class CinematicModeDocsTests(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, reference)
 
+    def test_cinematic_duration_is_limited_to_thirty_to_sixty_seconds(self):
+        for relative_path in ("SKILL.md", "references/cinematic-directing.md"):
+            with self.subTest(relative_path=relative_path):
+                document = self.read(relative_path)
+                self.assertIn("30–60", document)
+                self.assertNotIn("30–90", document)
+
 
 if __name__ == "__main__":
     unittest.main()

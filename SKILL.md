@@ -17,7 +17,7 @@ Deliver only the stages the user requests, but run the necessary upstream checks
 
 ## Cinematic Mode Router
 
-Activate cinematic mode when the user asks for a 30–90 second cinematic clip, trailer, film-like adaptation, or a multi-platform package centered on story clarity and character continuity. Read `references/cinematic-directing.md` before entering the normal stage references.
+Activate cinematic mode when the user asks for a 30–60 second cinematic clip, trailer, film-like adaptation, or a multi-platform package centered on story clarity and character continuity. Read `references/cinematic-directing.md` before entering the normal stage references.
 
 Accept `concept_mode` for an idea or premise and `screenplay_mode` for a complete or partial screenplay. `novel_mode_reserved` is not a shipped input mode: for a long novel, explain the current boundary and request one self-contained excerpt or screenplay segment.
 
