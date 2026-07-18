@@ -129,9 +129,31 @@ CINEMATIC_MODE_REQUIRED_FIELDS = (
     "style_preset",
 )
 
+CINEMATIC_SHOT_REQUIRED_FIELDS = (
+    "rhythm_role",
+    "state_dependencies",
+    "composition_16x9",
+    "recomposition_9x16",
+    "platform_capability_needs",
+)
+
 CINEMATIC_INPUT_MODES = {"concept_mode", "screenplay_mode"}
 CINEMATIC_RHYTHM_PRESETS = {"A", "B", "C"}
 CINEMATIC_DELIVERY_ASPECTS = {"16:9", "9:16"}
+CINEMATIC_RHYTHM_ROLES = {
+    "world_building",
+    "performance",
+    "reaction",
+    "insert",
+    "hero",
+    "suspense",
+    "transition",
+}
+
+PORTRAIT_RECOMPOSITION_STRATEGIES = {
+    "recompose",
+    "independent_generation",
+}
 
 BIBLE_ID_FIELDS = {
     "characters": "character_id",
@@ -223,6 +245,77 @@ def _validate_cinematic_mode(
             "project_brief: cinematic target_duration_seconds must be between 30 and 60"
         )
     return mode
+
+
+def _validate_cinematic_shot(
+    shot_id: str, shot: dict[str, Any], errors: list[str]
+) -> list[str]:
+    _require_fields(
+        shot,
+        CINEMATIC_SHOT_REQUIRED_FIELDS,
+        f"shot {shot_id}",
+        errors,
+    )
+
+    if shot.get("rhythm_role") not in CINEMATIC_RHYTHM_ROLES:
+        errors.append(
+            f"shot {shot_id}: rhythm_role must be a documented cinematic role"
+        )
+    if not _is_nonempty(shot.get("composition_16x9")):
+        errors.append(f"shot {shot_id}: composition_16x9 must not be empty")
+
+    dependencies = shot.get("state_dependencies")
+    if not isinstance(dependencies, list):
+        errors.append(f"shot {shot_id}: state_dependencies must be a list")
+        dependencies = []
+    else:
+        _validate_nonempty_string_list(
+            f"shot {shot_id}",
+            dependencies,
+            "state_dependencies",
+            errors,
+        )
+        dependencies = [
+            dependency
+            for dependency in dependencies
+            if isinstance(dependency, str) and dependency.strip()
+        ]
+
+    needs = shot.get("platform_capability_needs")
+    if not isinstance(needs, list):
+        errors.append(f"shot {shot_id}: platform_capability_needs must be a list")
+    else:
+        _validate_nonempty_string_list(
+            f"shot {shot_id}",
+            needs,
+            "platform_capability_needs",
+            errors,
+        )
+
+    portrait = shot.get("recomposition_9x16")
+    if not isinstance(portrait, dict):
+        errors.append(f"shot {shot_id}: recomposition_9x16 must be an object")
+    else:
+        _require_fields(
+            portrait,
+            ("strategy", "composition", "safe_areas"),
+            f"shot {shot_id} recomposition_9x16",
+            errors,
+        )
+        if portrait.get("strategy") not in PORTRAIT_RECOMPOSITION_STRATEGIES:
+            errors.append(
+                f"shot {shot_id}: recomposition_9x16.strategy must be recompose or independent_generation"
+            )
+        if not _is_nonempty(portrait.get("composition")):
+            errors.append(
+                f"shot {shot_id}: recomposition_9x16.composition must not be empty"
+            )
+        if not isinstance(portrait.get("safe_areas"), list):
+            errors.append(
+                f"shot {shot_id}: recomposition_9x16.safe_areas must be a list"
+            )
+
+    return dependencies
 
 
 def _validate_bible(
@@ -358,6 +451,7 @@ def validate_package(package: Any) -> list[str]:
     shots: list[tuple[str, dict[str, Any]]] = []
     shot_by_id: dict[str, dict[str, Any]] = {}
     runtime_roles: dict[str, str] = {}
+    cinematic_dependencies: dict[str, list[str]] = {}
     sequences: list[int] = []
     durations: list[Decimal] = []
     active_shot_count = 0
@@ -383,6 +477,10 @@ def validate_package(package: Any) -> list[str]:
                 known_shot_ids.add(raw_shot_id)
             shots.append((raw_shot_id, shot))
             shot_by_id[raw_shot_id] = shot
+            if cinematic_mode is not None:
+                cinematic_dependencies[raw_shot_id] = _validate_cinematic_shot(
+                    raw_shot_id, shot, errors
+                )
         else:
             errors.append("storyboard: shot_id must be a non-empty string")
             has_invalid_shot_id = True
@@ -575,6 +673,17 @@ def validate_package(package: Any) -> list[str]:
             errors,
         )
 
+    for shot_id, dependencies in cinematic_dependencies.items():
+        for dependency in dependencies:
+            if dependency == shot_id:
+                errors.append(
+                    f"shot {shot_id}: state_dependency must not reference itself"
+                )
+            elif dependency not in known_shot_ids:
+                errors.append(
+                    f"shot {shot_id}: unknown state_dependency {dependency}"
+                )
+
     if len(sequences) == active_shot_count:
         expected_sequences = list(range(1, active_shot_count + 1))
         if sorted(sequences) != expected_sequences:
@@ -721,6 +830,7 @@ def validate_package(package: Any) -> list[str]:
 
     known_job_ids: set[str] = set()
     job_counts: Counter[str] = Counter()
+    job_aspects_by_shot: dict[str, set[str]] = {}
     for index, job in enumerate(jobs, start=1):
         if not isinstance(job, dict):
             errors.append(f"model_job_manifest item {index}: expected object")
@@ -762,6 +872,11 @@ def validate_package(package: Any) -> list[str]:
                     )
             else:
                 job_counts[job_shot_id] += 1
+                job_aspect = job.get("aspect")
+                if isinstance(job_aspect, str) and job_aspect.strip():
+                    job_aspects_by_shot.setdefault(job_shot_id, set()).add(
+                        job_aspect
+                    )
                 shot_duration = _positive_decimal(
                     shot_by_id[job_shot_id].get("duration_seconds")
                 )
@@ -815,6 +930,22 @@ def validate_package(package: Any) -> list[str]:
             errors.append(
                 f"model_job_manifest: expected at least one job for {shot_id}, got 0"
             )
+
+    if cinematic_mode is not None:
+        required_aspects = {
+            aspect
+            for aspect in cinematic_mode.get("delivery_aspects", [])
+            if isinstance(aspect, str)
+        }
+        for shot_id in sorted(known_shot_ids):
+            missing_aspects = required_aspects - job_aspects_by_shot.get(
+                shot_id, set()
+            )
+            for aspect in sorted(missing_aspects):
+                errors.append(
+                    f"model_job_manifest: shot {shot_id} "
+                    f"missing cinematic aspect job {aspect}"
+                )
 
     quality_report = package.get("quality_report")
     if not isinstance(quality_report, dict):

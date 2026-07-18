@@ -872,6 +872,63 @@ class CinematicBriefValidationTests(unittest.TestCase):
                     validate_package(package),
                 )
 
+    def test_cinematic_shot_requires_graph_and_aspect_fields(self):
+        fields = (
+            "rhythm_role",
+            "state_dependencies",
+            "composition_16x9",
+            "recomposition_9x16",
+            "platform_capability_needs",
+        )
+        for field in fields:
+            with self.subTest(field=field):
+                package = cinematic_package()
+                package["storyboard"][0].pop(field)
+                self.assertIn(
+                    f"shot shot-01: missing required field {field}",
+                    validate_package(package),
+                )
+
+    def test_cinematic_shot_rejects_self_and_unknown_dependencies(self):
+        cases = (
+            ("shot-01", "shot shot-01: state_dependency must not reference itself"),
+            ("shot-missing", "shot shot-01: unknown state_dependency shot-missing"),
+        )
+        for dependency, expected_error in cases:
+            with self.subTest(dependency=dependency):
+                package = cinematic_package()
+                package["storyboard"][0]["state_dependencies"] = [dependency]
+                self.assertIn(expected_error, validate_package(package))
+
+    def test_cinematic_shot_validates_portrait_recomposition(self):
+        package = cinematic_package()
+        package["storyboard"][0]["recomposition_9x16"] = {
+            "strategy": "crop",
+            "composition": "",
+            "safe_areas": "lower third",
+        }
+        errors = validate_package(package)
+        self.assertIn(
+            "shot shot-01: recomposition_9x16.strategy must be recompose or independent_generation",
+            errors,
+        )
+        self.assertIn(
+            "shot shot-01: recomposition_9x16.composition must not be empty",
+            errors,
+        )
+        self.assertIn(
+            "shot shot-01: recomposition_9x16.safe_areas must be a list",
+            errors,
+        )
+
+    def test_cinematic_manifest_requires_each_delivery_aspect_per_shot(self):
+        package = cinematic_package()
+        package["model_job_manifest"] = [package["model_job_manifest"][0]]
+        self.assertIn(
+            "model_job_manifest: shot shot-01 missing cinematic aspect job 9:16",
+            validate_package(package),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
