@@ -60,7 +60,7 @@ For adapter-only work where shots are locked in prose but formal continuity IDs 
 
 ## Approval State Machine
 
-Use three visible hard checkpoints only. In standard mode, each checkpoint is a turn boundary: deliver only the current-stage artifacts, ask exactly one decision question, then end the response. Continue only after the user approves that checkpoint.
+Use three visible hard checkpoints only. In standard mode, print the active checkpoint label below as a heading; deliver only the current-stage artifacts, ask exactly one decision question, then end the response. Continue only after the user approves that checkpoint. Omit checkpoint headings only when explicit `one-pass draft` bypasses all three boundaries or locked partial work starts downstream without crossing a gate.
 
 1. **🔴 CHECKPOINT 1 · Brief Gate · 🛑 STOP** — approve objective, audience, duration, delivery, constraints, assumptions, and risks.
 2. **🔴 CHECKPOINT 2 · Direction Gate · 🛑 STOP** — select one of three distinct mechanisms or an explicit mix.
