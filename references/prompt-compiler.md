@@ -101,11 +101,15 @@ opening/closing state -> continuity constraints -> audio -> exclusions
 
 启用电影化模式时，仍只保留一个 canonical prompt record，但按以下三层组织语义：
 
-1. `global_lock_block`：角色、服装、道具、场景、时代、材质、色彩和禁止项。
-2. `shot_direction_block`：单一主动作、表演、构图、一个主要运镜、光线、时间进程、声音和边界状态。
+1. `global_lock_block`：每镜唯一的角色、服装、道具、场景、时代、材质、色彩、故事/状态锁与禁止项；两个画幅共同引用，不得复制成互相漂移的两份锁。
+2. `shot_direction_block`：在同一 prompt record 的 `direction_variants` 中分别提供非空 `16:9` 与 `9:16` 导演文本。每份文本都写单一主动作、表演、该画幅构图、一个主要运镜、光线、时间进程、声音和边界状态；9:16 文本必须逐字包含 storyboard 的 `recomposition_9x16.composition`。`independent_generation` 时两份导演文本必须不同。
 3. `platform_compile_block`：把前两层映射成所选平台已核实的格式、参考输入和参数；不得新增故事事实。
 
 反奇怪感检查要求每镜只有一个主要动作、一个主要运镜、一个主要情绪转折和一个视觉关注点。发现两个独立动作、相互冲突的运镜或无法同时验收的特效时，返回分镜阶段拆分或选择 fallback，而不是继续堆形容词。
+
+电影化 prompt 必须有 `approval_status`：只能为 `draft`、`blocked` 或 `final`。每个电影化 job 同样必须有可审计的 `approval_status`：只能为 `blocked`、`non_executable` 或 `approved`，并按自身 `aspect` 引用 `shot_prompts[shot_id=...].direction_variants[16:9]` 或 `[9:16]`，不得让两项 job 复制同一 `prompt_source`。
+
+最终平台编译发生在硬门之后：`narrative_clarity` 或 `continuity_integrity` 任一失败时，`quality_report.ready` 必须为 `false`，prompt 只能是 `draft`/`blocked`，job 只能是 `blocked`/`non_executable`。只有 `quality_report.ready: true` 且两个硬门都通过时，prompt 才能为 `final`，job 才能为 `approved`。
 
 ## 可观察措辞
 

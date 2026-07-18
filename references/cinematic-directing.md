@@ -17,7 +17,7 @@
 - `narrative_clarity`：必须明确主角、目标、阻碍、因果和结尾变化。
 - `continuity_integrity`：不得存在未解决的角色 ID、服装、道具、人物状态、空间方向或镜头依赖冲突。
 
-任一硬门失败时，`quality_report.ready` 必须为 `false`。镜头震撼度是建议项，不得覆盖硬门。
+任一硬门失败时，`quality_report.ready` 必须为 `false`，prompt 的 `approval_status` 只能是 `draft`/`blocked`，job 的 `approval_status` 只能是 `blocked`/`non_executable`。只有两道硬门通过且 `ready: true` 时，prompt 才能是 `final`、job 才能是 `approved`。镜头震撼度是建议项，不得覆盖硬门。
 
 ## Rhythm presets
 
@@ -39,7 +39,7 @@
 - 9:16 是独立重构，重新安排人物、视线、字幕安全区和纵向景深。
 - 无法安全重构时使用 `independent_generation`，不得伪装成机械裁切。
 
-两种画幅共享同一故事、Canon 事实和状态，只改变构图、调度与平台编译。
+两种画幅共享同一故事、Canon 事实、状态与 `global_lock_block`，但在同一 canonical prompt record 的 `direction_variants` 中使用各自非空的 `16:9` 和 `9:16` 导演文本。每个 job 必须按画幅引用匹配项；`independent_generation` 时两份导演文本必须不同，9:16 文本必须包含声明的竖屏重构构图。
 
 ## Prompt order
 

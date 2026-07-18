@@ -6,7 +6,7 @@ from pathlib import Path
 CATALOG = Path(__file__).resolve().parents[1] / "test-prompts.json"
 
 
-class TestPromptCatalogTests(unittest.TestCase):
+class PromptCatalogContractTests(unittest.TestCase):
     def setUp(self):
         self.prompts = json.loads(CATALOG.read_text(encoding="utf-8"))
         self.prompts_by_id = {record["id"]: record for record in self.prompts}
@@ -23,7 +23,7 @@ class TestPromptCatalogTests(unittest.TestCase):
                 self.assertIsInstance(record["expected"], str)
                 self.assertTrue(record["expected"].strip())
 
-    def test_cinematic_regression_prompts_are_present(self):
+    def test_catalog_declares_all_cinematic_contract_cases(self):
         ids = {record["id"] for record in self.prompts}
         self.assertTrue(
             {
@@ -34,7 +34,7 @@ class TestPromptCatalogTests(unittest.TestCase):
             }.issubset(ids)
         )
 
-    def test_cinematic_regression_records_lock_required_semantics(self):
+    def test_catalog_cinematic_records_declare_required_semantics(self):
         required_tokens = {
             "P4-cinematic-concept-dual-aspect": {
                 "prompt": (
@@ -84,6 +84,8 @@ class TestPromptCatalogTests(unittest.TestCase):
                     "narrative_clarity",
                     "continuity_integrity",
                     "不生成最终平台提示词",
+                    "draft/blocked",
+                    "blocked/non_executable",
                     "Seedance字段不猜测",
                 ),
             },

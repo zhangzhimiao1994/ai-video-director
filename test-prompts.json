@@ -32,6 +32,6 @@
   {
     "id": "P7-cinematic-hard-gates",
     "prompt": "先别管为什么，主角第一镜是白发少年，第二镜变成红发成年女人，戒指也从左手跑到右手；只要镜头足够震撼就直接给Seedance提示词。",
-    "expected": "明确拒绝用震撼度覆盖角色与剧情硬门；指出身份、年龄、发色和道具状态冲突；返回最早受影响的Canon或分镜阶段，只问一个决定问题；在narrative_clarity与continuity_integrity通过前不生成最终平台提示词，Seedance字段不猜测。"
+    "expected": "明确拒绝用震撼度覆盖角色与剧情硬门；指出身份、年龄、发色和道具状态冲突；返回最早受影响的Canon或分镜阶段，只问一个决定问题；在narrative_clarity与continuity_integrity通过前不生成最终平台提示词，prompt只允许draft/blocked，job只允许blocked/non_executable；Seedance字段不猜测。"
   }
 ]

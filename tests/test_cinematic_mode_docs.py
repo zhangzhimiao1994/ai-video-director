@@ -45,6 +45,8 @@ class CinematicModeDocsTests(unittest.TestCase):
             "references/continuity-storyboard.md": (
                 "rhythm_role",
                 "state_dependencies",
+                "state_before",
+                "state_after",
                 "composition_16x9",
                 "recomposition_9x16",
                 "platform_capability_needs",
@@ -53,11 +55,15 @@ class CinematicModeDocsTests(unittest.TestCase):
                 "global_lock_block",
                 "shot_direction_block",
                 "platform_compile_block",
+                "direction_variants",
+                "approval_status",
             ),
             "references/output-contract.md": (
                 "project_brief.cinematic_mode",
                 "narrative_clarity",
                 "continuity_integrity",
+                "direction_variants",
+                "non_executable",
             ),
         }
         for path, tokens in expected_tokens.items():
@@ -65,6 +71,34 @@ class CinematicModeDocsTests(unittest.TestCase):
             for token in tokens:
                 with self.subTest(path=path, token=token):
                     self.assertIn(token, content)
+
+    def test_stage_contract_requires_dag_handoff_and_precompile_gates(self):
+        continuity = self.read("references/continuity-storyboard.md")
+        for token in (
+            "有向无环图",
+            "只允许引用更早的镜头",
+            "state_after",
+            "state_before",
+            "依赖交接冲突",
+        ):
+            with self.subTest(document="continuity", token=token):
+                self.assertIn(token, continuity)
+
+        for relative_path in (
+            "references/prompt-compiler.md",
+            "references/output-contract.md",
+        ):
+            document = self.read(relative_path)
+            for token in (
+                "direction_variants",
+                "approval_status",
+                "draft",
+                "blocked",
+                "final",
+                "approved",
+            ):
+                with self.subTest(document=relative_path, token=token):
+                    self.assertIn(token, document)
 
     def test_cinematic_duration_is_limited_to_thirty_to_sixty_seconds(self):
         for relative_path in ("SKILL.md", "references/cinematic-directing.md"):

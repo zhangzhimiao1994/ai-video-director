@@ -149,6 +149,8 @@ def cinematic_package():
         {
             "rhythm_role": "performance",
             "state_dependencies": [],
+            "state_before": {"story_state": "book open"},
+            "state_after": {"story_state": "book closed"},
             "composition_16x9": "Centered medium shot with foreground depth",
             "recomposition_9x16": {
                 "strategy": "recompose",
@@ -158,12 +160,36 @@ def cinematic_package():
             "platform_capability_needs": ["reference-image-to-video"],
         }
     )
+    prompt = package["shot_prompts"][0]
+    prompt.update(
+        {
+            "approval_status": "final",
+            "global_lock_block": "Lock character-01, prop-01, and look-01.",
+            "direction_variants": {
+                "16:9": (
+                    "Centered medium shot with foreground depth; "
+                    "the lead closes the red book."
+                ),
+                "9:16": (
+                    "Vertical medium shot with clear lower third; "
+                    "the lead closes the red book."
+                ),
+            },
+        }
+    )
     landscape_job = package["model_job_manifest"][0]
     landscape_job["duration_seconds"] = 30
     landscape_job["aspect"] = "16:9"
+    landscape_job["approval_status"] = "approved"
+    landscape_job["prompt_source"] = (
+        "shot_prompts[shot_id=shot-01].direction_variants[16:9]"
+    )
     portrait_job = copy.deepcopy(landscape_job)
     portrait_job["job_id"] = "job-02"
     portrait_job["aspect"] = "9:16"
+    portrait_job["prompt_source"] = (
+        "shot_prompts[shot_id=shot-01].direction_variants[9:16]"
+    )
     package["model_job_manifest"].append(portrait_job)
     package["quality_report"]["checks"].update(
         {
@@ -180,6 +206,47 @@ def cinematic_package():
             },
         }
     )
+    return package
+
+
+def cinematic_chain(shot_count=2):
+    package = cinematic_package()
+    duration = 30 / shot_count
+    base_shot = package["storyboard"][0]
+    base_prompt = package["shot_prompts"][0]
+    base_jobs = package["model_job_manifest"]
+    package["storyboard"] = []
+    package["shot_prompts"] = []
+    package["model_job_manifest"] = []
+
+    for index in range(1, shot_count + 1):
+        shot_id = f"shot-{index:02d}"
+        shot = copy.deepcopy(base_shot)
+        shot["shot_id"] = shot_id
+        shot["sequence"] = index
+        shot["duration_seconds"] = duration
+        shot["state_dependencies"] = (
+            [f"shot-{index - 1:02d}"] if index > 1 else []
+        )
+        shot["state_before"] = {"story_state": f"phase-{index - 1}"}
+        shot["state_after"] = {"story_state": f"phase-{index}"}
+        package["storyboard"].append(shot)
+
+        prompt = copy.deepcopy(base_prompt)
+        prompt["shot_id"] = shot_id
+        package["shot_prompts"].append(prompt)
+
+        for aspect_index, base_job in enumerate(base_jobs, start=1):
+            job = copy.deepcopy(base_job)
+            job["job_id"] = f"job-{index:02d}-{aspect_index}"
+            job["shot_id"] = shot_id
+            job["duration_seconds"] = duration
+            job["prompt_source"] = (
+                f"shot_prompts[shot_id={shot_id}]."
+                f"direction_variants[{job['aspect']}]"
+            )
+            package["model_job_manifest"].append(job)
+
     return package
 
 
@@ -834,6 +901,27 @@ class CinematicBriefValidationTests(unittest.TestCase):
                     validate_package(package),
                 )
 
+    def test_legacy_package_without_cinematic_mode_remains_valid(self):
+        self.assertEqual(validate_package(valid_package()), [])
+
+    def test_explicit_null_cinematic_mode_is_rejected(self):
+        package = valid_package()
+        package["project_brief"]["cinematic_mode"] = None
+        self.assertEqual(
+            validate_package(package),
+            ["project_brief.cinematic_mode: expected object"],
+        )
+
+    def test_non_object_cinematic_mode_is_rejected(self):
+        for invalid_value in ("enabled", []):
+            with self.subTest(invalid_value=invalid_value):
+                package = valid_package()
+                package["project_brief"]["cinematic_mode"] = invalid_value
+                self.assertEqual(
+                    validate_package(package),
+                    ["project_brief.cinematic_mode: expected object"],
+                )
+
     def test_cinematic_mode_rejects_invalid_input_rhythm_and_duration(self):
         cases = (
             (
@@ -876,6 +964,8 @@ class CinematicBriefValidationTests(unittest.TestCase):
         fields = (
             "rhythm_role",
             "state_dependencies",
+            "state_before",
+            "state_after",
             "composition_16x9",
             "recomposition_9x16",
             "platform_capability_needs",
@@ -900,6 +990,58 @@ class CinematicBriefValidationTests(unittest.TestCase):
                 package["storyboard"][0]["state_dependencies"] = [dependency]
                 self.assertIn(expected_error, validate_package(package))
 
+    def test_cinematic_state_dependencies_reject_forward_edges(self):
+        package = cinematic_chain(2)
+        package["storyboard"][0]["state_dependencies"] = ["shot-02"]
+        package["storyboard"][1]["state_dependencies"] = []
+        self.assertIn(
+            "shot shot-01: state_dependency shot-02 must reference an earlier shot",
+            validate_package(package),
+        )
+
+    def test_cinematic_state_dependencies_reject_two_node_cycles(self):
+        package = cinematic_chain(2)
+        package["storyboard"][0]["state_dependencies"] = ["shot-02"]
+        self.assertIn(
+            "storyboard: cinematic state_dependencies must be acyclic",
+            validate_package(package),
+        )
+
+    def test_cinematic_state_dependencies_reject_longer_cycles(self):
+        package = cinematic_chain(3)
+        package["storyboard"][0]["state_dependencies"] = ["shot-03"]
+        self.assertIn(
+            "storyboard: cinematic state_dependencies must be acyclic",
+            validate_package(package),
+        )
+
+    def test_cinematic_dependency_handoff_must_match_declared_state(self):
+        package = cinematic_chain(2)
+        package["storyboard"][1]["state_before"] = {
+            "story_state": "contradiction"
+        }
+        self.assertIn(
+            "shot shot-02: state_before must include matching state_after "
+            "of dependency shot-01",
+            validate_package(package),
+        )
+
+    def test_cinematic_dependency_handoff_allows_additional_incoming_state(self):
+        package = cinematic_chain(2)
+        package["storyboard"][1]["state_before"]["weather"] = "rain"
+        self.assertEqual(validate_package(package), [])
+
+    def test_cinematic_before_and_after_states_are_non_empty_objects(self):
+        for field in ("state_before", "state_after"):
+            for invalid_value in (None, "state", [], {}):
+                with self.subTest(field=field, invalid_value=invalid_value):
+                    package = cinematic_package()
+                    package["storyboard"][0][field] = invalid_value
+                    self.assertIn(
+                        f"shot shot-01: {field} must be a non-empty object",
+                        validate_package(package),
+                    )
+
     def test_cinematic_shot_validates_portrait_recomposition(self):
         package = cinematic_package()
         package["storyboard"][0]["recomposition_9x16"] = {
@@ -913,12 +1055,109 @@ class CinematicBriefValidationTests(unittest.TestCase):
             errors,
         )
         self.assertIn(
-            "shot shot-01: recomposition_9x16.composition must not be empty",
+            "shot shot-01: recomposition_9x16.composition "
+            "must be a non-empty string",
             errors,
         )
         self.assertIn(
             "shot shot-01: recomposition_9x16.safe_areas must be a list",
             errors,
+        )
+
+    def test_cinematic_composition_fields_require_non_empty_strings(self):
+        cases = (
+            ("composition_16x9", 7),
+            ("composition_16x9", {}),
+            ("composition_16x9", ""),
+            ("portrait", 7),
+            ("portrait", {}),
+            ("portrait", ""),
+        )
+        for field, invalid_value in cases:
+            with self.subTest(field=field, invalid_value=invalid_value):
+                package = cinematic_package()
+                if field == "portrait":
+                    package["storyboard"][0]["recomposition_9x16"][
+                        "composition"
+                    ] = invalid_value
+                    expected = (
+                        "shot shot-01: recomposition_9x16.composition "
+                        "must be a non-empty string"
+                    )
+                else:
+                    package["storyboard"][0][field] = invalid_value
+                    expected = (
+                        "shot shot-01: composition_16x9 must be a non-empty string"
+                    )
+                self.assertIn(expected, validate_package(package))
+
+    def test_cinematic_safe_areas_require_non_empty_string_items(self):
+        package = cinematic_package()
+        package["storyboard"][0]["recomposition_9x16"]["safe_areas"] = [
+            None
+        ]
+        self.assertIn(
+            "shot shot-01 recomposition_9x16: safe_areas item 1 "
+            "must be a non-empty string",
+            validate_package(package),
+        )
+
+    def test_cinematic_prompt_requires_canonical_lock_and_direction_variants(self):
+        for field in ("approval_status", "global_lock_block", "direction_variants"):
+            with self.subTest(field=field):
+                package = cinematic_package()
+                package["shot_prompts"][0].pop(field)
+                self.assertIn(
+                    f"shot_prompt shot-01: missing required field {field}",
+                    validate_package(package),
+                )
+
+    def test_cinematic_direction_variants_must_be_non_empty_strings(self):
+        for aspect in ("16:9", "9:16"):
+            for invalid_value in (None, "", {}):
+                with self.subTest(aspect=aspect, invalid_value=invalid_value):
+                    package = cinematic_package()
+                    package["shot_prompts"][0]["direction_variants"][
+                        aspect
+                    ] = invalid_value
+                    self.assertIn(
+                        f"shot_prompt shot-01: direction_variants[{aspect}] "
+                        "must be a non-empty string",
+                        validate_package(package),
+                    )
+
+    def test_independent_generation_requires_distinct_direction_variants(self):
+        package = cinematic_package()
+        shot = package["storyboard"][0]
+        shot["recomposition_9x16"]["strategy"] = "independent_generation"
+        variants = package["shot_prompts"][0]["direction_variants"]
+        variants["9:16"] = variants["16:9"]
+        self.assertIn(
+            "shot_prompt shot-01: independent_generation requires distinct "
+            "16:9 and 9:16 direction variants",
+            validate_package(package),
+        )
+
+    def test_portrait_direction_contains_recomposition(self):
+        package = cinematic_package()
+        package["shot_prompts"][0]["direction_variants"]["9:16"] = (
+            "A copied generic direction without the declared portrait framing."
+        )
+        self.assertIn(
+            "shot_prompt shot-01: 9:16 direction variant must include "
+            "recomposition_9x16.composition",
+            validate_package(package),
+        )
+
+    def test_cinematic_jobs_reference_their_matching_direction_variant(self):
+        package = cinematic_package()
+        package["model_job_manifest"][1]["prompt_source"] = (
+            "shot_prompts[shot_id=shot-01].direction_variants[16:9]"
+        )
+        self.assertIn(
+            "model_job_manifest job-02: prompt_source must equal "
+            "shot_prompts[shot_id=shot-01].direction_variants[9:16]",
+            validate_package(package),
         )
 
     def test_cinematic_manifest_requires_each_delivery_aspect_per_shot(self):
@@ -961,15 +1200,47 @@ class CinematicBriefValidationTests(unittest.TestCase):
             validate_package(package),
         )
 
-    def test_unready_cinematic_draft_may_report_a_failed_gate(self):
+    def test_unready_cinematic_failed_gate_requires_blocked_compilation(self):
         package = cinematic_package()
         package["quality_report"]["ready"] = False
         package["quality_report"]["checks"]["narrative_clarity"][
             "goal"
         ] = "fail"
-        self.assertNotIn(
-            "quality_report: ready cannot be true while cinematic hard gates fail",
+        self.assertEqual(
             validate_package(package),
+            [
+                "shot_prompt shot-01: approval_status must be draft or blocked "
+                "while cinematic hard gates fail",
+                "model_job_manifest job-01: approval_status must be blocked or "
+                "non_executable while cinematic hard gates fail",
+                "model_job_manifest job-02: approval_status must be blocked or "
+                "non_executable while cinematic hard gates fail",
+            ],
+        )
+
+    def test_failed_gates_allow_only_draft_or_blocked_artifacts(self):
+        package = cinematic_package()
+        package["quality_report"]["ready"] = False
+        package["quality_report"]["checks"]["narrative_clarity"]["goal"] = (
+            "fail"
+        )
+        package["shot_prompts"][0]["approval_status"] = "blocked"
+        for job in package["model_job_manifest"]:
+            job["approval_status"] = "non_executable"
+        self.assertEqual(validate_package(package), [])
+
+    def test_ready_package_requires_final_prompts_and_approved_jobs(self):
+        package = cinematic_package()
+        package["shot_prompts"][0]["approval_status"] = "draft"
+        package["model_job_manifest"][0]["approval_status"] = "blocked"
+        self.assertEqual(
+            validate_package(package),
+            [
+                "shot_prompt shot-01: approval_status must be final when "
+                "quality_report.ready is true",
+                "model_job_manifest job-01: approval_status must be approved "
+                "when quality_report.ready is true",
+            ],
         )
 
 
