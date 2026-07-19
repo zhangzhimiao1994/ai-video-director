@@ -25,6 +25,8 @@ CONSTRUCTION_FIELDS = (
     "shot_id",
     "asset_id",
     "asset_path",
+    "take_id",
+    "fallback_asset_id",
     "timeline_in_seconds",
     "timeline_out_seconds",
     "duration_seconds",
@@ -182,6 +184,21 @@ def _timeline_id(timeline: dict[str, Any]) -> str:
     return _nonempty_string(timeline.get("timeline_id"), "timeline.timeline_id")
 
 
+def _aspect_slug(
+    timeline: dict[str, Any], delivery: dict[str, Any] | None = None
+) -> str:
+    aspect = _nonempty_string(timeline.get("aspect_ratio"), "timeline.aspect_ratio")
+    if delivery is not None:
+        delivery_aspect = _nonempty_string(
+            delivery.get("aspect_ratio"), "delivery.aspect_ratio"
+        )
+        if delivery_aspect != aspect:
+            raise AdapterError("delivery aspect_ratio does not match timeline")
+    if re.fullmatch(r"[1-9][0-9]*:[1-9][0-9]*", aspect) is None:
+        raise AdapterError("aspect_ratio must use WIDTH:HEIGHT")
+    return aspect.replace(":", "x")
+
+
 def construction_rows(plan: dict, timeline: dict) -> list[dict]:
     """Return one canonical construction row per V1 edit unit."""
 
@@ -199,6 +216,8 @@ def construction_rows(plan: dict, timeline: dict) -> list[dict]:
         )
         row = {field: unit.get(field) for field in CONSTRUCTION_FIELDS}
         row["asset_path"] = path
+        row["take_id"] = binding.get("take_id")
+        row["fallback_asset_id"] = binding.get("fallback_asset_id")
         rows.append(row)
     return rows
 
@@ -447,24 +466,10 @@ def write_construction_markdown(plan, timeline, destination: Path) -> Path:
     rows = construction_rows(plan_object, timeline)
     timeline_object = _object(timeline, "timeline")
     title = f"# Construction Sheet: {_timeline_id(timeline_object)}"
-    markdown_fields = (
-        *CONSTRUCTION_FIELDS[:5],
-        "take_id",
-        "fallback_asset_id",
-        *CONSTRUCTION_FIELDS[5:],
-    )
-    assets = _assets(plan_object)
-    markdown_rows = []
-    for row in rows:
-        binding = assets[row["asset_id"]]
-        expanded = dict(row)
-        expanded["take_id"] = binding.get("take_id")
-        expanded["fallback_asset_id"] = binding.get("fallback_asset_id")
-        markdown_rows.append(expanded)
     content = "\n\n".join(
         (
             title,
-            _markdown_table(markdown_fields, markdown_rows),
+            _markdown_table(CONSTRUCTION_FIELDS, rows),
             _construction_appendices(plan_object, timeline_object),
         )
     )
@@ -776,7 +781,7 @@ def write_jianying_instructions(plan, destination: Path) -> Path:
     for selected in timelines:
         timeline_id = _timeline_id(selected)
         aspect = _nonempty_string(selected.get("aspect_ratio"), f"timeline {timeline_id}.aspect_ratio")
-        aspect_slug = aspect.replace(":", "x")
+        aspect_slug = _aspect_slug(selected)
         construction_filename = f"edit_construction_{aspect_slug}.csv"
         subtitle_filename = f"subtitles_{aspect_slug}.srt"
         rows = construction_rows(plan_object, selected)
@@ -799,12 +804,28 @@ def write_jianying_instructions(plan, destination: Path) -> Path:
                 f"reframe={row['reframe']}, stabilization={row['stabilization']}."
             )
         timeline_sections.append("\n".join(lines))
+    for asset_id, binding in assets.items():
+        if (
+            binding.get("source_type") == "post_asset"
+            and asset_id not in ordered_asset_ids
+        ):
+            ordered_asset_ids.append(asset_id)
     media_lines = []
     for index, asset_id in enumerate(ordered_asset_ids, start=1):
         binding = assets.get(asset_id)
         if binding is None:
             raise AdapterError(f"ordered media references unknown asset_id {asset_id}")
-        media_lines.append(f"{index}. {asset_id}: {binding.get('path_or_uri')}")
+        path = _nonempty_string(
+            binding.get("path_or_uri"), f"asset {asset_id}.path_or_uri"
+        )
+        safe_asset_id = re.sub(r"[^A-Za-z0-9._-]", "_", asset_id).strip(".")
+        suffix = PureWindowsPath(path.split("?", 1)[0]).suffix.lower()
+        if re.fullmatch(r"\.[a-z0-9]{1,10}", suffix) is None:
+            suffix = ""
+        rename_target = f"{index:03d}_{safe_asset_id or 'asset'}{suffix}"
+        media_lines.append(
+            f"{index}. {asset_id}: {path} -> {rename_target}"
+        )
     version_policy = _object(plan_object.get("execution"), "plan.execution").get("version_policy")
     content = (
         "# Jianying / CapCut Assembly Instructions\n\n"
@@ -973,7 +994,8 @@ def compile_subtitle_artifacts(
             "manifest": [],
             "video_filter": None,
         }
-    srt_path = _safe_generated_output(version, f"subtitles_{timeline_id}.srt")
+    aspect_slug = _aspect_slug(timeline_object, selected_delivery)
+    srt_path = _safe_generated_output(version, f"subtitles_{aspect_slug}.srt")
     artifact_type = (
         "subtitle_sidecar" if mode == "sidecar" else "subtitle_burn_source"
     )

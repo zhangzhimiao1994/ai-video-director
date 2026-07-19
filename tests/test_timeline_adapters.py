@@ -134,6 +134,8 @@ class TimelineAdapterTests(unittest.TestCase):
             "shot_id",
             "asset_id",
             "asset_path",
+            "take_id",
+            "fallback_asset_id",
             "timeline_in_seconds",
             "timeline_out_seconds",
             "duration_seconds",
@@ -156,6 +158,8 @@ class TimelineAdapterTests(unittest.TestCase):
         }
         self.assertTrue(expected_fields.issubset(rows[0]))
         self.assertEqual(rows[0]["asset_path"], "media/SH01_T01.mp4")
+        self.assertEqual(rows[0]["take_id"], "T01")
+        self.assertIsNone(rows[0]["fallback_asset_id"])
         self.assertEqual(rows[1]["position"], {"x": 0.55, "y": 0.5})
 
     def test_construction_rows_reject_missing_asset_reference(self):
@@ -192,6 +196,8 @@ class TimelineAdapterTests(unittest.TestCase):
         self.assertEqual(len(parsed_csv), len(rows))
         self.assertEqual(set(parsed_csv[0]), set(rows[0]))
         self.assertEqual(parsed_csv[0]["cut_reason"], "中文切点")
+        self.assertEqual(parsed_csv[0].get("take_id"), "T01")
+        self.assertIn("fallback_asset_id", parsed_csv[0])
 
     def test_construction_markdown_adds_human_handoff_appendices_without_changing_rows(self):
         plan = load_plan()
@@ -464,6 +470,48 @@ class TimelineAdapterTests(unittest.TestCase):
         ):
             self.assertIn(filename, content)
 
+    def test_jianying_ordered_media_includes_post_dependencies_and_rename_targets(self):
+        plan = load_plan()
+        add_audio_cue(plan)
+        for asset_id, path in (
+            ("LUT01", "media/look.cube"),
+            ("FONT01", "media/subtitle.ttf"),
+        ):
+            plan["media_bindings"].append(
+                {
+                    "asset_id": asset_id,
+                    "binding_scope": "project",
+                    "target_id": "PKG-001",
+                    "source_type": "post_asset",
+                    "path_or_uri": path,
+                    "file_status": "online",
+                    "rights_status": "cleared",
+                    "probe_status": "verified",
+                    "selection_reason": "approved dependency",
+                    "acceptance_status": "approved",
+                }
+            )
+        plan["look_plan"]["ffmpeg_filters"] = [
+            {"name": "lut3d", "params": {"asset_id": "LUT01"}}
+        ]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            first = Path(temp_dir) / "jianying_capcut_instructions.md"
+            second = Path(temp_dir) / "copy.md"
+            write_jianying_instructions(plan, first)
+            write_jianying_instructions(plan, second)
+            content = first.read_text(encoding="utf-8")
+            second_content = second.read_text(encoding="utf-8")
+
+        self.assertEqual(content, second_content)
+        for expected in (
+            "A01: media/SH01_T01.mp4 -> 001_A01.mp4",
+            "A02: media/SH02_T01.mp4 -> 002_A02.mp4",
+            "AUD01: media/music.wav -> 003_AUD01.wav",
+            "LUT01: media/look.cube -> 004_LUT01.cube",
+            "FONT01: media/subtitle.ttf -> 005_FONT01.ttf",
+        ):
+            self.assertIn(expected, content)
+
     def test_ffmpeg_returns_segment_and_concat_argument_arrays_inside_version(self):
         plan = load_plan()
         selected = timeline(plan)
@@ -617,7 +665,7 @@ class TimelineAdapterTests(unittest.TestCase):
                 ]
                 self.assertEqual(
                     any(
-                        "subtitles=" in value and "subtitles_TL-16.srt" in value
+                        "subtitles=" in value and "subtitles_16x9.srt" in value
                         for value in all_filters
                     ),
                     burned,
@@ -648,13 +696,23 @@ class TimelineAdapterTests(unittest.TestCase):
                 {
                     "artifact_type": "subtitle_sidecar",
                     "timeline_id": "TL-16",
-                    "path": str(version_dir.resolve() / "subtitles_TL-16.srt"),
+                    "path": str(version_dir.resolve() / "subtitles_16x9.srt"),
                 }
             ],
         )
         self.assertFalse(
             any("subtitles=" in argument for command in commands for argument in command)
         )
+
+        plan = load_plan()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            portrait = adapters.compile_subtitle_artifacts(
+                plan,
+                timeline(plan, "TL-9"),
+                Path(temp_dir) / "v001",
+                delivery(plan, "D9"),
+            )
+        self.assertTrue(portrait["srt_path"].endswith("subtitles_9x16.srt"))
 
     def test_ffmpeg_look_filters_are_allowlisted_and_one_safe_filter_argument(self):
         cases = (
