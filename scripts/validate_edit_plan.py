@@ -1784,7 +1784,10 @@ def _validate_render_evidence(
                     f"execution.rendered_outputs {delivery_id}: probe_evidence_ref "
                     f"{probe_ref} does not match delivery and output"
                 )
-            probe_status_valid = _is_success_status(output.get("probe_status"))
+            probe_status_valid = _is_success_status(output.get("probe_status")) or (
+                output.get("probe_status") == "unverified"
+                and deliveries[delivery_id].get("version_role") == "rough_cut"
+            )
             if not probe_status_valid:
                 errors.append(
                     f"execution.rendered_outputs {delivery_id}: probe_status "

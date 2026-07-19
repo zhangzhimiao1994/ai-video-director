@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import os
 import re
@@ -10,6 +11,8 @@ import subprocess
 import sys
 import tempfile
 from collections.abc import Callable
+from decimal import Decimal, InvalidOperation
+from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
@@ -39,7 +42,10 @@ _VERSION_CREATE_ATTEMPTS = 16
 
 
 def _filesystem_root(path: Path) -> Path:
-    return Path(path.anchor).resolve()
+    try:
+        return Path(path.anchor).resolve()
+    except (OSError, RuntimeError, TypeError, ValueError) as exc:
+        raise BuildError(f"invalid filesystem root: {exc}") from None
 
 
 def next_version_dir(output_root: Path) -> Path:
@@ -70,12 +76,15 @@ def next_version_dir(output_root: Path) -> Path:
 def _create_version_dir(output_root: Path) -> Path:
     """Atomically reserve a fresh version path with finite race recovery."""
 
-    root = Path(output_root).resolve()
+    try:
+        root = Path(output_root).resolve()
+    except (OSError, RuntimeError, TypeError, ValueError) as exc:
+        raise BuildError(f"invalid output root: {exc}") from None
     for _attempt in range(_VERSION_CREATE_ATTEMPTS):
         version_dir = next_version_dir(root)
         try:
             version_dir.resolve().relative_to(root)
-        except ValueError:
+        except (OSError, RuntimeError, TypeError, ValueError):
             raise BuildError("version directory escapes output_root") from None
         try:
             version_dir.mkdir(parents=True, exist_ok=False)
@@ -399,9 +408,14 @@ def _record_blocked_manifest(
 
 
 def _build_handoffs(
-    plan: dict[str, Any], version_dir: Path, ffmpeg_path: str
+    plan: dict[str, Any],
+    version_dir: Path,
+    ffmpeg_path: str,
+    *,
+    compile_commands: bool = True,
 ) -> list[dict[str, Any]]:
     command_deliveries: list[dict[str, Any]] = []
+    exchange_blockers: dict[str, list[str]] = {"otio": [], "fcpxml": []}
     try:
         for timeline in plan["timelines"]:
             slug = _timeline_slug(timeline)
@@ -412,8 +426,16 @@ def _build_handoffs(
                 plan, timeline, version_dir / f"edit_construction_{slug}.csv"
             )
             write_srt(plan, timeline, version_dir / f"subtitles_{slug}.srt")
-            write_otio(plan, timeline, version_dir / f"timeline_{slug}.otio")
-            write_fcpxml(plan, timeline, version_dir / f"timeline_{slug}.fcpxml")
+            for adapter_name, writer, suffix in (
+                ("otio", write_otio, "otio"),
+                ("fcpxml", write_fcpxml, "fcpxml"),
+            ):
+                try:
+                    writer(plan, timeline, version_dir / f"timeline_{slug}.{suffix}")
+                except AdapterError as exc:
+                    if compile_commands:
+                        raise
+                    exchange_blockers[adapter_name].append(str(exc))
 
             delivery = _delivery_for_timeline(plan, timeline.get("timeline_id"))
             command_deliveries.append(
@@ -423,12 +445,16 @@ def _build_handoffs(
                     "version_role": delivery.get("version_role"),
                     "stages": _tier_stages(delivery.get("version_role")),
                     "requirements": _tier_requirements(plan, timeline, delivery),
-                    "commands": ffmpeg_command_plan(
-                        plan,
-                        timeline,
-                        version_dir,
-                        delivery,
-                        ffmpeg_path=ffmpeg_path,
+                    "commands": (
+                        ffmpeg_command_plan(
+                            plan,
+                            timeline,
+                            version_dir,
+                            delivery,
+                            ffmpeg_path=ffmpeg_path,
+                        )
+                        if compile_commands
+                        else []
                     ),
                 }
             )
@@ -446,6 +472,12 @@ def _build_handoffs(
             "otio": {"status": "generated", "format": "public_schema"},
             "fcpxml": {"status": "generated", "format": "FCPXML 1.10"},
         }
+        for adapter_name, blockers in exchange_blockers.items():
+            if blockers:
+                reports[adapter_name] = {
+                    "status": "blocked",
+                    "reason": blockers[0],
+                }
         if "jianying_capcut" in targets:
             write_jianying_instructions(
                 plan, version_dir / "jianying_capcut_instructions.md"
@@ -469,68 +501,567 @@ def _build_handoffs(
     return command_deliveries
 
 
-def _execute_minimal(
+def _resolved_path(value: object, base_dir: Path, label: str) -> Path:
+    if not isinstance(value, str) or not value.strip():
+        raise BuildError(f"{label} must be a non-empty path")
+    candidate = Path(value)
+    if not candidate.is_absolute():
+        candidate = base_dir / candidate
+    try:
+        return candidate.resolve()
+    except (OSError, RuntimeError, TypeError, ValueError) as exc:
+        raise BuildError(f"could not resolve {label}: {exc}") from None
+
+
+def _path_inside(candidate: Path, roots: list[Path]) -> bool:
+    for root in roots:
+        try:
+            candidate.relative_to(root)
+        except ValueError:
+            continue
+        return True
+    return False
+
+
+def _referenced_media_ids(plan: dict[str, Any]) -> set[str]:
+    referenced: set[str] = set()
+    audio_cue_ids: set[str] = set()
+    for timeline in plan["timelines"]:
+        for unit in _active_units(timeline):
+            asset_id = unit.get("asset_id")
+            if isinstance(asset_id, str):
+                referenced.add(asset_id)
+            for cue_id in unit.get("audio_cue_ids", []):
+                if isinstance(cue_id, str):
+                    audio_cue_ids.add(cue_id)
+    for track in plan["audio_tracks"]:
+        for cue in track.get("cues", []):
+            if cue.get("audio_cue_id") in audio_cue_ids:
+                asset_id = cue.get("asset_id")
+                if isinstance(asset_id, str):
+                    referenced.add(asset_id)
+    for item in plan["look_plan"].get("ffmpeg_filters", []):
+        if isinstance(item, dict) and isinstance(item.get("params"), dict):
+            asset_id = item["params"].get("asset_id")
+            if isinstance(asset_id, str):
+                referenced.add(asset_id)
+    return referenced
+
+
+def _prepare_execution_plan(
+    plan: dict[str, Any], plan_path: Path
+) -> dict[str, Any]:
+    """Resolve command inputs against the plan without mutating its Canon copy."""
+
+    try:
+        base_dir = Path(plan_path).resolve().parent
+    except (OSError, RuntimeError, TypeError, ValueError) as exc:
+        raise BuildError(f"could not resolve edit plan directory: {exc}") from None
+    prepared = copy.deepcopy(plan)
+    execution = prepared["execution"]
+    roots = [
+        _resolved_path(value, base_dir, "authorized media root")
+        for value in execution["authorized_media_roots"]
+    ]
+    if not roots:
+        raise BuildError("authorized media roots must not be empty")
+    execution["authorized_media_roots"] = [str(root) for root in roots]
+    referenced = _referenced_media_ids(prepared)
+    for binding in prepared["media_bindings"]:
+        asset_id = binding.get("asset_id")
+        source_type = binding.get("source_type")
+        active_local = (
+            source_type == "local_file" and binding.get("runtime_role") == "active"
+        )
+        consumed = isinstance(asset_id, str) and asset_id in referenced
+        if not (active_local or consumed):
+            continue
+        if source_type == "provider_result":
+            raise BuildError(
+                f"provider result asset {asset_id} must be rebound to an authorized local file"
+            )
+        if source_type not in {"local_file", "post_asset", "generated_placeholder"}:
+            raise BuildError(f"asset {asset_id} is not executable local media")
+        media_path = _resolved_path(
+            binding.get("path_or_uri"), base_dir, f"asset {asset_id} path"
+        )
+        try:
+            regular_file = media_path.is_file()
+        except OSError as exc:
+            raise BuildError(f"could not inspect asset {asset_id}: {exc}") from None
+        if not regular_file:
+            raise BuildError(f"asset {asset_id} must exist as a regular file")
+        if not _path_inside(media_path, roots):
+            raise BuildError(f"asset {asset_id} is outside authorized media roots")
+        binding["path_or_uri"] = str(media_path)
+    return prepared
+
+
+def _bind_authorized_version(
+    plan: dict[str, Any], plan_path: Path, version_dir: Path
+) -> None:
+    try:
+        base_dir = Path(plan_path).resolve().parent
+        actual = Path(version_dir).resolve()
+    except (OSError, RuntimeError, TypeError, ValueError) as exc:
+        raise BuildError(f"could not resolve authorized version directory: {exc}") from None
+    execution = plan["execution"]
+    expected_root = _resolved_path(
+        execution.get("output_root"), base_dir, "authorized output root"
+    )
+    expected_version = _resolved_path(
+        execution.get("authorized_version_directory"),
+        base_dir,
+        "authorized version directory",
+    )
+    if actual.parent != expected_root or actual != expected_version:
+        raise BuildError(
+            "authorized version directory does not match the actual new version directory"
+        )
+
+
+def _tier_blocker(
+    plan: dict[str, Any], timeline: dict[str, Any], delivery: dict[str, Any]
+) -> str | None:
+    role = delivery.get("version_role")
+    units = _active_units(timeline)
+    assets = {item.get("asset_id"): item for item in plan["media_bindings"]}
+    if role == "rough_cut":
+        return None
+    if role not in {"fine_cut", "final_master"}:
+        return f"unsupported delivery tier {role}"
+    used = [assets.get(unit.get("asset_id")) for unit in units]
+    if any(
+        binding is None
+        or binding.get("source_type") == "generated_placeholder"
+        or binding.get("file_status") == "placeholder"
+        for binding in used
+    ):
+        return f"{role} does not permit placeholder media"
+    for unit in units:
+        if unit.get("approval_status") != "approved":
+            return f"{role} requires approved selected takes and cut points"
+        if not isinstance(unit.get("reframe"), str) or not unit["reframe"].strip():
+            return f"{role} requires reframe instructions"
+    try:
+        requirements = _tier_requirements(plan, timeline, delivery)
+    except BuildError as exc:
+        return str(exc)
+    if not requirements.get("text_cues") or not requirements.get("audio_cues"):
+        return f"{role} requires text and audio instructions"
+    if role == "final_master":
+        if any(binding.get("rights_status") != "cleared" for binding in used):
+            return "final_master requires cleared media rights"
+        if plan["look_plan"].get("matching_status") != "passed":
+            return "final_master requires passed look matching"
+        mounted_text_ids = set(timeline["text_track_refs"])
+        if any(
+            track.get("safe_area_status") != "passed"
+            for track in plan["text_tracks"]
+            if track.get("text_track_id") in mounted_text_ids
+        ):
+            return "final_master requires passed subtitle safe area"
+        mounted_audio_ids = set(timeline["audio_track_refs"])
+        if any(
+            track.get("rights_status") != "cleared"
+            for track in plan["audio_tracks"]
+            if track.get("audio_track_id") in mounted_audio_ids
+        ):
+            return "final_master requires cleared final audio rights"
+    return None
+
+
+def _replace_command_plans(
+    plan: dict[str, Any],
     version_dir: Path,
     command_deliveries: list[dict[str, Any]],
+    ffmpeg_path: str,
+) -> None:
+    timelines = {item.get("timeline_id"): item for item in plan["timelines"]}
+    deliveries = {item.get("delivery_id"): item for item in plan["delivery_specs"]}
+    for compiled in command_deliveries:
+        delivery = deliveries[compiled["delivery_id"]]
+        if delivery.get("ready") is not True:
+            compiled["commands"] = []
+            compiled["execution_status"] = "not_ready"
+            continue
+        timeline = timelines[compiled["timeline_id"]]
+        blocker = _tier_blocker(plan, timeline, delivery)
+        if blocker is not None:
+            compiled["commands"] = []
+            compiled["blocker"] = blocker
+            compiled["execution_status"] = "blocked"
+            continue
+        try:
+            compiled["commands"] = ffmpeg_command_plan(
+                plan,
+                timeline,
+                version_dir,
+                delivery,
+                ffmpeg_path=ffmpeg_path,
+            )
+        except AdapterError as exc:
+            compiled["commands"] = []
+            compiled["blocker"] = str(exc)
+            compiled["execution_status"] = "blocked"
+
+
+def _update_ffmpeg_adapter_report(
+    version_dir: Path, command_deliveries: list[dict[str, Any]]
+) -> None:
+    blockers = [
+        item["blocker"] for item in command_deliveries if item.get("blocker")
+    ]
+    if not blockers:
+        return
+    report_path = version_dir / "adapter_reports.json"
+    try:
+        reports = json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, ValueError, RecursionError) as exc:
+        raise BuildError(f"could not update adapter reports: {exc}") from None
+    reports["ffmpeg"] = {"status": "blocked", "reason": blockers[0]}
+    _replace_owned_json(report_path, reports)
+
+
+def _write_exclusive_bytes(destination: Path, content: bytes) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with destination.open("xb") as output:
+            output.write(content)
+    except FileExistsError:
+        raise BuildError(f"artifact already exists: {destination}") from None
+
+
+def _materialize_delivery_inputs(
+    version_dir: Path,
+    commands: list[list[str]],
+    delivery: dict[str, Any],
+    timeline: dict[str, Any],
+) -> None:
+    concat_index = next(
+        (
+            index
+            for index, args in enumerate(commands)
+            if "-f" in args
+            and args[args.index("-f") + 1] == "concat"
+        ),
+        None,
+    )
+    if concat_index is None:
+        raise BuildError("FFmpeg command plan is missing concat assembly")
+    segment_paths = [Path(args[-1]).resolve() for args in commands[:concat_index]]
+    for segment in segment_paths:
+        try:
+            segment.relative_to(version_dir.resolve())
+        except (OSError, RuntimeError, ValueError):
+            raise BuildError("FFmpeg segment output escapes version directory") from None
+        segment.parent.mkdir(parents=True, exist_ok=True)
+    concat_command = commands[concat_index]
+    concat_path = Path(concat_command[concat_command.index("-i") + 1]).resolve()
+    try:
+        concat_path.relative_to(version_dir.resolve())
+    except (OSError, RuntimeError, ValueError):
+        raise BuildError("FFmpeg concat input escapes version directory") from None
+    lines = ["file '" + str(path).replace("'", "'\\''") + "'" for path in segment_paths]
+    _write_exclusive_bytes(concat_path, ("\n".join(lines) + "\n").encode("utf-8"))
+
+    if delivery.get("subtitle_mode") == "sidecar":
+        slug = _timeline_slug(timeline)
+        source = version_dir / f"subtitles_{slug}.srt"
+        final_output = Path(commands[-1][-1])
+        sidecar = final_output.with_suffix(".srt")
+        if source.resolve() != sidecar.resolve():
+            _write_exclusive_bytes(sidecar, source.read_bytes())
+
+
+def _expected_command_output(args: list[str], version_dir: Path) -> Path:
+    if not isinstance(args, list) or not args:
+        raise BuildError("runner command must be a non-empty argument list")
+    try:
+        output = Path(args[-1]).resolve()
+        output.relative_to(version_dir.resolve())
+    except (OSError, RuntimeError, TypeError, ValueError):
+        raise BuildError("all command outputs must remain inside version_dir") from None
+    return output
+
+
+def _run_command(
+    args: list[str],
+    version_dir: Path,
+    delivery_id: str,
+    runner: Callable[..., subprocess.CompletedProcess],
+) -> tuple[subprocess.CompletedProcess | None, dict[str, Any]]:
+    try:
+        completed = runner(
+            args,
+            cwd=version_dir,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        record = {
+            "delivery_id": delivery_id,
+            "args": args,
+            "returncode": completed.returncode,
+            "stdout": completed.stdout,
+            "stderr": completed.stderr,
+        }
+        return completed, record
+    except OSError as exc:
+        return None, {
+            "delivery_id": delivery_id,
+            "args": args,
+            "returncode": None,
+            "stdout": "",
+            "stderr": str(exc),
+        }
+
+
+def _probe_blocker(
+    payload: object, delivery: dict[str, Any], timeline: dict[str, Any]
+) -> str | None:
+    if not isinstance(payload, dict) or not isinstance(payload.get("streams"), list):
+        return "ffprobe returned invalid JSON structure"
+    video = next(
+        (item for item in payload["streams"] if item.get("codec_type") == "video"),
+        None,
+    )
+    audio = next(
+        (item for item in payload["streams"] if item.get("codec_type") == "audio"),
+        None,
+    )
+    if not isinstance(video, dict):
+        return "ffprobe output is missing a video stream"
+    try:
+        width_text, height_text = str(delivery["resolution"]).lower().split("x", 1)
+        expected_width, expected_height = int(width_text), int(height_text)
+        if (video.get("width"), video.get("height")) != (
+            expected_width,
+            expected_height,
+        ):
+            return "ffprobe resolution does not match delivery specification"
+        actual_rate = Fraction(str(video.get("avg_frame_rate", "0")))
+        expected_rate = Fraction(str(delivery["frame_rate"]))
+        if actual_rate != expected_rate:
+            return "ffprobe frame rate does not match delivery specification"
+        raw_duration = payload.get("format", {}).get("duration")
+        if raw_duration is None:
+            raw_duration = video.get("duration")
+        actual_duration = Decimal(str(raw_duration))
+        expected_duration = Decimal(str(timeline["duration_seconds"]))
+        tolerance = Decimal(expected_rate.denominator) / Decimal(
+            expected_rate.numerator
+        )
+        if abs(actual_duration - expected_duration) > tolerance:
+            return "ffprobe duration exceeds one-frame tolerance"
+    except (InvalidOperation, ValueError, ZeroDivisionError, TypeError, KeyError):
+        return "ffprobe returned invalid numeric metadata"
+    if video.get("codec_name") != delivery.get("video_codec"):
+        return "ffprobe video codec does not match delivery specification"
+    if not isinstance(audio, dict):
+        return "ffprobe output is missing an audio stream"
+    if audio.get("codec_name") != delivery.get("audio_codec"):
+        return "ffprobe audio codec does not match delivery specification"
+    try:
+        sample_rate = int(audio.get("sample_rate"))
+        channels = int(audio.get("channels"))
+    except (TypeError, ValueError):
+        return "ffprobe returned invalid audio metadata"
+    if sample_rate != delivery.get("audio_sample_rate"):
+        return "ffprobe sample rate does not match delivery specification"
+    if channels != delivery.get("audio_channels"):
+        return "ffprobe channels do not match delivery specification"
+    return None
+
+
+def _mark_copied_plan(
+    plan: dict[str, Any], execution_log: dict[str, Any]
+) -> None:
+    outputs_by_id = {
+        item["delivery_id"]: item for item in execution_log["rendered_outputs"]
+    }
+    blocked = execution_log["status"] == "blocked"
+    blocker = execution_log.get("blocker")
+    for delivery in plan["delivery_specs"]:
+        delivery_id = delivery["delivery_id"]
+        if delivery_id in outputs_by_id:
+            delivery["status"] = "rendered"
+        elif blocked and delivery.get("ready") is True:
+            delivery["status"] = "blocked"
+    plan["execution"]["executed_commands"] = execution_log["commands"]
+    tool_evidence = []
+    probe_evidence = []
+    canonical_outputs = []
+    for output in execution_log["rendered_outputs"]:
+        delivery_id = output["delivery_id"]
+        tool_id = f"TOOL-{delivery_id}"
+        probe_id = f"PROBE-{delivery_id}"
+        tool_evidence.append(
+            {
+                "tool_evidence_id": tool_id,
+                "tool": "ffmpeg",
+                "status": "verified",
+            }
+        )
+        probe_evidence.append(
+            {
+                "probe_evidence_id": probe_id,
+                "delivery_id": delivery_id,
+                "output_ref": output["output_ref"],
+                "status": "passed",
+                "probe_status": output["probe_status"],
+            }
+        )
+        canonical_outputs.append(
+            {
+                **output,
+                "tool_evidence_ref": tool_id,
+                "probe_evidence_ref": probe_id,
+            }
+        )
+    plan["execution"]["tool_evidence"] = tool_evidence
+    plan["execution"]["probe_evidence"] = probe_evidence
+    plan["execution"]["rendered_outputs"] = canonical_outputs
+    for step in plan["execution"].get("steps", []):
+        if step.get("delivery_id") in outputs_by_id:
+            step["status"] = "passed"
+        elif blocked:
+            step["status"] = "blocked"
+    if blocked:
+        plan["plan_status"] = "blocked"
+        plan["edit_validation"]["ready"] = False
+        plan["edit_validation"]["blocking_errors"] = [blocker or "execution blocked"]
+    elif all(
+        delivery.get("ready") is True and delivery.get("status") == "rendered"
+        for delivery in plan["delivery_specs"]
+    ):
+        plan["plan_status"] = "rendered"
+        plan["edit_validation"]["ready"] = True
+        plan["edit_validation"]["blocking_errors"] = []
+    for result in plan["edit_validation"]["per_delivery_results"]:
+        delivery_id = result.get("delivery_id")
+        if delivery_id in outputs_by_id:
+            result["status"] = "passed"
+            result["validation_status"] = "passed"
+        elif blocked:
+            result["status"] = "blocked"
+            result["validation_status"] = "blocked"
+
+
+def _execute_authorized(
+    plan: dict[str, Any],
+    version_dir: Path,
+    command_deliveries: list[dict[str, Any]],
+    ffprobe_path: str | None,
     runner: Callable[..., subprocess.CompletedProcess],
 ) -> str:
-    """Run a planned command list and record state; Task 6 adds full media/probe gates."""
-
     execution_log: dict[str, Any] = {
         "status": "running",
         "commands": [],
         "rendered_outputs": [],
     }
-    blocked = False
-    for delivery in command_deliveries:
-        delivery_id = delivery["delivery_id"]
-        commands = delivery["commands"]
+    delivery_specs = {
+        item["delivery_id"]: item for item in plan["delivery_specs"]
+    }
+    timelines = {item["timeline_id"]: item for item in plan["timelines"]}
+    selected = [
+        item
+        for item in command_deliveries
+        if delivery_specs[item["delivery_id"]].get("ready") is True
+    ]
+    blocker = next((item.get("blocker") for item in selected if item.get("blocker")), None)
+    if blocker is None and any(
+        delivery_specs[item["delivery_id"]].get("version_role")
+        in {"fine_cut", "final_master"}
+        for item in selected
+    ) and (ffprobe_path is None or not str(ffprobe_path).strip()):
+        blocker = "ffprobe is required for fine_cut and final_master execution"
+    if blocker is not None:
+        execution_log["status"] = "blocked"
+        execution_log["blocker"] = blocker
+        _mark_copied_plan(plan, execution_log)
+        _replace_owned_json(version_dir / "edit_master_plan.json", plan)
+        _write_json_exclusive(version_dir / "execution_log.json", execution_log)
+        return "blocked"
+
+    for compiled in selected:
+        delivery_id = compiled["delivery_id"]
+        delivery = delivery_specs[delivery_id]
+        timeline = timelines[compiled["timeline_id"]]
+        commands = compiled["commands"]
+        _materialize_delivery_inputs(version_dir, commands, delivery, timeline)
+        delivery_blocker = None
         for args in commands:
-            try:
-                completed = runner(
-                    args,
-                    cwd=version_dir,
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                )
-                record = {
-                    "delivery_id": delivery_id,
-                    "args": args,
-                    "returncode": completed.returncode,
-                    "stdout": completed.stdout,
-                    "stderr": completed.stderr,
-                }
-            except OSError as exc:
-                record = {
-                    "delivery_id": delivery_id,
-                    "args": args,
-                    "returncode": None,
-                    "stdout": "",
-                    "stderr": str(exc),
-                }
+            expected_output = _expected_command_output(args, version_dir)
+            completed, record = _run_command(
+                args, version_dir, delivery_id, runner
+            )
             execution_log["commands"].append(record)
-            expected_output = Path(args[-1])
-            if record["returncode"] != 0 or not expected_output.is_file():
-                if record["returncode"] == 0:
-                    record["stderr"] = (
-                        (record["stderr"] + "\n").lstrip("\n")
-                        + f"expected output is missing: {expected_output}"
-                    )
-                blocked = True
+            if completed is None or completed.returncode != 0:
+                delivery_blocker = (
+                    record["stderr"] or f"command failed with {record['returncode']}"
+                )
                 break
-        if blocked:
+            if not expected_output.is_file():
+                record["stderr"] = (
+                    (record["stderr"] + "\n").lstrip("\n")
+                    + f"expected output is missing: {expected_output}"
+                )
+                delivery_blocker = record["stderr"]
+                break
+        if delivery_blocker is not None:
+            execution_log["status"] = "blocked"
+            execution_log["blocker"] = delivery_blocker
             break
-        final_output = Path(commands[-1][-1])
+
+        final_output = _expected_command_output(commands[-1], version_dir)
+        probe_status = "unverified"
+        if ffprobe_path is not None and str(ffprobe_path).strip():
+            probe_args = [
+                str(ffprobe_path),
+                "-v",
+                "error",
+                "-show_streams",
+                "-show_format",
+                "-of",
+                "json",
+                str(final_output),
+            ]
+            completed, record = _run_command(
+                probe_args, version_dir, delivery_id, runner
+            )
+            record["tool"] = "ffprobe"
+            execution_log["commands"].append(record)
+            if completed is None or completed.returncode != 0:
+                delivery_blocker = record["stderr"] or "ffprobe command failed"
+            else:
+                try:
+                    probe_payload = json.loads(completed.stdout)
+                except (TypeError, ValueError, RecursionError):
+                    delivery_blocker = "ffprobe returned invalid JSON"
+                else:
+                    delivery_blocker = _probe_blocker(
+                        probe_payload, delivery, timeline
+                    )
+            if delivery_blocker is not None:
+                execution_log["status"] = "blocked"
+                execution_log["blocker"] = delivery_blocker
+                break
+            probe_status = "passed"
         execution_log["rendered_outputs"].append(
             {
                 "delivery_id": delivery_id,
-                "output_ref": final_output.relative_to(version_dir).as_posix(),
+                "output_ref": delivery["destination"],
                 "status": "rendered",
+                "tool_status": "passed",
+                "probe_status": probe_status,
             }
         )
 
-    execution_log["status"] = "blocked" if blocked else "rendered"
+    if execution_log["status"] == "running":
+        execution_log["status"] = "rendered"
+    _mark_copied_plan(plan, execution_log)
+    _replace_owned_json(version_dir / "edit_master_plan.json", plan)
     _write_json_exclusive(version_dir / "execution_log.json", execution_log)
     return execution_log["status"]
 
@@ -549,12 +1080,12 @@ def _build_loaded_bundle(
     plan: object,
     output_root: Path,
     *,
+    plan_path: Path | None = None,
     execute: bool = False,
     ffmpeg_path: str | None = None,
     ffprobe_path: str | None = None,
     runner: Callable[..., subprocess.CompletedProcess] = subprocess.run,
 ) -> Path:
-    del ffprobe_path  # Reserved for Task 6 probe verification.
     errors = validate_edit_plan(plan)
     if errors:
         raise BuildError("\n".join(errors))
@@ -566,12 +1097,21 @@ def _build_loaded_bundle(
         or execution.get("operation_authorization") != "approved"
     ):
         raise BuildError("operation authorization is required")
+    if execute:
+        execution_errors = validate_edit_plan(plan, for_execution=True)
+        if execution_errors:
+            raise BuildError("\n".join(execution_errors))
+        if plan_path is None:
+            raise BuildError("plan_path is required for authorized execution")
 
     version_dir = _create_version_dir(Path(output_root))
     try:
         _write_json_exclusive(version_dir / "edit_master_plan.json", plan)
         command_deliveries = _build_handoffs(
-            plan, version_dir, ffmpeg_path or "ffmpeg"
+            plan,
+            version_dir,
+            ffmpeg_path or "ffmpeg",
+            compile_commands=not execute,
         )
         manifest_path = version_dir / "bundle_manifest.json"
         manifest = _manifest(plan, version_dir, "dry_run_passed")
@@ -582,7 +1122,26 @@ def _build_loaded_bundle(
         if ffmpeg_path is None or not str(ffmpeg_path).strip():
             raise BuildError("ffmpeg is unavailable")
 
-        status = _execute_minimal(version_dir, command_deliveries, runner)
+        _bind_authorized_version(plan, plan_path, version_dir)
+        execution_plan = _prepare_execution_plan(plan, plan_path)
+        _replace_command_plans(
+            execution_plan,
+            version_dir,
+            command_deliveries,
+            str(ffmpeg_path),
+        )
+        _update_ffmpeg_adapter_report(version_dir, command_deliveries)
+        _replace_owned_json(
+            version_dir / "ffmpeg_commands.json",
+            {"schema_version": 1, "deliveries": command_deliveries},
+        )
+        status = _execute_authorized(
+            plan,
+            version_dir,
+            command_deliveries,
+            ffprobe_path,
+            runner,
+        )
         manifest["status"] = status
         manifest["artifacts"] = _artifact_names(version_dir)
         _replace_owned_json(manifest_path, manifest)
@@ -620,6 +1179,7 @@ def build_edit_bundle(
         return _build_loaded_bundle(
             plan,
             output_root,
+            plan_path=Path(plan_path),
             execute=execute,
             ffmpeg_path=ffmpeg_path,
             ffprobe_path=ffprobe_path,
@@ -627,7 +1187,7 @@ def build_edit_bundle(
         )
     except BuildError:
         raise
-    except (OSError, UnicodeError) as exc:
+    except (OSError, RuntimeError, TypeError, ValueError, UnicodeError) as exc:
         raise BuildError(f"could not build bundle: {exc}") from None
 
 

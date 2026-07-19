@@ -19,6 +19,7 @@ JIANYING_FIXTURE = (
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 from build_edit_bundle import BuildError, build_edit_bundle, main, next_version_dir
+from validate_edit_plan import validate_edit_plan
 
 
 def load_plan(path=FIXTURE):
@@ -34,14 +35,16 @@ def write_plan(directory, plan, name="plan.json"):
     return path
 
 
-def authorized_plan():
-    plan = load_plan()
+def authorize_plan(plan, version_directory="edit/v001"):
+    output_root = version_directory.rsplit("/", 1)[0]
     plan["plan_status"] = "authorized"
     plan["execution"].update(
         {
             "operation_authorization": "approved",
+            "output_root": output_root,
             "authorized_manifest_id": "MAN-001",
-            "authorized_version_directory": "edit/v001",
+            "version_directory": version_directory,
+            "authorized_version_directory": version_directory,
             "steps": [
                 {
                     "step_id": "STEP-D16",
@@ -58,7 +61,49 @@ def authorized_plan():
     )
     for delivery in plan["delivery_specs"]:
         delivery["status"] = "authorized"
+        delivery["destination"] = (
+            f"{version_directory}/{delivery['filename']}"
+        )
     return plan
+
+
+def authorized_plan():
+    return authorize_plan(load_plan())
+
+
+def materialize_plan_media(directory, plan):
+    """Create only test-owned fake inputs beside the temporary plan."""
+
+    root = Path(directory)
+    for binding in plan["media_bindings"]:
+        if binding.get("source_type") not in {
+            "local_file",
+            "post_asset",
+            "generated_placeholder",
+        }:
+            continue
+        path = Path(binding["path_or_uri"])
+        if path.is_absolute():
+            destination = path
+        else:
+            destination = root / path
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(b"test media")
+
+
+def write_authorized_plan(
+    directory,
+    plan=None,
+    name="plan.json",
+    version_directory="edit/v001",
+):
+    selected = (
+        authorize_plan(load_plan(), version_directory)
+        if plan is None
+        else authorize_plan(plan, version_directory)
+    )
+    materialize_plan_media(directory, selected)
+    return selected, write_plan(directory, selected, name)
 
 
 def rich_tier_plan(role):
@@ -257,9 +302,13 @@ class BuildEditBundleTests(unittest.TestCase):
             return subprocess.CompletedProcess(args, 9, "", "synthetic failure")
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            plan_path = write_plan(temp_dir, authorized_plan())
+            success_plan, success_plan_path = write_authorized_plan(
+                temp_dir,
+                name="success-plan.json",
+                version_directory="success/v001",
+            )
             success_dir = build_edit_bundle(
-                plan_path,
+                success_plan_path,
                 Path(temp_dir) / "success",
                 execute=True,
                 ffmpeg_path="ffmpeg-test",
@@ -272,8 +321,13 @@ class BuildEditBundleTests(unittest.TestCase):
                 (success_dir / "bundle_manifest.json").read_text(encoding="utf-8")
             )
 
+            blocked_plan, blocked_plan_path = write_authorized_plan(
+                temp_dir,
+                name="blocked-plan.json",
+                version_directory="blocked/v001",
+            )
             blocked_dir = build_edit_bundle(
-                plan_path,
+                blocked_plan_path,
                 Path(temp_dir) / "blocked",
                 execute=True,
                 ffmpeg_path="ffmpeg-test",
@@ -296,6 +350,403 @@ class BuildEditBundleTests(unittest.TestCase):
         self.assertEqual(blocked_log["commands"][0]["returncode"], 9)
         self.assertEqual(blocked_log["commands"][0]["stderr"], "synthetic failure")
         self.assertTrue(blocked_canon_preserved)
+
+    def test_execute_validates_preflights_materializes_and_updates_only_copy(self):
+        calls = []
+
+        def successful_runner(args, **kwargs):
+            self.assertIsInstance(args, list)
+            self.assertNotIn("shell", kwargs)
+            self.assertEqual(
+                set(kwargs), {"cwd", "capture_output", "text", "check"}
+            )
+            self.assertTrue(kwargs["capture_output"])
+            self.assertTrue(kwargs["text"])
+            self.assertFalse(kwargs["check"])
+            version_dir = Path(kwargs["cwd"]).resolve()
+            output = Path(args[-1]).resolve()
+            output.relative_to(version_dir)
+            if "concat" in args:
+                concat_path = Path(args[args.index("-i") + 1])
+                self.assertTrue(concat_path.is_file())
+                self.assertIn("file '", concat_path.read_text(encoding="utf-8"))
+            elif "-i" in args:
+                media_input = Path(args[args.index("-i") + 1])
+                self.assertTrue(media_input.is_absolute())
+                self.assertTrue(media_input.is_file())
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_bytes(b"rendered")
+            calls.append((args, kwargs))
+            return subprocess.CompletedProcess(args, 0, "ok", "")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            plan, plan_path = write_authorized_plan(temp_dir)
+            source_before = plan_path.read_text(encoding="utf-8")
+            with mock.patch(
+                "build_edit_bundle.validate_edit_plan",
+                wraps=validate_edit_plan,
+            ) as validator:
+                created = build_edit_bundle(
+                    plan_path,
+                    Path(temp_dir) / "edit",
+                    execute=True,
+                    ffmpeg_path="ffmpeg-test",
+                    runner=successful_runner,
+                )
+
+            copied = json.loads(
+                (created / "edit_master_plan.json").read_text(encoding="utf-8")
+            )
+            manifest = json.loads(
+                (created / "bundle_manifest.json").read_text(encoding="utf-8")
+            )
+            log = json.loads(
+                (created / "execution_log.json").read_text(encoding="utf-8")
+            )
+
+            self.assertEqual(plan_path.read_text(encoding="utf-8"), source_before)
+            self.assertEqual(copied["plan_status"], "rendered")
+            self.assertEqual(validate_edit_plan(copied), [])
+            self.assertTrue(
+                all(item["status"] == "rendered" for item in copied["delivery_specs"])
+            )
+            self.assertTrue(copied["execution"]["executed_commands"])
+            self.assertEqual(manifest["status"], "rendered")
+            self.assertEqual(log["status"], "rendered")
+            self.assertTrue(
+                all(item["probe_status"] == "unverified" for item in log["rendered_outputs"])
+            )
+            for output in log["rendered_outputs"]:
+                (created / Path(output["output_ref"]).name).resolve().relative_to(
+                    created.resolve()
+                )
+                self.assertTrue((created / Path(output["output_ref"]).name).is_file())
+                self.assertTrue(
+                    (created / Path(output["output_ref"]).with_suffix(".srt").name).is_file()
+                )
+
+        self.assertTrue(calls)
+        execution_calls = [
+            call
+            for call in validator.call_args_list
+            if call.kwargs.get("for_execution") is True
+        ]
+        self.assertEqual(len(execution_calls), 1)
+
+    def test_execution_validation_happens_before_the_first_runner_command(self):
+        event_order = []
+
+        def observing_validator(*args, **kwargs):
+            if kwargs.get("for_execution") is True:
+                event_order.append("validated_for_execution")
+            return validate_edit_plan(*args, **kwargs)
+
+        def successful_runner(args, **kwargs):
+            event_order.append("runner")
+            output = Path(args[-1])
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_bytes(b"rendered")
+            return subprocess.CompletedProcess(args, 0, "", "")
+
+        with tempfile.TemporaryDirectory() as temp_dir, mock.patch(
+            "build_edit_bundle.validate_edit_plan",
+            side_effect=observing_validator,
+        ):
+            _plan, plan_path = write_authorized_plan(temp_dir)
+            build_edit_bundle(
+                plan_path,
+                Path(temp_dir) / "edit",
+                execute=True,
+                ffmpeg_path="ffmpeg-test",
+                runner=successful_runner,
+            )
+
+        self.assertEqual(event_order[0], "validated_for_execution")
+
+    def test_authorization_is_bound_to_the_actual_new_version_directory(self):
+        runner_calls = []
+        with tempfile.TemporaryDirectory() as temp_dir:
+            _plan, plan_path = write_authorized_plan(temp_dir)
+            output_root = Path(temp_dir) / "edit"
+            (output_root / "v001").mkdir(parents=True)
+
+            with self.assertRaisesRegex(
+                BuildError, "authorized version directory does not match"
+            ):
+                build_edit_bundle(
+                    plan_path,
+                    output_root,
+                    execute=True,
+                    ffmpeg_path="ffmpeg-test",
+                    runner=lambda *args, **kwargs: runner_calls.append(args),
+                )
+
+            blocked = json.loads(
+                (output_root / "v002" / "bundle_manifest.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+
+        self.assertEqual(runner_calls, [])
+        self.assertEqual(blocked["status"], "blocked")
+
+    def test_missing_local_media_and_provider_uri_block_before_runner(self):
+        cases = []
+        missing = authorized_plan()
+        cases.append(("missing", missing, "regular file"))
+        provider = authorized_plan()
+        provider["media_bindings"][0]["source_type"] = "provider_result"
+        provider["media_bindings"][0]["path_or_uri"] = "provider://job/A01"
+        cases.append(("provider", provider, "must be rebound"))
+
+        for name, plan, expected in cases:
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as temp_dir:
+                if name == "provider":
+                    materialize_plan_media(temp_dir, plan)
+                plan_path = write_plan(temp_dir, plan)
+                calls = []
+                with self.assertRaisesRegex(BuildError, expected):
+                    build_edit_bundle(
+                        plan_path,
+                        Path(temp_dir) / "edit",
+                        execute=True,
+                        ffmpeg_path="ffmpeg-test",
+                        runner=lambda *args, **kwargs: calls.append(args),
+                    )
+                self.assertEqual(calls, [])
+
+    def test_runner_failure_stops_and_preserves_intermediates_and_diagnostics(self):
+        calls = []
+
+        def failing_second_runner(args, **kwargs):
+            calls.append(args)
+            if len(calls) == 1:
+                output = Path(args[-1])
+                output.parent.mkdir(parents=True, exist_ok=True)
+                output.write_bytes(b"first segment")
+                return subprocess.CompletedProcess(args, 0, "first ok", "")
+            return subprocess.CompletedProcess(args, 7, "partial", "decode failed")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            _plan, plan_path = write_authorized_plan(temp_dir)
+            created = build_edit_bundle(
+                plan_path,
+                Path(temp_dir) / "edit",
+                execute=True,
+                ffmpeg_path="ffmpeg-test",
+                runner=failing_second_runner,
+            )
+            log = json.loads(
+                (created / "execution_log.json").read_text(encoding="utf-8")
+            )
+            manifest = json.loads(
+                (created / "bundle_manifest.json").read_text(encoding="utf-8")
+            )
+
+            self.assertEqual(len(calls), 2)
+            self.assertEqual(log["status"], "blocked")
+            self.assertEqual(log["commands"][-1]["stdout"], "partial")
+            self.assertEqual(log["commands"][-1]["stderr"], "decode failed")
+            self.assertTrue((created / "segments/0001_E16-01.mp4").is_file())
+            self.assertTrue((created / "edit_construction_16x9.md").is_file())
+            self.assertEqual(manifest["status"], "blocked")
+
+    def test_final_master_requires_and_validates_ffprobe_json(self):
+        probe_calls = []
+
+        def runner(args, **kwargs):
+            if args[0] == "ffprobe-test":
+                probe_calls.append(args)
+                filename = Path(args[-1]).name
+                width, height = (
+                    (1920, 1080) if "16x9" in filename else (1080, 1920)
+                )
+                payload = {
+                    "streams": [
+                        {
+                            "codec_type": "video",
+                            "codec_name": "h264",
+                            "width": width,
+                            "height": height,
+                            "avg_frame_rate": "24/1",
+                        },
+                        {
+                            "codec_type": "audio",
+                            "codec_name": "aac",
+                            "sample_rate": "48000",
+                            "channels": 2,
+                        },
+                    ],
+                    "format": {"duration": "4.0"},
+                }
+                return subprocess.CompletedProcess(
+                    args, 0, json.dumps(payload), ""
+                )
+            output = Path(args[-1])
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_bytes(b"rendered")
+            return subprocess.CompletedProcess(args, 0, "", "")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            final = rich_tier_plan("final_master")
+            final, plan_path = write_authorized_plan(temp_dir, final)
+            created = build_edit_bundle(
+                plan_path,
+                Path(temp_dir) / "edit",
+                execute=True,
+                ffmpeg_path="ffmpeg-test",
+                ffprobe_path="ffprobe-test",
+                runner=runner,
+            )
+            log = json.loads(
+                (created / "execution_log.json").read_text(encoding="utf-8")
+            )
+
+        self.assertEqual(len(probe_calls), 2)
+        self.assertEqual(log["status"], "rendered")
+        self.assertTrue(
+            all(item["probe_status"] == "passed" for item in log["rendered_outputs"])
+        )
+
+    def test_bad_final_probe_and_missing_fine_probe_are_blocked(self):
+        def bad_probe_runner(args, **kwargs):
+            if args[0] == "ffprobe-test":
+                payload = {
+                    "streams": [
+                        {
+                            "codec_type": "video",
+                            "codec_name": "h264",
+                            "width": 640,
+                            "height": 360,
+                            "avg_frame_rate": "24/1",
+                        },
+                        {
+                            "codec_type": "audio",
+                            "codec_name": "aac",
+                            "sample_rate": "48000",
+                            "channels": 2,
+                        },
+                    ],
+                    "format": {"duration": "4.0"},
+                }
+                return subprocess.CompletedProcess(args, 0, json.dumps(payload), "")
+            output = Path(args[-1])
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_bytes(b"rendered")
+            return subprocess.CompletedProcess(args, 0, "", "")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            final, final_path = write_authorized_plan(
+                temp_dir,
+                rich_tier_plan("final_master"),
+                "final.json",
+                "final-edit/v001",
+            )
+            final_dir = build_edit_bundle(
+                final_path,
+                Path(temp_dir) / "final-edit",
+                execute=True,
+                ffmpeg_path="ffmpeg-test",
+                ffprobe_path="ffprobe-test",
+                runner=bad_probe_runner,
+            )
+            final_log = json.loads(
+                (final_dir / "execution_log.json").read_text(encoding="utf-8")
+            )
+
+        self.assertEqual(final_log["status"], "blocked")
+        self.assertIn("resolution", final_log["blocker"])
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            fine, fine_path = write_authorized_plan(
+                temp_dir, rich_tier_plan("fine_cut"), "fine.json"
+            )
+            fine_dir = build_edit_bundle(
+                fine_path,
+                Path(temp_dir) / "edit",
+                execute=True,
+                ffmpeg_path="ffmpeg-test",
+                ffprobe_path=None,
+                runner=lambda *args, **kwargs: self.fail(
+                    "fine cut must block before FFmpeg without ffprobe"
+                ),
+            )
+            fine_log = json.loads(
+                (fine_dir / "execution_log.json").read_text(encoding="utf-8")
+            )
+
+        self.assertEqual(fine_log["status"], "blocked")
+        self.assertIn("ffprobe is required", fine_log["blocker"])
+
+    def test_fine_cut_rejects_placeholders_and_unready_deliveries_are_not_run(self):
+        fine = rich_tier_plan("fine_cut")
+        fine["media_bindings"][0]["source_type"] = "generated_placeholder"
+        fine["media_bindings"][0]["file_status"] = "placeholder"
+        fine["delivery_specs"][1]["ready"] = False
+        calls = []
+        with tempfile.TemporaryDirectory() as temp_dir:
+            fine, plan_path = write_authorized_plan(temp_dir, fine)
+            created = build_edit_bundle(
+                plan_path,
+                Path(temp_dir) / "edit",
+                execute=True,
+                ffmpeg_path="ffmpeg-test",
+                ffprobe_path="ffprobe-test",
+                runner=lambda *args, **kwargs: calls.append(args),
+            )
+            log = json.loads(
+                (created / "execution_log.json").read_text(encoding="utf-8")
+            )
+
+        self.assertEqual(calls, [])
+        self.assertEqual(log["status"], "blocked")
+        self.assertIn("placeholder", log["blocker"])
+
+    def test_unsupported_transition_blocks_without_degraded_render_and_keeps_handoffs(self):
+        plan = rich_tier_plan("fine_cut")
+        plan["timelines"][0]["video_tracks"][0]["edit_units"][0][
+            "transition_out"
+        ] = "cross_dissolve"
+        calls = []
+        with tempfile.TemporaryDirectory() as temp_dir:
+            plan, plan_path = write_authorized_plan(temp_dir, plan)
+            created = build_edit_bundle(
+                plan_path,
+                Path(temp_dir) / "edit",
+                execute=True,
+                ffmpeg_path="ffmpeg-test",
+                ffprobe_path="ffprobe-test",
+                runner=lambda *args, **kwargs: calls.append(args),
+            )
+            log = json.loads(
+                (created / "execution_log.json").read_text(encoding="utf-8")
+            )
+            reports = json.loads(
+                (created / "adapter_reports.json").read_text(encoding="utf-8")
+            )
+
+            self.assertTrue((created / "edit_construction_16x9.md").is_file())
+            self.assertTrue((created / "edit_construction_9x16.csv").is_file())
+
+        self.assertEqual(calls, [])
+        self.assertEqual(log["status"], "blocked")
+        self.assertIn("unsupported transition", log["blocker"])
+        self.assertEqual(reports["ffmpeg"]["status"], "blocked")
+
+    def test_cli_wraps_path_resolve_runtime_error_without_traceback(self):
+        stderr = io.StringIO()
+        with tempfile.TemporaryDirectory() as temp_dir, mock.patch.object(
+            Path,
+            "resolve",
+            side_effect=RuntimeError("synthetic resolve loop"),
+        ), redirect_stderr(stderr):
+            exit_code = main(
+                [str(FIXTURE), "--out", str(Path(temp_dir) / "edit")]
+            )
+
+        self.assertEqual(exit_code, 1)
+        self.assertIn("synthetic resolve loop", stderr.getvalue())
+        self.assertNotIn("Traceback", stderr.getvalue())
 
     def test_delivery_tiers_emit_different_commands_and_canonical_requirements(self):
         compiled = {}

@@ -567,6 +567,29 @@ class ValidateEditPlanTests(unittest.TestCase):
             errors,
         )
 
+    def test_rendered_rough_cut_allows_unverified_probe_with_complete_other_evidence(self):
+        plan = rendered_plan()
+        for output in plan["execution"]["rendered_outputs"]:
+            output["probe_status"] = "unverified"
+
+        self.assertEqual(validate_edit_plan(plan), [])
+
+    def test_rendered_fine_and_final_still_reject_unverified_probe(self):
+        for role in ("fine_cut", "final_master"):
+            with self.subTest(role=role):
+                plan = rendered_plan()
+                delivery(plan, "D16")["version_role"] = role
+                next(
+                    output
+                    for output in plan["execution"]["rendered_outputs"]
+                    if output["delivery_id"] == "D16"
+                )["probe_status"] = "unverified"
+
+                self.assertIn(
+                    "execution.rendered_outputs D16: probe_status must be a successful status",
+                    validate_edit_plan(plan),
+                )
+
     def test_rendered_aggregate_requires_current_authorization(self):
         plan = rendered_plan()
         plan["execution"].update(

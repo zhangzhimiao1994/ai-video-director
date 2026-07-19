@@ -1116,8 +1116,15 @@ def _validate_first_release_units(units: list[dict[str, Any]]) -> None:
             raise AdapterError(f"unsupported stabilization effect in edit unit {unit_id}")
 
 
-def _authorized_media(binding: dict[str, Any]) -> bool:
+def _authorized_media(
+    binding: dict[str, Any], *, allow_rough_placeholder: bool = False
+) -> bool:
     source_type = binding.get("source_type")
+    if allow_rough_placeholder and source_type == "generated_placeholder":
+        return (
+            binding.get("file_status") in {"online", "placeholder"}
+            and binding.get("rights_status") != "blocked"
+        )
     return (
         isinstance(source_type, str)
         and source_type in {"local_file", "post_asset"}
@@ -1477,7 +1484,9 @@ def ffmpeg_command_plan(
         binding = assets.get(asset_id)
         if binding is None:
             raise AdapterError(f"edit unit {unit_id} references unknown asset_id {asset_id}")
-        if not _authorized_media(binding):
+        if not _authorized_media(
+            binding, allow_rough_placeholder=version_role == "rough_cut"
+        ):
             raise AdapterError(f"video asset {asset_id} is not authorized")
         asset_path = _nonempty_string(binding.get("path_or_uri"), f"asset {asset_id}.path_or_uri")
         segment = _safe_generated_output(version, f"segments/{index:04d}_{unit_id}.mp4")
