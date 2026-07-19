@@ -7,6 +7,7 @@ import copy
 import json
 import os
 import re
+import stat
 import subprocess
 import sys
 import tempfile
@@ -111,12 +112,9 @@ def _write_json_exclusive(destination: Path, value: object) -> Path:
 
 
 def _replace_owned_json(destination: Path, value: object) -> None:
-    """Replace a file created by this invocation inside its fresh version directory."""
+    """Atomically replace invocation-owned JSON inside the fresh version directory."""
 
-    destination.write_text(
-        json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    _atomic_replace_json(destination, value)
 
 
 def _atomic_replace_json(destination: Path, value: object) -> None:
@@ -126,7 +124,7 @@ def _atomic_replace_json(destination: Path, value: object) -> None:
         mode="w",
         encoding="utf-8",
         newline="",
-        prefix=".bundle_manifest.",
+        prefix=f".{destination.name}.",
         suffix=".tmp",
         dir=destination.parent,
         delete=False,
@@ -548,9 +546,115 @@ def _referenced_media_ids(plan: dict[str, Any]) -> set[str]:
     return referenced
 
 
+def _absolute_without_resolving(path: Path, base_dir: Path) -> Path:
+    candidate = path if path.is_absolute() else base_dir / path
+    return Path(os.path.abspath(candidate))
+
+
+def _path_is_link_or_junction(path: Path, mode: int) -> bool:
+    if stat.S_ISLNK(mode):
+        return True
+    is_junction = getattr(path, "is_junction", None)
+    return bool(is_junction is not None and is_junction())
+
+
+def _reject_link_chain(path: Path, label: str) -> None:
+    parts = path.parts
+    if not parts:
+        raise BuildError(f"{label} is not a filesystem path")
+    current = Path(parts[0])
+    for part in parts[1:]:
+        current /= part
+        try:
+            metadata = os.lstat(current)
+        except FileNotFoundError:
+            # Let the leaf check report the stable regular-file contract. A
+            # missing component is still safely blocked; it simply cannot be
+            # inspected for links any further down the chain.
+            return
+        except OSError as exc:
+            raise BuildError(f"could not inspect {label}: {exc}") from None
+        if _path_is_link_or_junction(current, metadata.st_mode):
+            raise BuildError(f"{label} must not use a symbolic link or junction")
+
+
+def _file_identity(metadata: os.stat_result) -> tuple[int, int, int, int, int]:
+    return (
+        metadata.st_dev,
+        metadata.st_ino,
+        metadata.st_mode,
+        metadata.st_size,
+        metadata.st_mtime_ns,
+    )
+
+
+def _capture_input_guard(
+    path_value: object,
+    base_dir: Path,
+    roots: list[Path],
+    label: str,
+) -> tuple[Path, dict[str, Any]]:
+    if not isinstance(path_value, str) or not path_value.strip():
+        raise BuildError(f"{label} must be a non-empty path")
+    declared = _absolute_without_resolving(Path(path_value), base_dir)
+    _reject_link_chain(declared, label)
+    try:
+        leaf = os.lstat(declared)
+    except FileNotFoundError:
+        raise BuildError(f"{label} must exist as a regular file") from None
+    except OSError as exc:
+        raise BuildError(f"could not inspect {label}: {exc}") from None
+    if _path_is_link_or_junction(declared, leaf.st_mode):
+        raise BuildError(f"{label} must not be a symbolic link or junction")
+    if not stat.S_ISREG(leaf.st_mode):
+        raise BuildError(f"{label} must exist as a regular file")
+    try:
+        canonical = declared.resolve(strict=True)
+        metadata = os.stat(canonical, follow_symlinks=False)
+    except (OSError, RuntimeError, TypeError, ValueError) as exc:
+        raise BuildError(f"could not resolve {label}: {exc}") from None
+    if not _path_inside(canonical, roots):
+        raise BuildError(f"{label} is outside authorized media roots")
+    return canonical, {
+        "label": label,
+        "declared_path": declared,
+        "canonical_path": canonical,
+        "authorized_roots": tuple(roots),
+        "identity": _file_identity(metadata),
+    }
+
+
+def _revalidate_input_guards(input_guards: list[dict[str, Any]]) -> None:
+    for guard in input_guards:
+        label = guard["label"]
+        declared = guard["declared_path"]
+        _reject_link_chain(declared, label)
+        try:
+            leaf = os.lstat(declared)
+        except FileNotFoundError:
+            raise BuildError(f"{label} must remain a regular file") from None
+        except OSError as exc:
+            raise BuildError(f"could not inspect {label}: {exc}") from None
+        if _path_is_link_or_junction(declared, leaf.st_mode):
+            raise BuildError(f"{label} must not be a symbolic link or junction")
+        if not stat.S_ISREG(leaf.st_mode):
+            raise BuildError(f"{label} must remain a regular file")
+        try:
+            canonical = declared.resolve(strict=True)
+            metadata = os.stat(canonical, follow_symlinks=False)
+        except (OSError, RuntimeError, TypeError, ValueError) as exc:
+            raise BuildError(f"could not revalidate {label}: {exc}") from None
+        if canonical != guard["canonical_path"] or _file_identity(metadata) != guard[
+            "identity"
+        ]:
+            raise BuildError(f"{label} input identity changed after preflight")
+        if not _path_inside(canonical, list(guard["authorized_roots"])):
+            raise BuildError(f"{label} moved outside authorized media roots")
+
+
 def _prepare_execution_plan(
     plan: dict[str, Any], plan_path: Path
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Resolve command inputs against the plan without mutating its Canon copy."""
 
     try:
@@ -567,6 +671,7 @@ def _prepare_execution_plan(
         raise BuildError("authorized media roots must not be empty")
     execution["authorized_media_roots"] = [str(root) for root in roots]
     referenced = _referenced_media_ids(prepared)
+    input_guards: list[dict[str, Any]] = []
     for binding in prepared["media_bindings"]:
         asset_id = binding.get("asset_id")
         source_type = binding.get("source_type")
@@ -582,19 +687,15 @@ def _prepare_execution_plan(
             )
         if source_type not in {"local_file", "post_asset", "generated_placeholder"}:
             raise BuildError(f"asset {asset_id} is not executable local media")
-        media_path = _resolved_path(
-            binding.get("path_or_uri"), base_dir, f"asset {asset_id} path"
+        media_path, guard = _capture_input_guard(
+            binding.get("path_or_uri"),
+            base_dir,
+            roots,
+            f"asset {asset_id}",
         )
-        try:
-            regular_file = media_path.is_file()
-        except OSError as exc:
-            raise BuildError(f"could not inspect asset {asset_id}: {exc}") from None
-        if not regular_file:
-            raise BuildError(f"asset {asset_id} must exist as a regular file")
-        if not _path_inside(media_path, roots):
-            raise BuildError(f"asset {asset_id} is outside authorized media roots")
+        input_guards.append(guard)
         binding["path_or_uri"] = str(media_path)
-    return prepared
+    return prepared, input_guards
 
 
 def _bind_authorized_version(
@@ -825,13 +926,35 @@ def _expected_command_output(args: list[str], version_dir: Path) -> Path:
     return output
 
 
+def _verify_completed_output(expected_output: Path, version_dir: Path) -> None:
+    try:
+        metadata = os.lstat(expected_output)
+    except OSError as exc:
+        raise BuildError(f"expected output is missing: {expected_output}: {exc}") from None
+    if _path_is_link_or_junction(expected_output, metadata.st_mode):
+        raise BuildError(f"expected output must not be a symbolic link or junction: {expected_output}")
+    if not stat.S_ISREG(metadata.st_mode):
+        raise BuildError(f"expected output is not a regular file: {expected_output}")
+    if metadata.st_nlink != 1:
+        raise BuildError(f"expected output must not be a hard link: {expected_output}")
+    try:
+        actual = expected_output.resolve(strict=True)
+        actual.relative_to(version_dir.resolve(strict=True))
+    except (OSError, RuntimeError, TypeError, ValueError):
+        raise BuildError("completed output escapes version_dir") from None
+    if actual != expected_output:
+        raise BuildError("completed output does not match its canonical expected file")
+
+
 def _run_command(
     args: list[str],
     version_dir: Path,
     delivery_id: str,
     runner: Callable[..., subprocess.CompletedProcess],
+    input_guards: list[dict[str, Any]],
 ) -> tuple[subprocess.CompletedProcess | None, dict[str, Any]]:
     try:
+        _revalidate_input_guards(input_guards)
         completed = runner(
             args,
             cwd=version_dir,
@@ -842,18 +965,23 @@ def _run_command(
         record = {
             "delivery_id": delivery_id,
             "args": args,
+            "command": args,
             "returncode": completed.returncode,
             "stdout": completed.stdout,
             "stderr": completed.stderr,
+            "error": None,
         }
         return completed, record
-    except OSError as exc:
+    except Exception as exc:
+        detail = str(exc) or type(exc).__name__
         return None, {
             "delivery_id": delivery_id,
             "args": args,
+            "command": args,
             "returncode": None,
             "stdout": "",
-            "stderr": str(exc),
+            "stderr": detail,
+            "error": detail,
         }
 
 
@@ -862,6 +990,11 @@ def _probe_blocker(
 ) -> str | None:
     if not isinstance(payload, dict) or not isinstance(payload.get("streams"), list):
         return "ffprobe returned invalid JSON structure"
+    if any(not isinstance(item, dict) for item in payload["streams"]):
+        return "ffprobe returned invalid stream metadata"
+    format_metadata = payload.get("format")
+    if not isinstance(format_metadata, dict):
+        return "ffprobe returned invalid format metadata"
     video = next(
         (item for item in payload["streams"] if item.get("codec_type") == "video"),
         None,
@@ -884,7 +1017,7 @@ def _probe_blocker(
         expected_rate = Fraction(str(delivery["frame_rate"]))
         if actual_rate != expected_rate:
             return "ffprobe frame rate does not match delivery specification"
-        raw_duration = payload.get("format", {}).get("duration")
+        raw_duration = format_metadata.get("duration")
         if raw_duration is None:
             raw_duration = video.get("duration")
         actual_duration = Decimal(str(raw_duration))
@@ -898,8 +1031,12 @@ def _probe_blocker(
         return "ffprobe returned invalid numeric metadata"
     if video.get("codec_name") != delivery.get("video_codec"):
         return "ffprobe video codec does not match delivery specification"
+    audio_required = (
+        delivery.get("version_role") in {"fine_cut", "final_master"}
+        or delivery.get("audio_mode") == "final_mix"
+    )
     if not isinstance(audio, dict):
-        return "ffprobe output is missing an audio stream"
+        return "ffprobe output is missing an audio stream" if audio_required else None
     if audio.get("codec_name") != delivery.get("audio_codec"):
         return "ffprobe audio codec does not match delivery specification"
     try:
@@ -1073,7 +1210,8 @@ def _execute_authorized(
     ffmpeg_path: str,
     ffprobe_path: str | None,
     runner: Callable[..., subprocess.CompletedProcess],
-) -> str:
+    input_guards: list[dict[str, Any]],
+) -> tuple[str, dict[str, Any]]:
     execution_log: dict[str, Any] = {
         "status": "running",
         "commands": [],
@@ -1114,9 +1252,7 @@ def _execute_authorized(
         execution_log["status"] = "blocked"
         execution_log["blocker"] = blocker
         _mark_copied_plan(plan, execution_log)
-        _replace_owned_json(version_dir / "edit_master_plan.json", plan)
-        _write_json_exclusive(version_dir / "execution_log.json", execution_log)
-        return "blocked"
+        return "blocked", execution_log
 
     for compiled in selected:
         delivery_id = compiled["delivery_id"]
@@ -1128,7 +1264,7 @@ def _execute_authorized(
         for args in commands:
             expected_output = _expected_command_output(args, version_dir)
             completed, record = _run_command(
-                args, version_dir, delivery_id, runner
+                args, version_dir, delivery_id, runner, input_guards
             )
             execution_log["commands"].append(record)
             if completed is None or completed.returncode != 0:
@@ -1136,12 +1272,15 @@ def _execute_authorized(
                     record["stderr"] or f"command failed with {record['returncode']}"
                 )
                 break
-            if not expected_output.is_file():
+            try:
+                _verify_completed_output(expected_output, version_dir)
+            except BuildError as exc:
+                detail = str(exc)
                 record["stderr"] = (
-                    (record["stderr"] + "\n").lstrip("\n")
-                    + f"expected output is missing: {expected_output}"
+                    (record["stderr"] + "\n").lstrip("\n") + detail
                 )
-                delivery_blocker = record["stderr"]
+                record["error"] = detail
+                delivery_blocker = detail
                 break
         if delivery_blocker is not None:
             execution_log["status"] = "blocked"
@@ -1162,7 +1301,7 @@ def _execute_authorized(
                 str(final_output),
             ]
             completed, record = _run_command(
-                probe_args, version_dir, delivery_id, runner
+                probe_args, version_dir, delivery_id, runner, input_guards
             )
             record["tool"] = "ffprobe"
             execution_log["commands"].append(record)
@@ -1202,9 +1341,65 @@ def _execute_authorized(
     if execution_log["status"] == "running":
         execution_log["status"] = "rendered"
     _mark_copied_plan(plan, execution_log)
-    _replace_owned_json(version_dir / "edit_master_plan.json", plan)
-    _write_json_exclusive(version_dir / "execution_log.json", execution_log)
-    return execution_log["status"]
+    return execution_log["status"], execution_log
+
+
+def _publish_execution_state(
+    plan: dict[str, Any],
+    execution_log: dict[str, Any],
+    version_dir: Path,
+    manifest: dict[str, Any],
+) -> str:
+    """Publish one recoverable execution state using atomic per-file replacement."""
+
+    manifest_path = version_dir / "bundle_manifest.json"
+    log_path = version_dir / "execution_log.json"
+    plan_path = version_dir / "edit_master_plan.json"
+    final_status = execution_log["status"]
+    publishing_manifest = {
+        **manifest,
+        "status": "publishing",
+        "rendered_outputs": execution_log["rendered_outputs"],
+        "artifacts": _artifact_names(version_dir),
+    }
+    try:
+        _atomic_replace_json(manifest_path, publishing_manifest)
+        _atomic_replace_json(log_path, execution_log)
+        _atomic_replace_json(plan_path, plan)
+        final_manifest = {
+            **publishing_manifest,
+            "status": final_status,
+            "artifacts": _artifact_names(version_dir),
+        }
+        _atomic_replace_json(manifest_path, final_manifest)
+        return final_status
+    except Exception as exc:
+        detail = str(exc) or type(exc).__name__
+        publish_error = f"execution state publish failed: {detail}"
+        execution_log["status"] = "blocked"
+        execution_log["blocker"] = publish_error
+        execution_log["publish_error"] = detail
+        _mark_copied_plan(plan, execution_log)
+        blocked_manifest = {
+            **manifest,
+            "status": "blocked",
+            "rendered_outputs": execution_log["rendered_outputs"],
+            "publish_error": detail,
+        }
+        for destination, value in (
+            (plan_path, plan),
+            (log_path, execution_log),
+        ):
+            try:
+                _atomic_replace_json(destination, value)
+            except Exception:
+                pass
+        blocked_manifest["artifacts"] = _artifact_names(version_dir)
+        try:
+            _atomic_replace_json(manifest_path, blocked_manifest)
+        except Exception:
+            pass
+        return "blocked"
 
 
 def _load_plan(plan_path: Path) -> object:
@@ -1264,7 +1459,7 @@ def _build_loaded_bundle(
             raise BuildError("ffmpeg is unavailable")
 
         _bind_authorized_version(plan, plan_path, version_dir)
-        execution_plan = _prepare_execution_plan(plan, plan_path)
+        execution_plan, input_guards = _prepare_execution_plan(plan, plan_path)
         _replace_command_plans(
             execution_plan,
             plan_path,
@@ -1277,21 +1472,18 @@ def _build_loaded_bundle(
             version_dir / "ffmpeg_commands.json",
             {"schema_version": 1, "deliveries": command_deliveries},
         )
-        status = _execute_authorized(
+        status, execution_log = _execute_authorized(
             plan,
             version_dir,
             command_deliveries,
             str(ffmpeg_path),
             ffprobe_path,
             runner,
+            input_guards,
         )
-        manifest["status"] = status
-        manifest["artifacts"] = _artifact_names(version_dir)
-        execution_log = json.loads(
-            (version_dir / "execution_log.json").read_text(encoding="utf-8")
+        status = _publish_execution_state(
+            plan, execution_log, version_dir, manifest
         )
-        manifest["rendered_outputs"] = execution_log["rendered_outputs"]
-        _replace_owned_json(manifest_path, manifest)
         return version_dir
     except Exception as exc:
         build_error = (
