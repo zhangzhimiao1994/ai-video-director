@@ -923,25 +923,54 @@ def _tool_evidence_blocker(
         for item in plan["execution"].get("tool_evidence", [])
         if isinstance(item, dict) and item.get("status") == "verified"
     ]
-    relevant = []
-    for item in verified:
-        values = [
+    typed = [
+        item
+        for item in verified
+        if isinstance(item.get("tool"), str)
+        and os.path.normcase(item["tool"].strip()) == os.path.normcase(tool_name)
+    ]
+    if not typed:
+        wrong_identity_matches_path = any(
+            isinstance(item.get(field), str)
+            and os.path.normcase(os.path.normpath(item[field].strip()))
+            == normalized_requested
+            for item in verified
+            for field in ("path", "executable")
+        )
+        if wrong_identity_matches_path:
+            return f"verified {tool_name} tool evidence tool must be {tool_name}"
+        return f"verified {tool_name} tool evidence is required"
+
+    requested_name = Path(requested_tool.strip()).name.casefold()
+    standard_tool_only = requested_name in {
+        tool_name.casefold(),
+        f"{tool_name}.exe".casefold(),
+    }
+    saw_bound_path = False
+    for item in typed:
+        bound_values = [
             item.get(field)
-            for field in ("tool", "path", "executable")
+            for field in ("path", "executable")
             if isinstance(item.get(field), str) and item.get(field).strip()
         ]
-        if any(
-            os.path.normcase(os.path.normpath(value.strip())) == normalized_requested
-            for value in values
-        ):
+        if bound_values:
+            saw_bound_path = True
+            if any(
+                os.path.normcase(os.path.normpath(value.strip()))
+                == normalized_requested
+                for value in bound_values
+            ):
+                return None
+        elif standard_tool_only:
             return None
-        if any(tool_name.casefold() in value.casefold() for value in values):
-            relevant.append(item)
-    if relevant:
+    if saw_bound_path:
         return (
             f"verified {tool_name} tool evidence does not match {requested_tool}"
         )
-    return f"verified {tool_name} tool evidence is required"
+    return (
+        f"verified {tool_name} tool evidence must bind path/executable to "
+        f"{requested_tool}"
+    )
 
 
 def _mark_copied_plan(
@@ -969,7 +998,8 @@ def _mark_copied_plan(
         tool_evidence.append(
             {
                 "tool_evidence_id": tool_id,
-                "tool": output["ffmpeg_tool"],
+                "tool": "ffmpeg",
+                "path": output["ffmpeg_tool"],
                 "status": "verified",
             }
         )
@@ -978,7 +1008,8 @@ def _mark_copied_plan(
             tool_evidence.append(
                 {
                     "tool_evidence_id": probe_tool_id,
-                    "tool": output["ffprobe_tool"],
+                    "tool": "ffprobe",
+                    "path": output["ffprobe_tool"],
                     "status": "verified",
                 }
             )

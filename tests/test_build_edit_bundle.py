@@ -48,12 +48,14 @@ def authorize_plan(plan, version_directory="edit/v001"):
             "tool_evidence": [
                 {
                     "tool_evidence_id": "AUTH-FFMPEG",
-                    "tool": "ffmpeg-test",
+                    "tool": "ffmpeg",
+                    "path": "ffmpeg-test",
                     "status": "verified",
                 },
                 {
                     "tool_evidence_id": "AUTH-FFPROBE",
-                    "tool": "ffprobe-test",
+                    "tool": "ffprobe",
+                    "path": "ffprobe-test",
                     "status": "verified",
                 },
             ],
@@ -522,11 +524,12 @@ class BuildEditBundleTests(unittest.TestCase):
                 [
                     {
                         "tool_evidence_id": "AUTH-OTHER",
-                        "tool": "different-ffmpeg",
+                        "tool": "totally-not-an-editor",
+                        "path": "ffmpeg-test",
                         "status": "verified",
                     }
                 ],
-                "does not match ffmpeg-test",
+                "tool must be ffmpeg",
             ),
         )
         for evidence, expected in cases:
@@ -562,7 +565,8 @@ class BuildEditBundleTests(unittest.TestCase):
             plan["execution"]["tool_evidence"] = [
                 {
                     "tool_evidence_id": "AUTH-FFMPEG",
-                    "tool": "ffmpeg-test",
+                    "tool": "ffmpeg",
+                    "path": "ffmpeg-test",
                     "status": "verified",
                 }
             ]
@@ -585,6 +589,37 @@ class BuildEditBundleTests(unittest.TestCase):
         self.assertEqual(calls, [])
         self.assertEqual(log["status"], "blocked")
         self.assertIn("verified ffprobe tool evidence", log["blocker"])
+
+    def test_ffprobe_evidence_rejects_wrong_tool_identity_even_when_path_matches(self):
+        calls = []
+        with tempfile.TemporaryDirectory() as temp_dir:
+            plan = rich_tier_plan("final_master")
+            plan, plan_path = write_authorized_plan(temp_dir, plan)
+            probe_evidence = next(
+                item
+                for item in plan["execution"]["tool_evidence"]
+                if item["tool"] == "ffprobe"
+            )
+            probe_evidence["tool"] = "totally-not-a-probe"
+            plan_path = write_plan(temp_dir, plan, "wrong-probe-tool.json")
+            created = build_edit_bundle(
+                plan_path,
+                Path(temp_dir) / "edit",
+                execute=True,
+                ffmpeg_path="ffmpeg-test",
+                ffprobe_path="ffprobe-test",
+                runner=lambda args, **kwargs: (
+                    calls.append(args)
+                    or subprocess.CompletedProcess(args, 9, "", "must not run")
+                ),
+            )
+            log = json.loads(
+                (created / "execution_log.json").read_text(encoding="utf-8")
+            )
+
+        self.assertEqual(calls, [])
+        self.assertEqual(log["status"], "blocked")
+        self.assertIn("tool must be ffprobe", log["blocker"])
 
     def test_execution_validation_happens_before_the_first_runner_command(self):
         event_order = []
@@ -764,8 +799,15 @@ class BuildEditBundleTests(unittest.TestCase):
             all(item["probe_status"] == "passed" for item in log["rendered_outputs"])
         )
         self.assertIn(
-            "ffprobe-test",
+            "ffprobe",
             {item["tool"] for item in copied["execution"]["tool_evidence"]},
+        )
+        self.assertIn(
+            "ffprobe-test",
+            {
+                item.get("path")
+                for item in copied["execution"]["tool_evidence"]
+            },
         )
 
     def test_bad_final_probe_and_missing_fine_probe_are_blocked(self):
