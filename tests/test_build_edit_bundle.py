@@ -1,10 +1,13 @@
 import copy
+import io
 import json
 import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,7 +18,7 @@ JIANYING_FIXTURE = (
 )
 sys.path.insert(0, str(SCRIPTS_DIR))
 
-from build_edit_bundle import BuildError, build_edit_bundle, next_version_dir
+from build_edit_bundle import BuildError, build_edit_bundle, main, next_version_dir
 
 
 def load_plan(path=FIXTURE):
@@ -56,6 +59,68 @@ def authorized_plan():
     for delivery in plan["delivery_specs"]:
         delivery["status"] = "authorized"
     return plan
+
+
+def rich_tier_plan(role):
+    plan = load_plan()
+    plan["media_bindings"].append(
+        {
+            "asset_id": "AUD01",
+            "binding_scope": "project",
+            "target_id": "PKG-001",
+            "source_type": "post_asset",
+            "path_or_uri": "media/music.wav",
+            "file_status": "online",
+            "rights_status": "cleared",
+            "probe_status": "verified",
+            "selection_reason": "approved music",
+            "acceptance_status": "approved",
+        }
+    )
+    plan["audio_tracks"][0]["cues"] = [
+        {
+            "audio_cue_id": "AC01",
+            "asset_id": "AUD01",
+            "timeline_in_seconds": 0,
+            "timeline_out_seconds": 4,
+            "gain_db": -3,
+        }
+    ]
+    plan["text_tracks"][0]["cues"] = [
+        {
+            "text_cue_id": "TC01",
+            "text": "Approved subtitle",
+            "timeline_in_seconds": 0,
+            "timeline_out_seconds": 2,
+        },
+        {
+            "text_cue_id": "TC02",
+            "text": "Approved closing subtitle",
+            "timeline_in_seconds": 2,
+            "timeline_out_seconds": 4,
+        },
+    ]
+    for timeline in plan["timelines"]:
+        timeline["video_tracks"][0]["edit_units"][0]["audio_cue_ids"] = ["AC01"]
+        timeline["video_tracks"][0]["edit_units"][0]["text_cue_ids"] = ["TC01"]
+        timeline["video_tracks"][0]["edit_units"][1]["text_cue_ids"] = ["TC02"]
+    plan["look_plan"]["ffmpeg_filters"] = [
+        {"name": "eq", "params": {"contrast": 1.1}}
+    ]
+    for delivery in plan["delivery_specs"]:
+        delivery["version_role"] = role
+        delivery["subtitle_mode"] = "burn_in"
+        delivery["audio_mode"] = "final_mix"
+        delivery["look_mode"] = "approved" if role == "final_master" else "none"
+    return plan
+
+
+def normalized_commands(delivery_plan, version_dir):
+    prefix = str(version_dir.resolve())
+    return [
+        [arg.replace(prefix, "<VERSION>") for arg in command]
+        for command in delivery_plan["commands"]
+    ]
 
 
 class BuildEditBundleTests(unittest.TestCase):
@@ -232,15 +297,14 @@ class BuildEditBundleTests(unittest.TestCase):
         self.assertEqual(blocked_log["commands"][0]["stderr"], "synthetic failure")
         self.assertTrue(blocked_canon_preserved)
 
-    def test_delivery_tiers_emit_materially_different_plans(self):
-        stages = {}
+    def test_delivery_tiers_emit_different_commands_and_canonical_requirements(self):
+        compiled = {}
         with tempfile.TemporaryDirectory() as temp_dir:
-            for role in ("rough_cut", "fine_cut", "final_master"):
-                plan = copy.deepcopy(load_plan())
-                for delivery in plan["delivery_specs"]:
-                    delivery["version_role"] = role
-                    delivery["audio_mode"] = "none"
-                    delivery["look_mode"] = "none"
+            for role, plan in (
+                ("rough_cut", load_plan()),
+                ("fine_cut", rich_tier_plan("fine_cut")),
+                ("final_master", rich_tier_plan("final_master")),
+            ):
                 plan_path = write_plan(temp_dir, plan, f"{role}.json")
                 created = build_edit_bundle(
                     plan_path, Path(temp_dir) / f"edit-{role}"
@@ -248,15 +312,89 @@ class BuildEditBundleTests(unittest.TestCase):
                 command_plan = json.loads(
                     (created / "ffmpeg_commands.json").read_text(encoding="utf-8")
                 )
-                stages[role] = command_plan["deliveries"][0]["stages"]
+                selected = command_plan["deliveries"][0]
+                compiled[role] = {
+                    "commands": normalized_commands(selected, created),
+                    "requirements": selected["requirements"],
+                }
 
-        self.assertNotIn("final_look", stages["rough_cut"])
-        self.assertNotIn("loudness", stages["rough_cut"])
-        for stage in ("approved_cut_points", "text_instructions", "audio_instructions"):
-            self.assertIn(stage, stages["fine_cut"])
-        for stage in ("final_look", "loudness", "encoding", "probe_requirements"):
-            self.assertIn(stage, stages["final_master"])
-        self.assertEqual(len({tuple(value) for value in stages.values()}), 3)
+        self.assertEqual(compiled["rough_cut"]["requirements"]["look_mode"], "none")
+        self.assertNotIn("final_mix", json.dumps(compiled["rough_cut"]))
+        self.assertTrue(compiled["fine_cut"]["requirements"]["approved_cuts"])
+        self.assertTrue(compiled["fine_cut"]["requirements"]["text_cues"])
+        self.assertTrue(compiled["fine_cut"]["requirements"]["audio_cues"])
+        final_requirements = compiled["final_master"]["requirements"]
+        self.assertTrue(final_requirements["look_filters"])
+        self.assertEqual(final_requirements["loudness"][0]["target_lufs"], -14)
+        self.assertIn("video_codec", final_requirements["encoding"])
+        self.assertTrue(final_requirements["probe"]["required"])
+        self.assertEqual(
+            len(
+                {
+                    json.dumps(value["commands"], sort_keys=True)
+                    for value in compiled.values()
+                }
+            ),
+            3,
+        )
+
+    def test_fine_and_final_cannot_use_none_modes_to_masquerade_as_tiers(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            for role, expected in (
+                ("fine_cut", "fine_cut requires approved cut, text, and audio"),
+                (
+                    "final_master",
+                    "final_master requires approved text, audio, and look",
+                ),
+            ):
+                with self.subTest(role=role):
+                    plan = copy.deepcopy(load_plan())
+                    for delivery in plan["delivery_specs"]:
+                        delivery["version_role"] = role
+                        delivery["subtitle_mode"] = "none"
+                        delivery["audio_mode"] = "none"
+                        delivery["look_mode"] = "none"
+                    plan_path = write_plan(temp_dir, plan, f"{role}.json")
+                    with self.assertRaisesRegex(BuildError, expected):
+                        build_edit_bundle(
+                            plan_path, Path(temp_dir) / f"edit-{role}"
+                        )
+
+    def test_cli_reports_writer_oserror_as_build_blocker(self):
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with tempfile.TemporaryDirectory() as temp_dir, mock.patch(
+            "build_edit_bundle.write_construction_markdown",
+            side_effect=OSError("synthetic disk failure"),
+        ), redirect_stdout(stdout), redirect_stderr(stderr):
+            exit_code = main(
+                [str(FIXTURE), "--out", str(Path(temp_dir) / "edit")]
+            )
+
+        self.assertEqual(exit_code, 1)
+        self.assertIn("synthetic disk failure", stderr.getvalue())
+        self.assertNotIn("could not load edit plan", stderr.getvalue())
+        self.assertEqual(stdout.getvalue(), "")
+
+    def test_cli_keeps_missing_and_invalid_source_plan_errors_at_exit_two(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            invalid = Path(temp_dir) / "invalid.json"
+            invalid.write_text("{not-json", encoding="utf-8")
+            for source in (Path(temp_dir) / "missing.json", invalid):
+                with self.subTest(source=source):
+                    stdout = io.StringIO()
+                    stderr = io.StringIO()
+                    with redirect_stdout(stdout), redirect_stderr(stderr):
+                        exit_code = main(
+                            [
+                                str(source),
+                                "--out",
+                                str(Path(temp_dir) / "edit"),
+                            ]
+                        )
+                    self.assertEqual(exit_code, 2)
+                    self.assertIn("could not load edit plan", stderr.getvalue())
+                    self.assertEqual(stdout.getvalue(), "")
 
 
 if __name__ == "__main__":

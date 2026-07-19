@@ -28,6 +28,10 @@ class BuildError(ValueError):
     """Raised when a safe editing bundle cannot be built or executed."""
 
 
+class _PlanInputError(ValueError):
+    """Internal distinction for CLI usage errors while loading the source plan."""
+
+
 _VERSION_NAME = re.compile(r"^v([0-9]{3,})$")
 
 
@@ -122,6 +126,199 @@ def _tier_stages(version_role: object) -> list[str]:
     raise BuildError(f"unsupported delivery tier {version_role}")
 
 
+def _active_units(timeline: dict[str, Any]) -> list[dict[str, Any]]:
+    matches = [
+        track
+        for track in timeline["video_tracks"]
+        if track.get("track_id") == "V1"
+        and track.get("runtime_role") == "active"
+        and track.get("release_role") == "first_release"
+    ]
+    if len(matches) != 1:
+        raise BuildError("tier plan requires one active first_release V1 track")
+    return matches[0]["edit_units"]
+
+
+def _mounted_cues(
+    plan: dict[str, Any], timeline: dict[str, Any], *, kind: str
+) -> list[dict[str, Any]]:
+    if kind == "text":
+        ref_field, tracks_field, id_field, cues_field = (
+            "text_track_refs",
+            "text_tracks",
+            "text_track_id",
+            "cues",
+        )
+    elif kind == "audio":
+        ref_field, tracks_field, id_field, cues_field = (
+            "audio_track_refs",
+            "audio_tracks",
+            "audio_track_id",
+            "cues",
+        )
+    else:  # pragma: no cover - private caller uses a closed set.
+        raise BuildError(f"unsupported cue kind {kind}")
+    mounted_ids = set(timeline[ref_field])
+    cues = []
+    for track in plan[tracks_field]:
+        if track.get(id_field) in mounted_ids:
+            cues.extend(track[cues_field])
+    return cues
+
+
+def _approved_cut_requirements(timeline: dict[str, Any]) -> list[dict[str, Any]]:
+    requirements = []
+    for unit in _active_units(timeline):
+        if unit.get("approval_status") != "approved":
+            raise BuildError("fine_cut requires every cut and reframe to be approved")
+        requirements.append(
+            {
+                field: unit.get(field)
+                for field in (
+                    "edit_unit_id",
+                    "asset_id",
+                    "timeline_in_seconds",
+                    "timeline_out_seconds",
+                    "source_in_seconds",
+                    "source_out_seconds",
+                    "transition_in",
+                    "transition_out",
+                    "reframe",
+                    "scale",
+                    "position",
+                    "approval_status",
+                )
+            }
+        )
+    return requirements
+
+
+def _tier_requirements(
+    plan: dict[str, Any],
+    timeline: dict[str, Any],
+    delivery: dict[str, Any],
+) -> dict[str, Any]:
+    """Compile enforceable tier inputs, not cosmetic tier labels."""
+
+    role = delivery.get("version_role")
+    audio_mode = delivery.get("audio_mode")
+    look_mode = delivery.get("look_mode")
+    subtitle_mode = delivery.get("subtitle_mode")
+    if role == "rough_cut":
+        if audio_mode not in {"temporary_or_silent", "none"} or look_mode != "none":
+            raise BuildError("rough_cut excludes final look and final mix")
+        return {
+            "tier": role,
+            "timeline_id": timeline.get("timeline_id"),
+            "edit_unit_ids": [
+                unit.get("edit_unit_id") for unit in _active_units(timeline)
+            ],
+            "subtitle_mode": subtitle_mode,
+            "audio_mode": audio_mode,
+            "look_mode": look_mode,
+            "probe": {"required": False},
+        }
+
+    if role not in {"fine_cut", "final_master"}:
+        raise BuildError(f"unsupported delivery tier {role}")
+
+    text_cues = _mounted_cues(plan, timeline, kind="text")
+    audio_cues = _mounted_cues(plan, timeline, kind="audio")
+    has_text = subtitle_mode in {"sidecar", "burn_in"} and bool(text_cues)
+    has_audio = audio_mode == "final_mix" and bool(audio_cues)
+    has_final_look = (
+        look_mode == "approved"
+        and isinstance(plan["look_plan"].get("ffmpeg_filters"), list)
+        and bool(plan["look_plan"]["ffmpeg_filters"])
+    )
+    if role == "fine_cut" and (not has_text or not has_audio or look_mode != "none"):
+        raise BuildError(
+            "fine_cut requires approved cut, text, and audio instructions; "
+            "final look remains excluded"
+        )
+    if role == "final_master" and (
+        not has_text or not has_audio or not has_final_look
+    ):
+        raise BuildError(
+            "final_master requires approved text, audio, and look instructions"
+        )
+
+    requirements: dict[str, Any] = {
+        "tier": role,
+        "timeline_id": timeline.get("timeline_id"),
+        "approved_cuts": _approved_cut_requirements(timeline),
+        "subtitle_mode": subtitle_mode,
+        "text_cues": [
+            {
+                field: cue.get(field)
+                for field in (
+                    "text_cue_id",
+                    "timeline_in_seconds",
+                    "timeline_out_seconds",
+                    "text",
+                )
+            }
+            for cue in text_cues
+        ],
+        "audio_mode": audio_mode,
+        "audio_cues": [
+            {
+                field: cue.get(field)
+                for field in (
+                    "audio_cue_id",
+                    "asset_id",
+                    "timeline_in_seconds",
+                    "timeline_out_seconds",
+                    "gain_db",
+                )
+            }
+            for cue in audio_cues
+        ],
+        "look_mode": look_mode,
+        "probe": {"required": False},
+    }
+    if role == "final_master":
+        mounted_audio_ids = set(timeline["audio_track_refs"])
+        requirements.update(
+            {
+                "look_filters": plan["look_plan"]["ffmpeg_filters"],
+                "loudness": [
+                    {
+                        "audio_track_id": track.get("audio_track_id"),
+                        "target_lufs": track.get("target_lufs"),
+                        "true_peak_db": track.get("true_peak_db"),
+                    }
+                    for track in plan["audio_tracks"]
+                    if track.get("audio_track_id") in mounted_audio_ids
+                ],
+                "encoding": {
+                    field: delivery.get(field)
+                    for field in (
+                        "container",
+                        "video_codec",
+                        "audio_codec",
+                        "bitrate",
+                        "audio_sample_rate",
+                        "audio_channels",
+                    )
+                },
+                "probe": {
+                    "required": True,
+                    "expected": {
+                        "resolution": delivery.get("resolution"),
+                        "frame_rate": delivery.get("frame_rate"),
+                        "duration_seconds": timeline.get("duration_seconds"),
+                        "video_codec": delivery.get("video_codec"),
+                        "audio_codec": delivery.get("audio_codec"),
+                        "audio_sample_rate": delivery.get("audio_sample_rate"),
+                        "audio_channels": delivery.get("audio_channels"),
+                    },
+                },
+            }
+        )
+    return requirements
+
+
 def _artifact_names(version_dir: Path) -> list[str]:
     return sorted(
         path.relative_to(version_dir).as_posix()
@@ -166,6 +363,7 @@ def _build_handoffs(
                     "timeline_id": timeline.get("timeline_id"),
                     "version_role": delivery.get("version_role"),
                     "stages": _tier_stages(delivery.get("version_role")),
+                    "requirements": _tier_requirements(plan, timeline, delivery),
                     "commands": ffmpeg_command_plan(
                         plan,
                         timeline,
@@ -278,8 +476,18 @@ def _execute_minimal(
     return execution_log["status"]
 
 
-def build_edit_bundle(
-    plan_path: Path,
+def _load_plan(plan_path: Path) -> object:
+    source_path = Path(plan_path)
+    try:
+        with source_path.open("r", encoding="utf-8") as source:
+            return json.load(source)
+    except (OSError, UnicodeError, ValueError, RecursionError, MemoryError) as exc:
+        detail = str(exc) or type(exc).__name__
+        raise _PlanInputError(detail) from None
+
+
+def _build_loaded_bundle(
+    plan: object,
     output_root: Path,
     *,
     execute: bool = False,
@@ -287,13 +495,7 @@ def build_edit_bundle(
     ffprobe_path: str | None = None,
     runner: Callable[..., subprocess.CompletedProcess] = subprocess.run,
 ) -> Path:
-    """Validate a Canon plan and create a fresh dry-run (or authorized) bundle."""
-
     del ffprobe_path  # Reserved for Task 6 probe verification.
-    source_path = Path(plan_path)
-    with source_path.open("r", encoding="utf-8") as source:
-        plan = json.load(source)
-
     errors = validate_edit_plan(plan)
     if errors:
         raise BuildError("\n".join(errors))
@@ -341,6 +543,33 @@ def build_edit_bundle(
     return version_dir
 
 
+def build_edit_bundle(
+    plan_path: Path,
+    output_root: Path,
+    *,
+    execute: bool = False,
+    ffmpeg_path: str | None = None,
+    ffprobe_path: str | None = None,
+    runner: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+) -> Path:
+    """Validate a Canon plan and create a fresh dry-run (or authorized) bundle."""
+
+    plan = _load_plan(plan_path)
+    try:
+        return _build_loaded_bundle(
+            plan,
+            output_root,
+            execute=execute,
+            ffmpeg_path=ffmpeg_path,
+            ffprobe_path=ffprobe_path,
+            runner=runner,
+        )
+    except BuildError:
+        raise
+    except (OSError, UnicodeError) as exc:
+        raise BuildError(f"could not build bundle: {exc}") from None
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Build a versioned finished-film editing handoff bundle."
@@ -360,17 +589,20 @@ def main(argv: list[str] | None = None) -> int:
             ffmpeg_path=args.ffmpeg,
             ffprobe_path=args.ffprobe,
         )
-    except (OSError, UnicodeError, json.JSONDecodeError, RecursionError, MemoryError) as exc:
-        detail = str(exc) or type(exc).__name__
-        print(f"ERROR: could not load edit plan: {detail}", file=sys.stderr)
+    except _PlanInputError as exc:
+        print(f"ERROR: could not load edit plan: {exc}", file=sys.stderr)
         return 2
     except BuildError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
-    manifest = json.loads(
-        (version_dir / "bundle_manifest.json").read_text(encoding="utf-8")
-    )
+    try:
+        manifest = json.loads(
+            (version_dir / "bundle_manifest.json").read_text(encoding="utf-8")
+        )
+    except (OSError, UnicodeError, ValueError) as exc:
+        print(f"ERROR: could not inspect bundle manifest: {exc}", file=sys.stderr)
+        return 1
     print(version_dir)
     print(f"Bundle status: {manifest['status']}")
     return 0 if manifest["status"] != "blocked" else 1
