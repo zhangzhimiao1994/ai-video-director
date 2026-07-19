@@ -621,6 +621,138 @@ class BuildEditBundleTests(unittest.TestCase):
         self.assertEqual(log["status"], "blocked")
         self.assertIn("tool must be ffprobe", log["blocker"])
 
+    def test_tool_only_ffmpeg_evidence_rejects_absolute_and_relative_paths(self):
+        for requested in (r"C:\tools\ffmpeg.exe", r".\bin\ffmpeg.exe"):
+            with self.subTest(requested=requested), tempfile.TemporaryDirectory() as temp_dir:
+                plan = authorized_plan()
+                plan["execution"]["tool_evidence"] = [
+                    {
+                        "tool_evidence_id": "AUTH-FFMPEG",
+                        "tool": "ffmpeg",
+                        "status": "verified",
+                    }
+                ]
+                materialize_plan_media(temp_dir, plan)
+                plan_path = write_plan(temp_dir, plan)
+                calls = []
+                created = build_edit_bundle(
+                    plan_path,
+                    Path(temp_dir) / "edit",
+                    execute=True,
+                    ffmpeg_path=requested,
+                    runner=lambda args, **kwargs: (
+                        calls.append(args)
+                        or subprocess.CompletedProcess(args, 9, "", "must not run")
+                    ),
+                )
+                log = json.loads(
+                    (created / "execution_log.json").read_text(encoding="utf-8")
+                )
+
+            self.assertEqual(calls, [])
+            self.assertEqual(log["status"], "blocked")
+            self.assertIn("must bind path/executable", log["blocker"])
+
+    def test_tool_only_ffprobe_evidence_rejects_absolute_and_relative_paths(self):
+        for requested in (r"C:\tools\ffprobe.exe", r".\bin\ffprobe.exe"):
+            with self.subTest(requested=requested), tempfile.TemporaryDirectory() as temp_dir:
+                plan = rich_tier_plan("final_master")
+                plan, _plan_path = write_authorized_plan(temp_dir, plan)
+                plan["execution"]["tool_evidence"] = [
+                    {
+                        "tool_evidence_id": "AUTH-FFMPEG",
+                        "tool": "ffmpeg",
+                        "path": "ffmpeg-test",
+                        "status": "verified",
+                    },
+                    {
+                        "tool_evidence_id": "AUTH-FFPROBE",
+                        "tool": "ffprobe",
+                        "status": "verified",
+                    },
+                ]
+                plan_path = write_plan(temp_dir, plan, "probe-path.json")
+                calls = []
+                created = build_edit_bundle(
+                    plan_path,
+                    Path(temp_dir) / "edit",
+                    execute=True,
+                    ffmpeg_path="ffmpeg-test",
+                    ffprobe_path=requested,
+                    runner=lambda args, **kwargs: (
+                        calls.append(args)
+                        or subprocess.CompletedProcess(args, 9, "", "must not run")
+                    ),
+                )
+                log = json.loads(
+                    (created / "execution_log.json").read_text(encoding="utf-8")
+                )
+
+            self.assertEqual(calls, [])
+            self.assertEqual(log["status"], "blocked")
+            self.assertIn("must bind path/executable", log["blocker"])
+
+    def test_tool_only_evidence_accepts_bare_case_insensitive_commands(self):
+        def runner(args, **kwargs):
+            if args[0].casefold() == "ffprobe.exe":
+                filename = Path(args[-1]).name
+                width, height = (
+                    (1920, 1080) if "16x9" in filename else (1080, 1920)
+                )
+                payload = {
+                    "streams": [
+                        {
+                            "codec_type": "video",
+                            "codec_name": "h264",
+                            "width": width,
+                            "height": height,
+                            "avg_frame_rate": "24/1",
+                        },
+                        {
+                            "codec_type": "audio",
+                            "codec_name": "aac",
+                            "sample_rate": "48000",
+                            "channels": 2,
+                        },
+                    ],
+                    "format": {"duration": "4.0"},
+                }
+                return subprocess.CompletedProcess(args, 0, json.dumps(payload), "")
+            output = Path(args[-1])
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_bytes(b"rendered")
+            return subprocess.CompletedProcess(args, 0, "", "")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            plan = rich_tier_plan("final_master")
+            plan, _plan_path = write_authorized_plan(temp_dir, plan)
+            plan["execution"]["tool_evidence"] = [
+                {
+                    "tool_evidence_id": "AUTH-FFMPEG",
+                    "tool": "FFMPEG",
+                    "status": "verified",
+                },
+                {
+                    "tool_evidence_id": "AUTH-FFPROBE",
+                    "tool": "FFPROBE",
+                    "status": "verified",
+                },
+            ]
+            plan_path = write_plan(temp_dir, plan, "bare-tools.json")
+            created = build_edit_bundle(
+                plan_path,
+                Path(temp_dir) / "edit",
+                execute=True,
+                ffmpeg_path="FFMPEG.EXE",
+                ffprobe_path="FFPROBE.EXE",
+                runner=runner,
+            )
+            manifest = json.loads(
+                (created / "bundle_manifest.json").read_text(encoding="utf-8")
+            )
+
+        self.assertEqual(manifest["status"], "rendered")
+
     def test_execution_validation_happens_before_the_first_runner_command(self):
         event_order = []
 

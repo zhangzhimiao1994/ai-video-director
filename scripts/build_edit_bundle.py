@@ -941,11 +941,16 @@ def _tool_evidence_blocker(
             return f"verified {tool_name} tool evidence tool must be {tool_name}"
         return f"verified {tool_name} tool evidence is required"
 
-    requested_name = Path(requested_tool.strip()).name.casefold()
-    standard_tool_only = requested_name in {
-        tool_name.casefold(),
-        f"{tool_name}.exe".casefold(),
-    }
+    requested_text = requested_tool.strip()
+    standard_tool_only = (
+        "/" not in requested_text
+        and "\\" not in requested_text
+        and not Path(requested_text).drive
+        and requested_text.casefold() in {
+            tool_name.casefold(),
+            f"{tool_name}.exe".casefold(),
+        }
+    )
     saw_bound_path = False
     for item in typed:
         bound_values = [
