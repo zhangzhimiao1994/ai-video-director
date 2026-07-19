@@ -1344,6 +1344,42 @@ def _execute_authorized(
     return execution_log["status"], execution_log
 
 
+def _read_terminal_json(path: Path, label: str) -> dict[str, Any]:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, ValueError, RecursionError) as exc:
+        detail = str(exc) or type(exc).__name__
+        raise BuildError(f"could not confirm {label} terminal state: {detail}") from None
+    if not isinstance(value, dict):
+        raise BuildError(f"could not confirm {label} terminal state: expected object")
+    return value
+
+
+def _confirm_execution_terminal_state(version_dir: Path, expected: str) -> None:
+    if expected not in {"rendered", "blocked"}:
+        raise BuildError(f"invalid execution terminal status: {expected}")
+    manifest = _read_terminal_json(
+        version_dir / "bundle_manifest.json", "bundle manifest"
+    )
+    execution_log = _read_terminal_json(
+        version_dir / "execution_log.json", "execution log"
+    )
+    copied_plan = _read_terminal_json(
+        version_dir / "edit_master_plan.json", "copied plan"
+    )
+    observed = (
+        manifest.get("status"),
+        execution_log.get("status"),
+        copied_plan.get("plan_status"),
+    )
+    required = (expected, expected, expected)
+    if observed != required:
+        raise BuildError(
+            "could not confirm consistent execution terminal state: "
+            f"expected {required}, observed {observed}"
+        )
+
+
 def _publish_execution_state(
     plan: dict[str, Any],
     execution_log: dict[str, Any],
@@ -1372,6 +1408,7 @@ def _publish_execution_state(
             "artifacts": _artifact_names(version_dir),
         }
         _atomic_replace_json(manifest_path, final_manifest)
+        _confirm_execution_terminal_state(version_dir, final_status)
         return final_status
     except Exception as exc:
         detail = str(exc) or type(exc).__name__
@@ -1399,6 +1436,13 @@ def _publish_execution_state(
             _atomic_replace_json(manifest_path, blocked_manifest)
         except Exception:
             pass
+        try:
+            _confirm_execution_terminal_state(version_dir, "blocked")
+        except BuildError as terminal_exc:
+            raise BuildError(
+                f"{publish_error}; terminal state could not be confirmed: "
+                f"{terminal_exc}"
+            ) from None
         return "blocked"
 
 
@@ -1563,9 +1607,18 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, UnicodeError, ValueError) as exc:
         print(f"ERROR: could not inspect bundle manifest: {exc}", file=sys.stderr)
         return 1
+    status = manifest.get("status") if isinstance(manifest, dict) else None
+    expected_status = "rendered" if args.execute else "dry_run_passed"
+    if status != expected_status:
+        print(
+            f"ERROR: unexpected bundle status for this mode: {status!r}; "
+            f"expected {expected_status!r}",
+            file=sys.stderr,
+        )
+        return 1
     print(version_dir)
-    print(f"Bundle status: {manifest['status']}")
-    return 0 if manifest["status"] != "blocked" else 1
+    print(f"Bundle status: {status}")
+    return 0
 
 
 if __name__ == "__main__":

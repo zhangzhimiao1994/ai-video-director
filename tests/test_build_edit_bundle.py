@@ -992,6 +992,102 @@ class BuildEditBundleTests(unittest.TestCase):
         self.assertEqual(manifest["status"], "blocked")
         self.assertIn("synthetic atomic log publish failure", manifest["publish_error"])
 
+    def test_persistent_final_manifest_failure_raises_and_preserves_evidence(self):
+        real_replace = os.replace
+        manifest_replaces = []
+
+        def persistent_manifest_failure(source, destination):
+            if Path(destination).name == "bundle_manifest.json":
+                manifest_replaces.append(Path(destination))
+                if len(manifest_replaces) > 1:
+                    raise OSError("synthetic persistent manifest publish failure")
+            return real_replace(source, destination)
+
+        def successful_runner(args, **kwargs):
+            output = Path(args[-1])
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_bytes(b"rendered")
+            return subprocess.CompletedProcess(args, 0, "", "")
+
+        with tempfile.TemporaryDirectory() as temp_dir, mock.patch(
+            "build_edit_bundle.os.replace",
+            side_effect=persistent_manifest_failure,
+        ):
+            _plan, plan_path = write_authorized_plan(temp_dir)
+            source_before = plan_path.read_text(encoding="utf-8")
+            output_root = Path(temp_dir) / "edit"
+            with self.assertRaisesRegex(
+                BuildError, "synthetic persistent manifest publish failure"
+            ):
+                build_edit_bundle(
+                    plan_path,
+                    output_root,
+                    execute=True,
+                    ffmpeg_path="ffmpeg-test",
+                    runner=successful_runner,
+                )
+            version_dir = output_root / "v001"
+            manifest = json.loads(
+                (version_dir / "bundle_manifest.json").read_text(encoding="utf-8")
+            )
+            copied = json.loads(
+                (version_dir / "edit_master_plan.json").read_text(encoding="utf-8")
+            )
+            log = json.loads(
+                (version_dir / "execution_log.json").read_text(encoding="utf-8")
+            )
+            source_after = plan_path.read_text(encoding="utf-8")
+
+        self.assertGreaterEqual(len(manifest_replaces), 3)
+        self.assertEqual(source_after, source_before)
+        self.assertEqual(manifest["status"], "publishing")
+        self.assertEqual(copied["plan_status"], "blocked")
+        self.assertEqual(log["status"], "blocked")
+        self.assertIn("synthetic persistent manifest publish failure", log["publish_error"])
+
+    def test_cli_persistent_manifest_failure_is_not_success(self):
+        real_replace = os.replace
+        manifest_replaces = []
+
+        def persistent_manifest_failure(source, destination):
+            if Path(destination).name == "bundle_manifest.json":
+                manifest_replaces.append(Path(destination))
+                if len(manifest_replaces) > 1:
+                    raise OSError("synthetic persistent CLI manifest failure")
+            return real_replace(source, destination)
+
+        def successful_runner(args, **kwargs):
+            output = Path(args[-1])
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_bytes(b"rendered")
+            return subprocess.CompletedProcess(args, 0, "", "")
+
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            _plan, plan_path = write_authorized_plan(temp_dir)
+            with mock.patch.dict(
+                build_edit_bundle.__kwdefaults__, {"runner": successful_runner}
+            ), mock.patch(
+                "build_edit_bundle.os.replace",
+                side_effect=persistent_manifest_failure,
+            ), redirect_stdout(stdout), redirect_stderr(stderr):
+                exit_code = main(
+                    [
+                        str(plan_path),
+                        "--out",
+                        str(Path(temp_dir) / "edit"),
+                        "--execute",
+                        "--ffmpeg",
+                        "ffmpeg-test",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 1)
+        self.assertGreaterEqual(len(manifest_replaces), 3)
+        self.assertIn("synthetic persistent CLI manifest failure", stderr.getvalue())
+        self.assertEqual(stdout.getvalue(), "")
+
     def test_output_link_to_external_file_is_blocked_after_runner_success(self):
         calls = []
 
@@ -1431,6 +1527,47 @@ class BuildEditBundleTests(unittest.TestCase):
         self.assertIn("synthetic disk failure", stderr.getvalue())
         self.assertNotIn("could not load edit plan", stderr.getvalue())
         self.assertEqual(stdout.getvalue(), "")
+
+    def test_cli_accepts_only_mode_specific_terminal_manifest_status(self):
+        cases = (
+            (False, "dry_run_passed", 0),
+            (True, "rendered", 0),
+            (False, "blocked", 1),
+            (True, "blocked", 1),
+            (False, "rendered", 1),
+            (True, "dry_run_passed", 1),
+            (False, "publishing", 1),
+            (True, "publishing", 1),
+            (False, "building", 1),
+            (True, "unknown", 1),
+            (False, None, 1),
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            for index, (execute, status, expected) in enumerate(cases):
+                with self.subTest(execute=execute, status=status):
+                    version_dir = root / f"v{index:03d}"
+                    version_dir.mkdir()
+                    manifest = {} if status is None else {"status": status}
+                    (version_dir / "bundle_manifest.json").write_text(
+                        json.dumps(manifest), encoding="utf-8"
+                    )
+                    argv = [str(FIXTURE), "--out", str(root / "unused")]
+                    if execute:
+                        argv.append("--execute")
+                    stdout = io.StringIO()
+                    stderr = io.StringIO()
+                    with mock.patch(
+                        "build_edit_bundle.build_edit_bundle",
+                        return_value=version_dir,
+                    ), redirect_stdout(stdout), redirect_stderr(stderr):
+                        try:
+                            exit_code = main(argv)
+                        except Exception as exc:
+                            self.fail(f"CLI leaked {type(exc).__name__}: {exc}")
+                    self.assertEqual(exit_code, expected)
+                    if expected == 0:
+                        self.assertIn(f"Bundle status: {status}", stdout.getvalue())
 
     def test_cli_keeps_missing_and_invalid_source_plan_errors_at_exit_two(self):
         with tempfile.TemporaryDirectory() as temp_dir:
