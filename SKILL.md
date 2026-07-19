@@ -46,9 +46,17 @@ Determine the requested delivery stage first. Reuse user-provided `approved` or 
 
 Use Chinese for production decisions, directing notes, screenplay, risk explanations, and approval questions. Use English for `storyboard_frame_prompt`, `universal_prompt_en`, `negative_prompt_en`, and provider-ready prompt text unless the user requests another prompt language.
 
+## Finished-Film Editing Router
+
+Activate when the user asks to edit, assemble, finish, render, export, deliver a final film, create an NLE timeline, or let an AI editor use generated/local clips. Read `references/editing-finish.md` after the active story/storyboard references and before `references/output-contract.md`.
+
+Create the optional `edit_master_plan` only when editing or finished-film delivery is requested. Keep the legacy ten-object generation package unchanged for screenplay-, storyboard-, prompt-, or job-only requests. Bind every shot-derived media asset to a stable `shot_id`; bind shared post assets by their declared scope and target instead of inventing a shot. Compile 16:9 and 9:16 as independent timelines when dual-aspect cinematic delivery is active.
+
+Compilation and dry-run may materialize `non-executable handoff artifacts` in one new `create_new` version directory; they never authorize external execution or `external media, project, or render writes`. Before FFmpeg, NLE/AI-tool execution, media or project generation or modification, render, or export, show the exact inputs, outputs, blockers, commands, and dry-run manifest, then require explicit `operation authorization` bound to that `manifest and exact version directory`. Once shown, the directory is locked; any input, command, blocker, directory, or manifest change requires a new dry-run and authorization, never a silent version increment. This operational boundary is not a fourth creative approval gate and cannot be bypassed by `one-pass draft`.
+
 ## Scope Boundary
 
-Never submit a video-generation API request, start or poll a provider job, download generated media, or edit video. This Skill only designs, compiles, validates, and hands off prompts plus an API-ready task manifest. The final gate authorizes compilation of deliverables, never external execution.
+This Skill may design and compile editing deliverables, including non-executable handoff artifacts in a new `create_new` version directory. It may execute FFmpeg or an available NLE/AI editing tool only after the finished-film dry-run passes and the user gives explicit operation authorization for the displayed manifest and locked directory. Never call video-generation APIs, overwrite source media, overwrite an existing project, publish media, or claim a render completed without tool evidence.
 
 ## Required Workflow
 

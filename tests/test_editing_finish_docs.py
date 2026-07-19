@@ -60,6 +60,32 @@ class EditingFinishDocsTests(unittest.TestCase):
             ),
         )
 
+    def test_editing_docs_define_handoff_and_canon_refinements(self):
+        docs = "\n".join(
+            (
+                self.read_required("SKILL.md"),
+                self.read_required("references/editing-finish.md"),
+            )
+        )
+        self.assert_contract_tokens(
+            docs,
+            (
+                "non-executable handoff artifacts",
+                "external media, project, or render writes",
+                "manifest and exact version directory",
+                "delivery_specs[].version_role",
+                "every requested delivery",
+                "version_id",
+                "artifact_refs",
+                "validation_refs",
+                "change_summary",
+                "standalone project ID",
+                "edit-unit `locked_event_ids`",
+                "binding_scope",
+                "target_id",
+            ),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

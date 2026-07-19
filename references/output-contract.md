@@ -506,3 +506,9 @@ Anatomy: extra fingers, fused hands, distorted face. Duplication: duplicate woma
 3. 运行 `python scripts/validate_package.py <package.json>`。
 4. 若结构校验通过，再人工核对故事因果、视觉连续性、官方字段来源、授权和 provider 手动配置。
 5. 只有校验与人工审阅都通过，才把 job 交给外部 API 编排；本 Skill 自身不调用 API。
+
+## Optional Finished-Film Extension
+
+The legacy ten-object package remains valid without editing objects. When finished-film delivery is requested, Markdown and JSON add one optional `edit_master_plan`; every construction sheet, CSV, SRT, OTIO, FCPXML, FFmpeg plan, and NLE handoff is derived from the same edit Canon.
+
+`edit_master_plan` contains `edit_plan_id`, `plan_status`, `source_package_id`, `target_duration_seconds`, `locked_event_ids`, `media_bindings`, `timelines`, `audio_tracks`, `text_tracks`, `look_plan`, `delivery_specs`, `software_targets`, `execution`, and `edit_validation`.

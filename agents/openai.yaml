@@ -1,4 +1,4 @@
 interface:
   display_name: "aibiandao"
-  short_description: "将视频创意转成专业剧本、三层分镜、连续性方案与逐镜生成提示词"
-  default_prompt: "使用 $aibiandao 把我的视频想法开发成剧本、三层分镜、逐镜英文提示词和模型任务清单。"
+  short_description: "将视频创意转成剧本、分镜、生成提示词与可直接执行的双画幅成片剪辑包"
+  default_prompt: "使用 $aibiandao 把我的视频想法开发成剧本、三层分镜、逐镜生成提示词，并在素材齐备后交付剪辑施工表和AI-ready成片时间线。"
