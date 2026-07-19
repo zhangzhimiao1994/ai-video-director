@@ -396,6 +396,57 @@ class BuildEditBundleTests(unittest.TestCase):
                     self.assertIn("could not load edit plan", stderr.getvalue())
                     self.assertEqual(stdout.getvalue(), "")
 
+    def test_writer_failure_preserves_partial_bundle_with_blocked_manifest(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_root = Path(temp_dir) / "edit"
+            with mock.patch(
+                "build_edit_bundle.write_srt",
+                side_effect=OSError("synthetic SRT write failure"),
+            ):
+                with self.assertRaisesRegex(BuildError, "synthetic SRT write failure"):
+                    build_edit_bundle(FIXTURE, output_root)
+
+            failed_version = output_root / "v001"
+            blocked_manifest = json.loads(
+                (failed_version / "bundle_manifest.json").read_text(encoding="utf-8")
+            )
+            preserved_before_retry = {
+                path.relative_to(failed_version).as_posix()
+                for path in failed_version.rglob("*")
+                if path.is_file()
+            }
+            next_version = build_edit_bundle(FIXTURE, output_root)
+
+        self.assertEqual(blocked_manifest["status"], "blocked")
+        self.assertIn("synthetic SRT write failure", blocked_manifest["error"]["message"])
+        self.assertEqual(
+            set(blocked_manifest["artifacts"]),
+            preserved_before_retry - {"bundle_manifest.json"},
+        )
+        self.assertIn("edit_master_plan.json", preserved_before_retry)
+        self.assertIn("edit_construction_16x9.md", preserved_before_retry)
+        self.assertEqual(next_version.name, "v002")
+
+    def test_version_creation_rescans_after_a_bounded_mkdir_race(self):
+        real_mkdir = Path.mkdir
+        collisions = []
+
+        def racing_mkdir(path, *args, **kwargs):
+            if path.name == "v001" and not collisions:
+                real_mkdir(path, *args, **kwargs)
+                collisions.append(path)
+                raise FileExistsError("simulated concurrent v001 allocation")
+            return real_mkdir(path, *args, **kwargs)
+
+        with tempfile.TemporaryDirectory() as temp_dir, mock.patch.object(
+            Path, "mkdir", new=racing_mkdir
+        ):
+            output_root = Path(temp_dir) / "edit"
+            created = build_edit_bundle(FIXTURE, output_root)
+
+        self.assertEqual(len(collisions), 1)
+        self.assertEqual(created.name, "v002")
+
 
 if __name__ == "__main__":
     unittest.main()

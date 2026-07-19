@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
+import tempfile
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -33,6 +35,7 @@ class _PlanInputError(ValueError):
 
 
 _VERSION_NAME = re.compile(r"^v([0-9]{3,})$")
+_VERSION_CREATE_ATTEMPTS = 16
 
 
 def _filesystem_root(path: Path) -> Path:
@@ -64,6 +67,29 @@ def next_version_dir(output_root: Path) -> Path:
     return root / f"v{highest + 1:03d}"
 
 
+def _create_version_dir(output_root: Path) -> Path:
+    """Atomically reserve a fresh version path with finite race recovery."""
+
+    root = Path(output_root).resolve()
+    for _attempt in range(_VERSION_CREATE_ATTEMPTS):
+        version_dir = next_version_dir(root)
+        try:
+            version_dir.resolve().relative_to(root)
+        except ValueError:
+            raise BuildError("version directory escapes output_root") from None
+        try:
+            version_dir.mkdir(parents=True, exist_ok=False)
+        except FileExistsError:
+            continue
+        except OSError as exc:
+            raise BuildError(f"could not create version directory: {exc}") from None
+        return version_dir
+    raise BuildError(
+        "could not allocate a version directory after "
+        f"{_VERSION_CREATE_ATTEMPTS} concurrent conflicts"
+    )
+
+
 def _write_json_exclusive(destination: Path, value: object) -> Path:
     destination.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -82,6 +108,28 @@ def _replace_owned_json(destination: Path, value: object) -> None:
         json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+
+
+def _atomic_replace_json(destination: Path, value: object) -> None:
+    """Atomically publish JSON within an invocation-owned version directory."""
+
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        encoding="utf-8",
+        newline="",
+        prefix=".bundle_manifest.",
+        suffix=".tmp",
+        dir=destination.parent,
+        delete=False,
+    ) as output:
+        temporary_name = output.name
+        json.dump(value, output, ensure_ascii=False, indent=2, sort_keys=True)
+        output.write("\n")
+        output.flush()
+        os.fsync(output.fileno())
+    # A failed replace leaves this diagnostic temp file in the new version;
+    # it never removes a prior manifest or another partial artifact.
+    os.replace(temporary_name, destination)
 
 
 def _timeline_slug(timeline: dict[str, Any]) -> str:
@@ -339,6 +387,17 @@ def _manifest(plan: dict[str, Any], version_dir: Path, status: str) -> dict[str,
     }
 
 
+def _record_blocked_manifest(
+    plan: dict[str, Any], version_dir: Path, error: BuildError
+) -> None:
+    manifest = _manifest(plan, version_dir, "blocked")
+    manifest["error"] = {
+        "type": type(error).__name__,
+        "message": str(error),
+    }
+    _atomic_replace_json(version_dir / "bundle_manifest.json", manifest)
+
+
 def _build_handoffs(
     plan: dict[str, Any], version_dir: Path, ffmpeg_path: str
 ) -> list[dict[str, Any]]:
@@ -508,39 +567,41 @@ def _build_loaded_bundle(
     ):
         raise BuildError("operation authorization is required")
 
-    version_dir = next_version_dir(Path(output_root))
-    root = Path(output_root).resolve()
+    version_dir = _create_version_dir(Path(output_root))
     try:
-        version_dir.resolve().relative_to(root)
-    except ValueError:
-        raise BuildError("version directory escapes output_root") from None
-    try:
-        version_dir.mkdir(parents=True, exist_ok=False)
-    except FileExistsError:
-        raise BuildError(f"version directory already exists: {version_dir}") from None
-    except OSError as exc:
-        raise BuildError(f"could not create version directory: {exc}") from None
+        _write_json_exclusive(version_dir / "edit_master_plan.json", plan)
+        command_deliveries = _build_handoffs(
+            plan, version_dir, ffmpeg_path or "ffmpeg"
+        )
+        manifest_path = version_dir / "bundle_manifest.json"
+        manifest = _manifest(plan, version_dir, "dry_run_passed")
+        _write_json_exclusive(manifest_path, manifest)
 
-    _write_json_exclusive(version_dir / "edit_master_plan.json", plan)
-    command_deliveries = _build_handoffs(
-        plan, version_dir, ffmpeg_path or "ffmpeg"
-    )
-    manifest_path = version_dir / "bundle_manifest.json"
-    manifest = _manifest(plan, version_dir, "dry_run_passed")
-    _write_json_exclusive(manifest_path, manifest)
+        if not execute:
+            return version_dir
+        if ffmpeg_path is None or not str(ffmpeg_path).strip():
+            raise BuildError("ffmpeg is unavailable")
 
-    if not execute:
-        return version_dir
-    if ffmpeg_path is None or not str(ffmpeg_path).strip():
-        manifest["status"] = "blocked"
+        status = _execute_minimal(version_dir, command_deliveries, runner)
+        manifest["status"] = status
+        manifest["artifacts"] = _artifact_names(version_dir)
         _replace_owned_json(manifest_path, manifest)
-        raise BuildError("ffmpeg is unavailable")
-
-    status = _execute_minimal(version_dir, command_deliveries, runner)
-    manifest["status"] = status
-    manifest["artifacts"] = _artifact_names(version_dir)
-    _replace_owned_json(manifest_path, manifest)
-    return version_dir
+        return version_dir
+    except Exception as exc:
+        build_error = (
+            exc
+            if isinstance(exc, BuildError)
+            else BuildError(f"could not build bundle: {exc}")
+        )
+        try:
+            _record_blocked_manifest(plan, version_dir, build_error)
+        except Exception as manifest_exc:
+            raise BuildError(
+                f"{build_error}\n"
+                "Additionally, the blocked bundle manifest could not be written: "
+                f"{manifest_exc}"
+            ) from None
+        raise build_error from None
 
 
 def build_edit_bundle(
