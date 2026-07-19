@@ -48,7 +48,7 @@ Use Chinese for production decisions, directing notes, screenplay, risk explanat
 
 ## Finished-Film Editing Router
 
-Activate when the user asks to edit, assemble, finish, render, export, deliver a final film, create an NLE timeline, or let an AI editor use generated/local clips. Read `references/editing-finish.md` after the active story/storyboard references and before `references/output-contract.md`.
+Activate when the user asks to edit, assemble, finish, render, export, deliver a final film, create an NLE timeline, or let an AI editor use generated/local clips. Read `references/editing-finish.md` after the active story/storyboard references and before `references/output-contract.md`. Treat that reference as the editing contract authority; use `scripts/validate_edit_plan.py` to validate its Canon and `scripts/build_edit_bundle.py` to derive the versioned handoff or authorized FFmpeg bundle.
 
 Create the optional `edit_master_plan` only when editing or finished-film delivery is requested. Keep the legacy ten-object generation package unchanged for screenplay-, storyboard-, prompt-, or job-only requests. Bind every shot-derived media asset to a stable `shot_id`; bind shared post assets by their declared scope and target instead of inventing a shot. Compile 16:9 and 9:16 as independent timelines when dual-aspect cinematic delivery is active.
 
@@ -73,6 +73,13 @@ For a complete production package, follow this sequence. For a partial deliverab
 7. Read only the selected provider sections in `references/model-adapters.md`.
 8. Read `references/output-contract.md`; emit equivalent Markdown and JSON.
 9. For a complete ten-object package, run `python scripts/validate_package.py <package.json>` from the Skill directory; repair every reported error before delivery.
+
+For an editing or finished-film package, continue from the earliest available upstream object through this resource path:
+
+1. Read `references/editing-finish.md`; create one canonical `edit_master_plan.json` from the locked shots, media bindings, tracks, timelines, delivery specs, software targets, and execution state.
+2. Run `python scripts/validate_edit_plan.py <edit_master_plan.json>` from the Skill directory. Add `--require-final` for a requested final master; repair every reported error before calling the plan ready.
+3. Run `python scripts/build_edit_bundle.py <edit_master_plan.json> --out <new_output_root>` without `--execute` to create a new versioned dry-run/handoff bundle. Report the actual version directory, manifest, blockers, adapter status, and validation result; do not claim an NLE import or render.
+4. External execution remains subject to the operation-authorization boundary above. For an authorized FFmpeg path, first run `python scripts/validate_edit_plan.py <edit_master_plan.json> --for-execution`, then use `scripts/build_edit_bundle.py ... --execute` only when the displayed manifest, exact version directory, inputs, commands, tool evidence, and authorization still match. NLE or AI-editor execution must preserve the same Canon and evidence rules.
 
 For `one-pass draft`, continue through all requested stages without intermediate approval only when the user explicitly requests it. Keep every unconfirmed choice `draft`, record reversible assumptions and impacts, and use a provisional positive duration when necessary. Never call an API, including after the final gate.
 
@@ -140,6 +147,7 @@ Allow draft story objects to enter storyboard development after Direction Gate. 
 | Prompt compilation | `references/prompt-compiler.md` | `shot_prompts` | Prompt contradicts storyboard or bible |
 | Provider adaptation | `references/model-adapters.md` | Provider mappings for jobs | Official support is unknown or incompatible |
 | Cinematic mode overlay | `references/cinematic-directing.md` plus the active stage reference | Optional cinematic fields inside the existing ten objects | Story clarity or continuity hard gate does not pass |
+| Finished-film editing | `references/editing-finish.md`, then `scripts/validate_edit_plan.py` and `scripts/build_edit_bundle.py` | `edit_master_plan`, validated construction package, dry-run manifest, adapter reports, and authorized FFmpeg result when applicable | Media, rights, timeline, final-master, adapter, tool-evidence, manifest, version-directory, authorization, or output-probe gate fails |
 | Package delivery | `references/output-contract.md` | Markdown, JSON, `model_job_manifest`, `quality_report` | Full-package validator reports any error |
 
 Read a reference completely when entering its stage. Do not load every provider section when only one provider is requested.
@@ -158,6 +166,7 @@ Read a reference completely when entering its stage. Do not load every provider 
 | `shot_prompts` | Exactly one canonical bilingual record exists per shot, with negatives, anchors, references, audio, and variants |
 | `model_job_manifest` | Every shot has at least one job; documented fields are official and unknowns are manual configuration |
 | `quality_report` | Approval, duration, references, continuity, prompt lint, provider uncertainty, and validator result are audited |
+| `edit_master_plan` | Requested media, timelines, tracks, deliveries, software targets, execution states, and validation evidence derive from one Canon; `scripts/validate_edit_plan.py` passes for the requested stage |
 
 ## Baseline Failure Counters
 
@@ -199,4 +208,6 @@ Apply only items relevant to the requested delivery stage. For partial deliverab
 - [ ] If provider adaptation is requested, provider parameters are officially documented and unresolved fields are explicit arrays of manual configuration.
 - [ ] If dual-format or complete-package delivery is requested, Markdown and JSON express the same approved facts and shot order.
 - [ ] For a complete ten-object package, `scripts/validate_package.py` reports `Production package is valid.`; partial delivery names the omitted objects and applicable checks instead.
+- [ ] If editing is requested, `scripts/validate_edit_plan.py` passes for the requested rough-cut, fine-cut, final-master, or execution gate; every unresolved error remains visibly `blocked`.
+- [ ] If an editing handoff is requested, `scripts/build_edit_bundle.py` creates a new versioned dry-run bundle from the same Canon; `--execute` is absent until the exact manifest and version directory receive valid operation authorization and tool evidence.
 - [ ] `quality_report` names remaining uncertainty instead of implying certainty.
