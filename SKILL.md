@@ -1,6 +1,6 @@
 ---
 name: aibiandao
-description: Use when a user wants to turn a video idea, topic, script, article, product brief, or reference material into an AI-video creative brief, screenplay, storyboard, shot list, continuity plan, per-shot prompts, or API-ready generation manifest, especially when clips feel disconnected, characters drift, pacing is weak, or shots are hard to generate.
+description: Use when a user wants to turn a video idea, topic, script, article, product brief, or reference material into an AI-video creative brief, screenplay, storyboard, shot list, continuity plan, per-shot prompts, or API-ready generation manifest; or wants to edit, finish, render, or export existing or generated clips through Jianying/CapCut, Premiere Pro, DaVinci Resolve, FFmpeg, or an AI editor. Especially useful when clips feel disconnected, characters drift, pacing is weak, shots are hard to generate, or one Canon must drive multiple final-film deliverables.
 ---
 
 # aibiandao
