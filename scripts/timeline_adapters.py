@@ -153,14 +153,23 @@ def _video_units(timeline: dict[str, Any]) -> list[dict[str, Any]]:
         track_id = track.get("track_id")
         raw_units = track.get("edit_units")
         track_units = _list(raw_units, f"video track {track_id or index}.edit_units")
-        if track_id == "V1":
+        selected_v1 = (
+            track_id == "V1"
+            and track.get("runtime_role") == "active"
+            and track.get("release_role") == "first_release"
+        )
+        if selected_v1:
             if v1 is not None:
-                raise AdapterError("timeline must contain exactly one V1 video track")
+                raise AdapterError(
+                    "timeline must contain exactly one active first_release V1 video track"
+                )
             v1 = track
-        elif track_units:
+        elif track.get("runtime_role") == "active" and track_units:
             raise AdapterError("multi-layer video requires manual_or_unverified handling")
     if v1 is None:
-        raise AdapterError("timeline must contain exactly one V1 video track")
+        raise AdapterError(
+            "timeline must contain exactly one active first_release V1 video track"
+        )
     units: list[dict[str, Any]] = []
     for index, raw_unit in enumerate(
         _list(v1.get("edit_units"), "video track V1.edit_units"), start=1
@@ -222,17 +231,244 @@ def _markdown_cell(value: object) -> str:
     return _cell(value).replace("|", "\\|").replace("\r", " ").replace("\n", "<br>")
 
 
-def write_construction_markdown(plan, timeline, destination: Path) -> Path:
-    rows = construction_rows(plan, timeline)
-    timeline_object = _object(timeline, "timeline")
-    title = f"# Construction Sheet: {_timeline_id(timeline_object)}"
-    header = "| " + " | ".join(CONSTRUCTION_FIELDS) + " |"
-    separator = "| " + " | ".join("---" for _ in CONSTRUCTION_FIELDS) + " |"
+def _markdown_table(fields: tuple[str, ...], rows: list[dict[str, Any]]) -> str:
+    header = "| " + " | ".join(fields) + " |"
+    separator = "| " + " | ".join("---" for _ in fields) + " |"
     body = [
-        "| " + " | ".join(_markdown_cell(row[field]) for field in CONSTRUCTION_FIELDS) + " |"
+        "| " + " | ".join(_markdown_cell(row.get(field)) for field in fields) + " |"
         for row in rows
     ]
-    return _exclusive_text(destination, "\n\n".join((title, "\n".join((header, separator, *body)))) + "\n")
+    return "\n".join((header, separator, *body))
+
+
+def _construction_appendices(
+    plan: dict[str, Any], timeline: dict[str, Any]
+) -> str:
+    timeline_id = _timeline_id(timeline)
+    assets = _assets(plan)
+
+    track_rows: list[dict[str, Any]] = []
+    for raw_track in _list(timeline.get("video_tracks"), "timeline.video_tracks"):
+        track = _object(raw_track, "video track")
+        edit_units = _list(track.get("edit_units"), "video track.edit_units")
+        track_rows.append(
+            {
+                "kind": "video",
+                "track_id": track.get("track_id"),
+                "runtime_role": track.get("runtime_role"),
+                "release_role": track.get("release_role"),
+                "item_count": len(edit_units),
+            }
+        )
+    for track_id in _list(timeline.get("audio_track_refs"), "timeline.audio_track_refs"):
+        track_rows.append(
+            {"kind": "audio", "track_id": track_id, "item_count": "mounted"}
+        )
+    for track_id in _list(timeline.get("text_track_refs"), "timeline.text_track_refs"):
+        track_rows.append(
+            {"kind": "text", "track_id": track_id, "item_count": "mounted"}
+        )
+
+    media_rows = [
+        {
+            "asset_id": asset_id,
+            "path_or_uri": binding.get("path_or_uri"),
+            "binding_scope": binding.get("binding_scope"),
+            "target_id": binding.get("target_id"),
+            "take_id": binding.get("take_id"),
+            "fallback_asset_id": binding.get("fallback_asset_id"),
+            "file_status": binding.get("file_status"),
+            "rights_status": binding.get("rights_status"),
+            "probe_status": binding.get("probe_status"),
+        }
+        for asset_id, binding in assets.items()
+    ]
+
+    subtitle_rows = [
+        {
+            "text_cue_id": cue.get("text_cue_id"),
+            "timeline_in_seconds": cue.get("timeline_in_seconds"),
+            "timeline_out_seconds": cue.get("timeline_out_seconds"),
+            "text": cue.get("text"),
+        }
+        for cue in _mounted_text_cues(plan, timeline)
+    ]
+
+    audio_tracks: dict[str, dict[str, Any]] = {}
+    for raw_track in _list(plan.get("audio_tracks"), "plan.audio_tracks"):
+        track = _object(raw_track, "audio track")
+        track_id = _nonempty_string(track.get("audio_track_id"), "audio_track_id")
+        audio_tracks[track_id] = track
+    audio_rows = []
+    for track_id in _list(timeline.get("audio_track_refs"), "timeline.audio_track_refs"):
+        if track_id not in audio_tracks:
+            raise AdapterError(f"timeline references unknown audio track {track_id}")
+        track = audio_tracks[track_id]
+        for raw_cue in _list(track.get("cues"), f"audio track {track_id}.cues"):
+            cue = _object(raw_cue, f"audio cue on {track_id}")
+            audio_rows.append(
+                {
+                    "audio_track_id": track_id,
+                    "audio_cue_id": cue.get("audio_cue_id"),
+                    "asset_id": cue.get("asset_id"),
+                    "timeline_in_seconds": cue.get("timeline_in_seconds"),
+                    "timeline_out_seconds": cue.get("timeline_out_seconds"),
+                    "gain_db": cue.get("gain_db"),
+                    "target_lufs": track.get("target_lufs"),
+                    "true_peak_db": track.get("true_peak_db"),
+                }
+            )
+
+    look_plan = _object(plan.get("look_plan"), "plan.look_plan")
+    look_rows = [
+        {
+            "input_color_space": look_plan.get("input_color_space"),
+            "output_color_space": look_plan.get("output_color_space"),
+            "matching_status": look_plan.get("matching_status"),
+            "instructions": look_plan.get("instructions"),
+            "ffmpeg_filters": look_plan.get("ffmpeg_filters"),
+        }
+    ]
+    export_rows = []
+    for raw_delivery in _list(plan.get("delivery_specs"), "plan.delivery_specs"):
+        delivery = _object(raw_delivery, "delivery spec")
+        if delivery.get("timeline_id") == timeline_id:
+            export_rows.append(
+                {
+                    field: delivery.get(field)
+                    for field in (
+                        "delivery_id",
+                        "version_role",
+                        "resolution",
+                        "frame_rate",
+                        "codec",
+                        "bitrate",
+                        "filename",
+                        "subtitle_mode",
+                        "audio_mode",
+                        "look_mode",
+                    )
+                }
+            )
+
+    checklist = [
+        f"- [{'x' if unit.get('approval_status') == 'approved' else ' '}] "
+        f"{unit.get('edit_unit_id')}: approval={unit.get('approval_status')}, "
+        f"safe_area={unit.get('safe_area')}, risks={_cell(unit.get('risk_triggers'))}"
+        for unit in _video_units(timeline)
+    ]
+    checklist.extend(
+        f"- [{'x' if binding.get('file_status') == 'online' and binding.get('rights_status') == 'cleared' and binding.get('probe_status') == 'verified' else ' '}] "
+        f"{asset_id}: file={binding.get('file_status')}, rights={binding.get('rights_status')}, "
+        f"probe={binding.get('probe_status')}"
+        for asset_id, binding in assets.items()
+    )
+
+    return "\n\n".join(
+        (
+            "## Track Layout\n\n"
+            + _markdown_table(
+                ("kind", "track_id", "runtime_role", "release_role", "item_count"),
+                track_rows,
+            ),
+            "## Media Inventory and Relink Map\n\n"
+            + _markdown_table(
+                (
+                    "asset_id",
+                    "path_or_uri",
+                    "binding_scope",
+                    "target_id",
+                    "take_id",
+                    "fallback_asset_id",
+                    "file_status",
+                    "rights_status",
+                    "probe_status",
+                ),
+                media_rows,
+            ),
+            "## Subtitle Table\n\n"
+            + _markdown_table(
+                (
+                    "text_cue_id",
+                    "timeline_in_seconds",
+                    "timeline_out_seconds",
+                    "text",
+                ),
+                subtitle_rows,
+            ),
+            "## Audio Cue Sheet\n\n"
+            + _markdown_table(
+                (
+                    "audio_track_id",
+                    "audio_cue_id",
+                    "asset_id",
+                    "timeline_in_seconds",
+                    "timeline_out_seconds",
+                    "gain_db",
+                    "target_lufs",
+                    "true_peak_db",
+                ),
+                audio_rows,
+            ),
+            "## Look / Color Sheet\n\n"
+            + _markdown_table(
+                (
+                    "input_color_space",
+                    "output_color_space",
+                    "matching_status",
+                    "instructions",
+                    "ffmpeg_filters",
+                ),
+                look_rows,
+            ),
+            "## Export Matrix\n\n"
+            + _markdown_table(
+                (
+                    "delivery_id",
+                    "version_role",
+                    "resolution",
+                    "frame_rate",
+                    "codec",
+                    "bitrate",
+                    "filename",
+                    "subtitle_mode",
+                    "audio_mode",
+                    "look_mode",
+                ),
+                export_rows,
+            ),
+            "## Acceptance Checklist\n\n" + "\n".join(checklist),
+        )
+    )
+
+
+def write_construction_markdown(plan, timeline, destination: Path) -> Path:
+    plan_object = _object(plan, "plan")
+    rows = construction_rows(plan_object, timeline)
+    timeline_object = _object(timeline, "timeline")
+    title = f"# Construction Sheet: {_timeline_id(timeline_object)}"
+    markdown_fields = (
+        *CONSTRUCTION_FIELDS[:5],
+        "take_id",
+        "fallback_asset_id",
+        *CONSTRUCTION_FIELDS[5:],
+    )
+    assets = _assets(plan_object)
+    markdown_rows = []
+    for row in rows:
+        binding = assets[row["asset_id"]]
+        expanded = dict(row)
+        expanded["take_id"] = binding.get("take_id")
+        expanded["fallback_asset_id"] = binding.get("fallback_asset_id")
+        markdown_rows.append(expanded)
+    content = "\n\n".join(
+        (
+            title,
+            _markdown_table(markdown_fields, markdown_rows),
+            _construction_appendices(plan_object, timeline_object),
+        )
+    )
+    return _exclusive_text(destination, content + "\n")
 
 
 def write_construction_csv(plan, timeline, destination: Path) -> Path:
@@ -376,6 +612,9 @@ def write_otio(plan, timeline, destination: Path) -> Path:
     units = _video_units(timeline_object)
     _validate_first_release_units(units)
     rate = _frame_rate(timeline_object)
+    _frame_count(
+        timeline_object.get("duration_seconds"), rate, "timeline.duration_seconds"
+    )
     frame_ranges = _validated_unit_frames(units, rate)
     children = []
     for index, (unit, frames) in enumerate(zip(units, frame_ranges), start=1):
@@ -467,31 +706,33 @@ def write_fcpxml(plan, timeline, destination: Path) -> Path:
         },
     )
     resource_ids: dict[str, str] = {}
-    for unit in units:
-        asset_id = _nonempty_string(unit.get("asset_id"), "edit unit.asset_id")
-        if asset_id in resource_ids:
-            continue
-        binding = assets.get(asset_id)
-        if binding is None:
-            raise AdapterError(f"edit unit references unknown asset_id {asset_id}")
+    for asset_id, binding in assets.items():
         resource_id = f"r{len(resource_ids) + 2}"
         resource_ids[asset_id] = resource_id
-        asset_duration = _frame_count(
-            binding.get("duration_seconds"), rate, f"asset {asset_id}.duration_seconds"
-        )
-        ET.SubElement(
-            resources,
-            "asset",
-            {
-                "id": resource_id,
-                "name": asset_id,
-                "src": _media_uri(binding.get("path_or_uri")),
-                "start": "0s",
-                "duration": _fcpx_time_from_frames(asset_duration, rate),
-                "hasVideo": "1",
-                "format": "r1",
-            },
-        )
+        attributes = {
+            "id": resource_id,
+            "name": asset_id,
+            "src": _media_uri(binding.get("path_or_uri")),
+        }
+        if binding.get("duration_seconds") is not None:
+            asset_duration = _frame_count(
+                binding.get("duration_seconds"),
+                rate,
+                f"asset {asset_id}.duration_seconds",
+            )
+            attributes.update(
+                {
+                    "start": "0s",
+                    "duration": _fcpx_time_from_frames(asset_duration, rate),
+                }
+            )
+        if binding.get("source_type") == "post_asset":
+            attributes["hasAudio"] = "1"
+        else:
+            attributes.update({"hasVideo": "1", "format": "r1"})
+            if isinstance(binding.get("audio_channels"), int) and binding["audio_channels"] > 0:
+                attributes["hasAudio"] = "1"
+        ET.SubElement(resources, "asset", attributes)
 
     library = ET.SubElement(root, "library")
     event = ET.SubElement(library, "event", {"name": "Finished Film Handoff"})
@@ -535,11 +776,16 @@ def write_jianying_instructions(plan, destination: Path) -> Path:
     for selected in timelines:
         timeline_id = _timeline_id(selected)
         aspect = _nonempty_string(selected.get("aspect_ratio"), f"timeline {timeline_id}.aspect_ratio")
+        aspect_slug = aspect.replace(":", "x")
+        construction_filename = f"edit_construction_{aspect_slug}.csv"
+        subtitle_filename = f"subtitles_{aspect_slug}.srt"
         rows = construction_rows(plan_object, selected)
         lines = [
             f"### {timeline_id} ({aspect})",
             "",
-            "Import the matching construction CSV and SRT, then apply this track mapping and effect parameters in order:",
+            f"Import construction CSV `{construction_filename}` and SRT "
+            f"`{subtitle_filename}`, then apply this track mapping and effect "
+            "parameters in order:",
             "",
         ]
         for row in rows:
@@ -702,6 +948,54 @@ def _escape_filter_path(value: str, label: str) -> str:
     return "'" + escaped + "'"
 
 
+def compile_subtitle_artifacts(
+    plan,
+    timeline,
+    version_dir: Path,
+    delivery_spec: dict | None = None,
+) -> dict:
+    """Compile subtitle artifacts and picture-filter intent without writing files."""
+
+    plan_object = _object(plan, "plan")
+    timeline_object = _object(timeline, "timeline")
+    timeline_id = _timeline_id(timeline_object)
+    version = _validate_version_dir(version_dir)
+    selected_delivery = _delivery_for_timeline(
+        plan_object, timeline_id, delivery_spec
+    )
+    mode = selected_delivery.get("subtitle_mode")
+    if not isinstance(mode, str) or mode not in {"none", "sidecar", "burn_in"}:
+        raise AdapterError(f"unsupported subtitle_mode {mode}")
+    if mode == "none":
+        return {
+            "mode": "none",
+            "srt_path": None,
+            "manifest": [],
+            "video_filter": None,
+        }
+    srt_path = _safe_generated_output(version, f"subtitles_{timeline_id}.srt")
+    artifact_type = (
+        "subtitle_sidecar" if mode == "sidecar" else "subtitle_burn_source"
+    )
+    return {
+        "mode": mode,
+        "srt_path": str(srt_path),
+        "manifest": [
+            {
+                "artifact_type": artifact_type,
+                "timeline_id": timeline_id,
+                "path": str(srt_path),
+            }
+        ],
+        "video_filter": (
+            None
+            if mode == "sidecar"
+            else "subtitles=filename="
+            + _escape_filter_path(str(srt_path), "subtitle path")
+        ),
+    }
+
+
 def _compile_look_filters(
     plan: dict[str, Any], assets: dict[str, dict[str, Any]], mode: object
 ) -> list[str]:
@@ -798,14 +1092,22 @@ def _mounted_audio_cues(
         for index, raw_cue in enumerate(_list(track.get("cues"), f"audio track {track_id}.cues"), start=1):
             cue = _object(raw_cue, f"audio cue {index} on {track_id}")
             cue_id = _nonempty_string(cue.get("audio_cue_id"), f"audio cue {index}.audio_cue_id")
+            if cue_id in cues_by_id:
+                raise AdapterError(f"duplicate mounted audio cue {cue_id}")
             cues_by_id[cue_id] = (cue, track)
     unknown_cues = referenced_cue_ids.difference(cues_by_id)
     if unknown_cues:
         raise AdapterError(f"unknown audio cue {sorted(unknown_cues)[0]}")
     compiled = []
     for cue_id in sorted(
-        referenced_cue_ids,
-        key=lambda value: _decimal(cues_by_id[value][0].get("timeline_in_seconds"), "audio cue timeline_in"),
+        cues_by_id,
+        key=lambda value: (
+            _decimal(
+                cues_by_id[value][0].get("timeline_in_seconds"),
+                "audio cue timeline_in",
+            ),
+            value,
+        ),
     ):
         cue, track = cues_by_id[cue_id]
         asset_id = cue.get("asset_id")
@@ -814,6 +1116,36 @@ def _mounted_audio_cues(
             raise AdapterError(f"audio asset {asset_id} is unknown")
         if binding.get("source_type") != "post_asset" or not _authorized_media(binding):
             raise AdapterError(f"audio asset {asset_id} is not authorized")
+        scope = binding.get("binding_scope")
+        target_id = binding.get("target_id")
+        if scope == "project":
+            if target_id != plan.get("source_package_id"):
+                raise AdapterError(
+                    f"audio asset {asset_id} scope target does not match project"
+                )
+        elif scope == "timeline":
+            if target_id != timeline.get("timeline_id"):
+                raise AdapterError(
+                    f"audio asset {asset_id} scope target does not match timeline"
+                )
+        elif scope == "edit_unit":
+            owners = [
+                unit
+                for unit in units
+                if cue_id
+                in _list(unit.get("audio_cue_ids"), "edit unit.audio_cue_ids")
+            ]
+            if (
+                len(owners) != 1
+                or owners[0].get("edit_unit_id") != target_id
+            ):
+                raise AdapterError(
+                    f"audio asset {asset_id} scope requires its unique target edit unit"
+                )
+        else:
+            raise AdapterError(
+                f"audio asset {asset_id} scope must be edit_unit, timeline, or project"
+            )
         compiled.append((cue, track, binding))
     return compiled
 
@@ -822,7 +1154,7 @@ def _audio_filter_graph(
     cues: list[tuple[dict[str, Any], dict[str, Any], dict[str, Any]]]
 ) -> str:
     if not cues:
-        raise AdapterError("final_mix requires at least one referenced audio cue")
+        raise AdapterError("final_mix requires at least one mounted local audio cue")
     chains = []
     labels = []
     for index, (cue, _track, _binding) in enumerate(cues):
@@ -877,9 +1209,9 @@ def ffmpeg_command_plan(
     _validate_first_release_units(units)
     assets = _assets(plan_object)
 
-    subtitle_mode = selected_delivery.get("subtitle_mode")
-    if not isinstance(subtitle_mode, str) or subtitle_mode not in {"none", "sidecar", "burn_in"}:
-        raise AdapterError(f"unsupported subtitle_mode {subtitle_mode}")
+    subtitle_plan = compile_subtitle_artifacts(
+        plan_object, timeline_object, version, selected_delivery
+    )
     audio_mode = selected_delivery.get("audio_mode")
     if not isinstance(audio_mode, str) or audio_mode not in {"temporary_or_silent", "final_mix", "none"}:
         raise AdapterError(f"unsupported audio_mode {audio_mode}")
@@ -934,7 +1266,9 @@ def ffmpeg_command_plan(
         if audio_mode == "final_mix"
         else []
     )
-    needs_postprocess = bool(look_filters or subtitle_mode == "burn_in" or audio_cues)
+    needs_postprocess = bool(
+        look_filters or subtitle_plan["video_filter"] or audio_cues
+    )
     concat_output = (
         _safe_generated_output(version, f"picture_{timeline_id}.mp4")
         if needs_postprocess
@@ -961,11 +1295,8 @@ def ffmpeg_command_plan(
         for _cue, _track, binding in audio_cues:
             final_command.extend(["-i", str(binding["path_or_uri"])])
         video_filters = list(look_filters)
-        if subtitle_mode == "burn_in":
-            subtitle_path = _safe_generated_output(version, f"subtitles_{timeline_id}.srt")
-            video_filters.append(
-                f"subtitles=filename={_escape_filter_path(str(subtitle_path), 'subtitle path')}"
-            )
+        if subtitle_plan["video_filter"] is not None:
+            video_filters.append(subtitle_plan["video_filter"])
         if video_filters:
             final_command.extend(["-vf", ",".join(video_filters)])
         if audio_cues:

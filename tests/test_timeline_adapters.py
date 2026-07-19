@@ -16,6 +16,7 @@ SCRIPTS_DIR = ROOT / "scripts"
 FIXTURE = ROOT / "tests" / "fixtures" / "editing" / "valid_plan.json"
 sys.path.insert(0, str(SCRIPTS_DIR))
 
+import timeline_adapters as adapters
 from timeline_adapters import (
     AdapterError,
     construction_rows,
@@ -192,6 +193,33 @@ class TimelineAdapterTests(unittest.TestCase):
         self.assertEqual(set(parsed_csv[0]), set(rows[0]))
         self.assertEqual(parsed_csv[0]["cut_reason"], "中文切点")
 
+    def test_construction_markdown_adds_human_handoff_appendices_without_changing_rows(self):
+        plan = load_plan()
+        original_fields = tuple(construction_rows(plan, timeline(plan))[0])
+        add_text_cues(plan)
+        add_audio_cue(plan)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            destination = Path(temp_dir) / "construction.md"
+            write_construction_markdown(plan, timeline(plan), destination)
+            content = destination.read_text(encoding="utf-8")
+
+        self.assertEqual(tuple(construction_rows(plan, timeline(plan))[0]), original_fields)
+        self.assertIn("take_id", content)
+        self.assertIn("fallback_asset_id", content)
+        self.assertIn("T01", content)
+        for heading in (
+            "## Track Layout",
+            "## Media Inventory and Relink Map",
+            "## Subtitle Table",
+            "## Audio Cue Sheet",
+            "## Look / Color Sheet",
+            "## Export Matrix",
+            "## Acceptance Checklist",
+        ):
+            self.assertIn(heading, content)
+        for canonical_id in ("V1", "A01", "TC01", "AC01", "D16"):
+            self.assertIn(canonical_id, content)
+
     def test_all_writers_refuse_to_overwrite_destination(self):
         plan = load_plan()
         writer_calls = (
@@ -292,6 +320,20 @@ class TimelineAdapterTests(unittest.TestCase):
         self.assertEqual(parse_fcpx_time(clips[0].attrib["duration"]), Fraction(2))
         self.assertEqual(parse_fcpx_time(clips[1].attrib["offset"]), Fraction(2))
 
+    def test_fcpxml_emits_one_asset_resource_for_every_media_binding(self):
+        plan = load_plan()
+        add_audio_cue(plan)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            destination = Path(temp_dir) / "all-media.fcpxml"
+            write_fcpxml(plan, timeline(plan), destination)
+            root = ET.parse(destination).getroot()
+
+        assets = root.findall("./resources/asset")
+        self.assertEqual(len(assets), len(plan["media_bindings"]))
+        self.assertEqual(
+            {item.attrib["name"] for item in assets}, {"A01", "A02", "AUD01"}
+        )
+
     def test_exchange_writers_reject_non_frame_boundaries_and_accept_24fps_frame(self):
         for writer, suffix in ((write_otio, ".otio"), (write_fcpxml, ".fcpxml")):
             with self.subTest(writer=writer.__name__):
@@ -313,6 +355,13 @@ class TimelineAdapterTests(unittest.TestCase):
                     )
                     self.assertTrue(result.exists())
 
+    def test_otio_rejects_non_frame_exact_timeline_duration(self):
+        plan = load_plan()
+        timeline(plan)["duration_seconds"] = 4.01
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with self.assertRaisesRegex(AdapterError, "timeline.duration_seconds.*frame boundary"):
+                write_otio(plan, timeline(plan), Path(temp_dir) / "bad.otio")
+
     def test_nonempty_extra_video_layer_blocks_flattening_but_empty_layer_is_allowed(self):
         flatteners = (
             lambda plan, selected, path: construction_rows(plan, selected),
@@ -325,7 +374,12 @@ class TimelineAdapterTests(unittest.TestCase):
                 plan = load_plan()
                 selected = timeline(plan)
                 selected["video_tracks"].append(
-                    {"track_id": "V2", "edit_units": [copy.deepcopy(units(plan)[0])]}
+                    {
+                        "track_id": "V2",
+                        "runtime_role": "active",
+                        "release_role": "first_release",
+                        "edit_units": [copy.deepcopy(units(plan)[0])],
+                    }
                 )
                 with tempfile.TemporaryDirectory() as temp_dir:
                     with self.assertRaisesRegex(
@@ -339,6 +393,36 @@ class TimelineAdapterTests(unittest.TestCase):
                 selected["video_tracks"].append({"track_id": "V2", "edit_units": []})
                 with tempfile.TemporaryDirectory() as temp_dir:
                     flattener(plan, selected, Path(temp_dir) / "version")
+
+    def test_inactive_video_layers_are_ignored_and_v1_roles_select_first_release(self):
+        plan = load_plan()
+        selected = timeline(plan)
+        inactive_unit = copy.deepcopy(units(plan)[0])
+        selected["video_tracks"].extend(
+            [
+                {
+                    "track_id": "V2",
+                    "runtime_role": "inactive",
+                    "release_role": "alternate",
+                    "edit_units": [inactive_unit],
+                },
+                {
+                    "track_id": "V1",
+                    "runtime_role": "inactive",
+                    "release_role": "alternate",
+                    "edit_units": [copy.deepcopy(inactive_unit)],
+                },
+            ]
+        )
+
+        self.assertEqual(
+            [row["edit_unit_id"] for row in construction_rows(plan, selected)],
+            ["E16-01", "E16-02"],
+        )
+
+        selected["video_tracks"][0]["release_role"] = "alternate"
+        with self.assertRaises(AdapterError):
+            construction_rows(plan, selected)
 
     def test_jianying_handoff_is_ordered_manual_and_never_private_project_json(self):
         plan = load_plan()
@@ -364,6 +448,21 @@ class TimelineAdapterTests(unittest.TestCase):
         self.assertLess(content.index("E16-01"), content.index("E16-02"))
         self.assertLess(content.index("E9-01"), content.index("E9-02"))
         self.assertNotIn(".json", content.lower())
+
+    def test_jianying_handoff_names_the_actual_csv_and_srt_artifacts(self):
+        plan = load_plan()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            destination = Path(temp_dir) / "jianying_capcut_instructions.md"
+            write_jianying_instructions(plan, destination)
+            content = destination.read_text(encoding="utf-8")
+
+        for filename in (
+            "edit_construction_16x9.csv",
+            "subtitles_16x9.srt",
+            "edit_construction_9x16.csv",
+            "subtitles_9x16.srt",
+        ):
+            self.assertIn(filename, content)
 
     def test_ffmpeg_returns_segment_and_concat_argument_arrays_inside_version(self):
         plan = load_plan()
@@ -435,6 +534,55 @@ class TimelineAdapterTests(unittest.TestCase):
         self.assertIn("media/music.wav", final)
         self.assertNotIn("-an", final)
 
+    def test_ffmpeg_final_mix_compiles_all_mounted_project_and_timeline_cues(self):
+        plan = load_plan()
+        add_audio_cue(plan)
+        plan["media_bindings"].append(
+            {
+                "asset_id": "AUD02",
+                "binding_scope": "timeline",
+                "target_id": "TL-16",
+                "source_type": "post_asset",
+                "path_or_uri": "media/ambience.wav",
+                "file_status": "online",
+                "rights_status": "cleared",
+                "probe_status": "verified",
+                "selection_reason": "approved ambience",
+                "acceptance_status": "approved",
+            }
+        )
+        plan["audio_tracks"][0]["cues"].append(
+            {
+                "audio_cue_id": "AC02",
+                "asset_id": "AUD02",
+                "timeline_in_seconds": 1,
+                "timeline_out_seconds": 3,
+                "gain_db": -6,
+            }
+        )
+        prepare_delivery(plan, audio_mode="final_mix")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            commands = ffmpeg_command_plan(plan, timeline(plan), Path(temp_dir) / "v001")
+
+        final = commands[-1]
+        graph = final[final.index("-filter_complex") + 1]
+        self.assertIn("media/music.wav", final)
+        self.assertIn("media/ambience.wav", final)
+        self.assertIn("amix=inputs=2", graph)
+
+    def test_ffmpeg_final_mix_enforces_scoped_cue_ownership(self):
+        plan = load_plan()
+        add_audio_cue(plan)
+        binding = next(item for item in plan["media_bindings"] if item["asset_id"] == "AUD01")
+        binding["binding_scope"] = "edit_unit"
+        binding["target_id"] = "E16-02"
+        units(plan)[0]["audio_cue_ids"] = []
+        prepare_delivery(plan, audio_mode="final_mix")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with self.assertRaisesRegex(AdapterError, "scope"):
+                ffmpeg_command_plan(plan, timeline(plan), Path(temp_dir) / "v001")
+
     def test_ffmpeg_rejects_unknown_or_unauthorized_audio_assets(self):
         for mode in ("missing", "unauthorized"):
             with self.subTest(mode=mode):
@@ -480,6 +628,33 @@ class TimelineAdapterTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             with self.assertRaisesRegex(AdapterError, "unsupported subtitle_mode"):
                 ffmpeg_command_plan(plan, timeline(plan), Path(temp_dir) / "v001")
+
+    def test_subtitle_compiler_records_sidecar_manifest_and_ffmpeg_reuses_modes(self):
+        self.assertTrue(hasattr(adapters, "compile_subtitle_artifacts"))
+        plan = load_plan()
+        selected = timeline(plan)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            version_dir = Path(temp_dir) / "v001"
+            compiled = adapters.compile_subtitle_artifacts(
+                plan, selected, version_dir, delivery(plan)
+            )
+            commands = ffmpeg_command_plan(plan, selected, version_dir)
+
+        self.assertEqual(compiled["mode"], "sidecar")
+        self.assertIsNone(compiled["video_filter"])
+        self.assertEqual(
+            compiled["manifest"],
+            [
+                {
+                    "artifact_type": "subtitle_sidecar",
+                    "timeline_id": "TL-16",
+                    "path": str(version_dir.resolve() / "subtitles_TL-16.srt"),
+                }
+            ],
+        )
+        self.assertFalse(
+            any("subtitles=" in argument for command in commands for argument in command)
+        )
 
     def test_ffmpeg_look_filters_are_allowlisted_and_one_safe_filter_argument(self):
         cases = (
