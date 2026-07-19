@@ -45,6 +45,18 @@ def authorize_plan(plan, version_directory="edit/v001"):
             "authorized_manifest_id": "MAN-001",
             "version_directory": version_directory,
             "authorized_version_directory": version_directory,
+            "tool_evidence": [
+                {
+                    "tool_evidence_id": "AUTH-FFMPEG",
+                    "tool": "ffmpeg-test",
+                    "status": "verified",
+                },
+                {
+                    "tool_evidence_id": "AUTH-FFPROBE",
+                    "tool": "ffprobe-test",
+                    "status": "verified",
+                },
+            ],
             "steps": [
                 {
                     "step_id": "STEP-D16",
@@ -412,6 +424,9 @@ class BuildEditBundleTests(unittest.TestCase):
             )
             self.assertTrue(copied["execution"]["executed_commands"])
             self.assertEqual(manifest["status"], "rendered")
+            self.assertEqual(
+                manifest["rendered_outputs"], log["rendered_outputs"]
+            )
             self.assertEqual(log["status"], "rendered")
             self.assertTrue(
                 all(item["probe_status"] == "unverified" for item in log["rendered_outputs"])
@@ -432,6 +447,144 @@ class BuildEditBundleTests(unittest.TestCase):
             if call.kwargs.get("for_execution") is True
         ]
         self.assertEqual(len(execution_calls), 1)
+
+    def test_execute_blocks_claimed_destination_that_does_not_match_real_output(self):
+        calls = []
+        with tempfile.TemporaryDirectory() as temp_dir:
+            plan = authorized_plan()
+            plan["delivery_specs"][0]["destination"] = (
+                "edit/v001/CLAIMED-D16.mp4"
+            )
+            materialize_plan_media(temp_dir, plan)
+            plan_path = write_plan(temp_dir, plan)
+            created = build_edit_bundle(
+                plan_path,
+                Path(temp_dir) / "edit",
+                execute=True,
+                ffmpeg_path="ffmpeg-test",
+                runner=lambda *args, **kwargs: calls.append(args),
+            )
+            log = json.loads(
+                (created / "execution_log.json").read_text(encoding="utf-8")
+            )
+            manifest = json.loads(
+                (created / "bundle_manifest.json").read_text(encoding="utf-8")
+            )
+
+        self.assertEqual(calls, [])
+        self.assertEqual(log["status"], "blocked")
+        self.assertIn("destination and filename", log["blocker"])
+        self.assertEqual(log["rendered_outputs"], [])
+        self.assertEqual(manifest["rendered_outputs"], [])
+
+    def test_execute_with_no_ready_delivery_is_blocked_without_commands(self):
+        calls = []
+        with tempfile.TemporaryDirectory() as temp_dir:
+            plan = authorized_plan()
+            for delivery in plan["delivery_specs"]:
+                delivery["ready"] = False
+            materialize_plan_media(temp_dir, plan)
+            plan_path = write_plan(temp_dir, plan)
+            source_before = plan_path.read_text(encoding="utf-8")
+            created = build_edit_bundle(
+                plan_path,
+                Path(temp_dir) / "edit",
+                execute=True,
+                ffmpeg_path="ffmpeg-test",
+                runner=lambda *args, **kwargs: calls.append(args),
+            )
+            log = json.loads(
+                (created / "execution_log.json").read_text(encoding="utf-8")
+            )
+            manifest = json.loads(
+                (created / "bundle_manifest.json").read_text(encoding="utf-8")
+            )
+            copied = json.loads(
+                (created / "edit_master_plan.json").read_text(encoding="utf-8")
+            )
+            source_after = plan_path.read_text(encoding="utf-8")
+
+        self.assertEqual(calls, [])
+        self.assertEqual(log["status"], "blocked")
+        self.assertIn("no ready delivery", log["blocker"])
+        self.assertEqual(log["rendered_outputs"], [])
+        self.assertEqual(manifest["status"], "blocked")
+        self.assertEqual(copied["plan_status"], "blocked")
+        self.assertTrue(
+            all(item["status"] == "authorized" for item in copied["delivery_specs"])
+        )
+        self.assertEqual(source_after, source_before)
+
+    def test_execute_requires_verified_matching_ffmpeg_tool_evidence(self):
+        cases = (
+            ([], "verified ffmpeg tool evidence"),
+            (
+                [
+                    {
+                        "tool_evidence_id": "AUTH-OTHER",
+                        "tool": "different-ffmpeg",
+                        "status": "verified",
+                    }
+                ],
+                "does not match ffmpeg-test",
+            ),
+        )
+        for evidence, expected in cases:
+            with self.subTest(expected=expected), tempfile.TemporaryDirectory() as temp_dir:
+                plan = authorized_plan()
+                plan["execution"]["tool_evidence"] = evidence
+                materialize_plan_media(temp_dir, plan)
+                plan_path = write_plan(temp_dir, plan)
+                calls = []
+                created = build_edit_bundle(
+                    plan_path,
+                    Path(temp_dir) / "edit",
+                    execute=True,
+                    ffmpeg_path="ffmpeg-test",
+                    runner=lambda args, **kwargs: (
+                        calls.append(args)
+                        or subprocess.CompletedProcess(args, 9, "", "must not run")
+                    ),
+                )
+                log = json.loads(
+                    (created / "execution_log.json").read_text(encoding="utf-8")
+                )
+
+            self.assertEqual(calls, [])
+            self.assertEqual(log["status"], "blocked")
+            self.assertIn(expected, log["blocker"])
+
+    def test_final_execution_requires_matching_verified_ffprobe_evidence(self):
+        calls = []
+        with tempfile.TemporaryDirectory() as temp_dir:
+            plan = rich_tier_plan("final_master")
+            plan, plan_path = write_authorized_plan(temp_dir, plan)
+            plan["execution"]["tool_evidence"] = [
+                {
+                    "tool_evidence_id": "AUTH-FFMPEG",
+                    "tool": "ffmpeg-test",
+                    "status": "verified",
+                }
+            ]
+            plan_path = write_plan(temp_dir, plan, "final-no-probe-evidence.json")
+            created = build_edit_bundle(
+                plan_path,
+                Path(temp_dir) / "edit",
+                execute=True,
+                ffmpeg_path="ffmpeg-test",
+                ffprobe_path="ffprobe-test",
+                runner=lambda args, **kwargs: (
+                    calls.append(args)
+                    or subprocess.CompletedProcess(args, 9, "", "must not run")
+                ),
+            )
+            log = json.loads(
+                (created / "execution_log.json").read_text(encoding="utf-8")
+            )
+
+        self.assertEqual(calls, [])
+        self.assertEqual(log["status"], "blocked")
+        self.assertIn("verified ffprobe tool evidence", log["blocker"])
 
     def test_execution_validation_happens_before_the_first_runner_command(self):
         event_order = []
@@ -601,11 +754,18 @@ class BuildEditBundleTests(unittest.TestCase):
             log = json.loads(
                 (created / "execution_log.json").read_text(encoding="utf-8")
             )
+            copied = json.loads(
+                (created / "edit_master_plan.json").read_text(encoding="utf-8")
+            )
 
         self.assertEqual(len(probe_calls), 2)
         self.assertEqual(log["status"], "rendered")
         self.assertTrue(
             all(item["probe_status"] == "passed" for item in log["rendered_outputs"])
+        )
+        self.assertIn(
+            "ffprobe-test",
+            {item["tool"] for item in copied["execution"]["tool_evidence"]},
         )
 
     def test_bad_final_probe_and_missing_fine_probe_are_blocked(self):

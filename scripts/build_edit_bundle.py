@@ -673,10 +673,16 @@ def _tier_blocker(
 
 def _replace_command_plans(
     plan: dict[str, Any],
+    plan_path: Path,
     version_dir: Path,
     command_deliveries: list[dict[str, Any]],
     ffmpeg_path: str,
 ) -> None:
+    try:
+        plan_base_dir = Path(plan_path).resolve().parent
+        resolved_version = version_dir.resolve()
+    except (OSError, RuntimeError, TypeError, ValueError) as exc:
+        raise BuildError(f"could not resolve delivery output paths: {exc}") from None
     timelines = {item.get("timeline_id"): item for item in plan["timelines"]}
     deliveries = {item.get("delivery_id"): item for item in plan["delivery_specs"]}
     for compiled in command_deliveries:
@@ -685,6 +691,33 @@ def _replace_command_plans(
             compiled["commands"] = []
             compiled["execution_status"] = "not_ready"
             continue
+        try:
+            declared_output = _resolved_path(
+                delivery.get("destination"),
+                plan_base_dir,
+                f"delivery {delivery.get('delivery_id')} destination",
+            )
+            filename_output = _resolved_path(
+                delivery.get("filename"),
+                resolved_version,
+                f"delivery {delivery.get('delivery_id')} filename",
+            )
+            declared_output.relative_to(resolved_version)
+        except (BuildError, ValueError) as exc:
+            compiled["commands"] = []
+            compiled["blocker"] = str(exc)
+            compiled["execution_status"] = "blocked"
+            continue
+        if declared_output != filename_output:
+            compiled["commands"] = []
+            compiled["blocker"] = (
+                f"delivery {delivery.get('delivery_id')} destination and filename "
+                "do not identify the same actual output"
+            )
+            compiled["execution_status"] = "blocked"
+            continue
+        compiled["expected_output_path"] = str(declared_output)
+        compiled["expected_output_ref"] = delivery["destination"]
         timeline = timelines[compiled["timeline_id"]]
         blocker = _tier_blocker(plan, timeline, delivery)
         if blocker is not None:
@@ -700,6 +733,13 @@ def _replace_command_plans(
                 delivery,
                 ffmpeg_path=ffmpeg_path,
             )
+            if Path(compiled["commands"][-1][-1]).resolve() != declared_output:
+                compiled["commands"] = []
+                compiled["blocker"] = (
+                    f"delivery {delivery.get('delivery_id')} command output does "
+                    "not match its canonical expected output"
+                )
+                compiled["execution_status"] = "blocked"
         except AdapterError as exc:
             compiled["commands"] = []
             compiled["blocker"] = str(exc)
@@ -874,6 +914,36 @@ def _probe_blocker(
     return None
 
 
+def _tool_evidence_blocker(
+    plan: dict[str, Any], requested_tool: str, tool_name: str
+) -> str | None:
+    normalized_requested = os.path.normcase(os.path.normpath(requested_tool.strip()))
+    verified = [
+        item
+        for item in plan["execution"].get("tool_evidence", [])
+        if isinstance(item, dict) and item.get("status") == "verified"
+    ]
+    relevant = []
+    for item in verified:
+        values = [
+            item.get(field)
+            for field in ("tool", "path", "executable")
+            if isinstance(item.get(field), str) and item.get(field).strip()
+        ]
+        if any(
+            os.path.normcase(os.path.normpath(value.strip())) == normalized_requested
+            for value in values
+        ):
+            return None
+        if any(tool_name.casefold() in value.casefold() for value in values):
+            relevant.append(item)
+    if relevant:
+        return (
+            f"verified {tool_name} tool evidence does not match {requested_tool}"
+        )
+    return f"verified {tool_name} tool evidence is required"
+
+
 def _mark_copied_plan(
     plan: dict[str, Any], execution_log: dict[str, Any]
 ) -> None:
@@ -899,10 +969,19 @@ def _mark_copied_plan(
         tool_evidence.append(
             {
                 "tool_evidence_id": tool_id,
-                "tool": "ffmpeg",
+                "tool": output["ffmpeg_tool"],
                 "status": "verified",
             }
         )
+        if output.get("ffprobe_tool"):
+            probe_tool_id = f"TOOL-FFPROBE-{delivery_id}"
+            tool_evidence.append(
+                {
+                    "tool_evidence_id": probe_tool_id,
+                    "tool": output["ffprobe_tool"],
+                    "status": "verified",
+                }
+            )
         probe_evidence.append(
             {
                 "probe_evidence_id": probe_id,
@@ -910,6 +989,9 @@ def _mark_copied_plan(
                 "output_ref": output["output_ref"],
                 "status": "passed",
                 "probe_status": output["probe_status"],
+                "tool_evidence_ref": (
+                    probe_tool_id if output.get("ffprobe_tool") else tool_id
+                ),
             }
         )
         canonical_outputs.append(
@@ -952,6 +1034,7 @@ def _execute_authorized(
     plan: dict[str, Any],
     version_dir: Path,
     command_deliveries: list[dict[str, Any]],
+    ffmpeg_path: str,
     ffprobe_path: str | None,
     runner: Callable[..., subprocess.CompletedProcess],
 ) -> str:
@@ -969,13 +1052,28 @@ def _execute_authorized(
         for item in command_deliveries
         if delivery_specs[item["delivery_id"]].get("ready") is True
     ]
-    blocker = next((item.get("blocker") for item in selected if item.get("blocker")), None)
+    blocker = "no ready delivery was selected for execution" if not selected else None
+    if blocker is None:
+        blocker = next(
+            (item.get("blocker") for item in selected if item.get("blocker")),
+            None,
+        )
+    if blocker is None:
+        blocker = _tool_evidence_blocker(plan, ffmpeg_path, "ffmpeg")
     if blocker is None and any(
         delivery_specs[item["delivery_id"]].get("version_role")
         in {"fine_cut", "final_master"}
         for item in selected
     ) and (ffprobe_path is None or not str(ffprobe_path).strip()):
         blocker = "ffprobe is required for fine_cut and final_master execution"
+    if (
+        blocker is None
+        and ffprobe_path is not None
+        and str(ffprobe_path).strip()
+    ):
+        blocker = _tool_evidence_blocker(
+            plan, str(ffprobe_path), "ffprobe"
+        )
     if blocker is not None:
         execution_log["status"] = "blocked"
         execution_log["blocker"] = blocker
@@ -1014,7 +1112,7 @@ def _execute_authorized(
             execution_log["blocker"] = delivery_blocker
             break
 
-        final_output = _expected_command_output(commands[-1], version_dir)
+        final_output = Path(compiled["expected_output_path"])
         probe_status = "unverified"
         if ffprobe_path is not None and str(ffprobe_path).strip():
             probe_args = [
@@ -1051,7 +1149,14 @@ def _execute_authorized(
         execution_log["rendered_outputs"].append(
             {
                 "delivery_id": delivery_id,
-                "output_ref": delivery["destination"],
+                "output_ref": compiled["expected_output_ref"],
+                "actual_output_path": str(final_output),
+                "ffmpeg_tool": ffmpeg_path,
+                "ffprobe_tool": (
+                    str(ffprobe_path)
+                    if ffprobe_path is not None and str(ffprobe_path).strip()
+                    else None
+                ),
                 "status": "rendered",
                 "tool_status": "passed",
                 "probe_status": probe_status,
@@ -1126,6 +1231,7 @@ def _build_loaded_bundle(
         execution_plan = _prepare_execution_plan(plan, plan_path)
         _replace_command_plans(
             execution_plan,
+            plan_path,
             version_dir,
             command_deliveries,
             str(ffmpeg_path),
@@ -1139,11 +1245,16 @@ def _build_loaded_bundle(
             plan,
             version_dir,
             command_deliveries,
+            str(ffmpeg_path),
             ffprobe_path,
             runner,
         )
         manifest["status"] = status
         manifest["artifacts"] = _artifact_names(version_dir)
+        execution_log = json.loads(
+            (version_dir / "execution_log.json").read_text(encoding="utf-8")
+        )
+        manifest["rendered_outputs"] = execution_log["rendered_outputs"]
         _replace_owned_json(manifest_path, manifest)
         return version_dir
     except Exception as exc:
