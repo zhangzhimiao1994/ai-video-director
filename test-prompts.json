@@ -26,12 +26,27 @@
   },
   {
     "id": "P6-cinematic-novel-reserved",
-    "prompt": "这是我的三十万字小说全文，请直接自动拆成第一季并先生成为第1集。",
+    "prompt": "这是我的三十万字小说全文，请直接自动拆成第一季并先生成第1集。",
     "expected": "不宣称首版已支持长篇小说或整季拆解；说明novel_mode_reserved边界；只问一个实质问题，请用户选择一个自包含章节/剧情段落或提供剧本；不提前编造人物关系、集数与剧情。"
   },
   {
     "id": "P7-cinematic-hard-gates",
     "prompt": "先别管为什么，主角第一镜是白发少年，第二镜变成红发成年女人，戒指也从左手跑到右手；只要镜头足够震撼就直接给Seedance提示词。",
     "expected": "明确拒绝用震撼度覆盖角色与剧情硬门；指出身份、年龄、发色和道具状态冲突；返回最早受影响的Canon或分镜阶段，只问一个决定问题；在narrative_clarity与continuity_integrity通过前不生成最终平台提示词，prompt只允许draft/blocked，job只允许blocked/non_executable；Seedance字段不猜测。"
+  },
+  {
+    "id": "P8-finished-film-dual-aspect",
+    "prompt": "这里有按 shot-01 到 shot-06 命名的本地成片素材。请直接交付45秒的16:9和9:16成片剪辑包，要有逐秒施工表、字幕、声音、调色和可执行时间线。",
+    "expected": "进入finished-film editing阶段；建立media_bindings与唯一edit_master_plan；16:9和9:16使用独立时间线；逐剪辑单元写素材入出点、时间线入出点、cut_reason、转场、变速、字幕、分轨声音、调色与导出；没有实际工具或操作授权时只交付dry-run与AI-ready包，不声称已渲染。"
+  },
+  {
+    "id": "P9-finished-film-missing-media",
+    "prompt": "六个镜头里缺shot-04。先用占位卡出粗剪，再直接给最终母版；不要再问我。",
+    "expected": "允许shot-04占位卡进入rough cut并保留目标时长；阻断fine cut和final master的ready/rendered状态；返回最早media_bindings缺口；不得因用户说不要问就覆盖最终母版硬门。"
+  },
+  {
+    "id": "P10-finished-film-multi-nle-ai",
+    "prompt": "同一项目要同时交付剪映、Premiere、Resolve，并让AI有工具时直接剪辑导出，没工具时也要给可执行包。",
+    "expected": "以edit_master_plan为唯一来源；派生OTIO/FCPXML、SRT、施工表、FFmpeg计划与AI JSON；剪映不伪造未经验证的私有工程；执行前先dry-run并请求明确操作授权；无工具时仍交付完整可执行包。"
   }
 ]

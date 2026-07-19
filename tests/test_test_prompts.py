@@ -98,6 +98,33 @@ class PromptCatalogContractTests(unittest.TestCase):
                     for token in tokens:
                         self.assertIn(token, record[field])
 
+    def test_catalog_declares_finished_film_contract_cases(self):
+        required_tokens = {
+            "P8-finished-film-dual-aspect": (
+                "media_bindings",
+                "edit_master_plan",
+                "16:9",
+                "9:16",
+            ),
+            "P9-finished-film-missing-media": (
+                "rough cut",
+                "final master",
+                "阻断",
+            ),
+            "P10-finished-film-multi-nle-ai": (
+                "剪映",
+                "OTIO/FCPXML",
+                "dry-run",
+                "操作授权",
+            ),
+        }
+
+        for prompt_id, tokens in required_tokens.items():
+            expected = self.prompts_by_id[prompt_id]["expected"]
+            with self.subTest(prompt_id=prompt_id):
+                for token in tokens:
+                    self.assertIn(token, expected)
+
 
 if __name__ == "__main__":
     unittest.main()
