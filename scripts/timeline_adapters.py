@@ -73,6 +73,11 @@ CURVES_PRESETS = {
 
 SAFE_ID = re.compile(r"^[A-Za-z0-9._-]+$")
 
+VIDEO_CODEC_ENCODERS = {"h264": "libx264"}
+AUDIO_CODEC_ENCODERS = {"aac": "aac"}
+SUPPORTED_AUDIO_SAMPLE_RATES = {44100, 48000}
+SUPPORTED_AUDIO_CHANNELS = {1, 2}
+
 
 def _object(value: object, label: str) -> dict[str, Any]:
     if not isinstance(value, dict):
@@ -244,6 +249,19 @@ def _cell(value: object) -> str:
     if isinstance(value, (dict, list)):
         return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
     return str(value)
+
+
+def _csv_cell(value: object) -> str:
+    rendered = _cell(value)
+    if not isinstance(value, str):
+        return rendered
+    formula_candidate = rendered.lstrip(" \t\r\n\v\f")
+    starts_with_control = bool(rendered) and rendered[0] in "\t\r\n\v\f"
+    if starts_with_control or (
+        formula_candidate and formula_candidate[0] in "=+-@"
+    ):
+        return "'" + rendered
+    return rendered
 
 
 def _markdown_cell(value: object) -> str:
@@ -482,7 +500,9 @@ def write_construction_csv(plan, timeline, destination: Path) -> Path:
     writer = csv.DictWriter(buffer, fieldnames=CONSTRUCTION_FIELDS, lineterminator="\n")
     writer.writeheader()
     for row in rows:
-        writer.writerow({field: _cell(row[field]) for field in CONSTRUCTION_FIELDS})
+        writer.writerow(
+            {field: _csv_cell(row[field]) for field in CONSTRUCTION_FIELDS}
+        )
     return _exclusive_text(destination, buffer.getvalue())
 
 
@@ -537,11 +557,24 @@ def write_srt(plan, timeline, destination: Path) -> Path:
     timeline_object = _object(timeline, "timeline")
     blocks = []
     for number, cue in enumerate(_mounted_text_cues(plan_object, timeline_object), start=1):
+        text = str(cue["text"]).replace("\r\n", "\n").replace("\r", "\n")
+        readable_lines = []
+        for raw_line in text.split("\n"):
+            line = "".join(
+                character
+                for character in raw_line
+                if character == "\t" or ord(character) >= 32
+            ).rstrip()
+            if line.strip():
+                readable_lines.append(line)
+        if not readable_lines:
+            raise AdapterError("text cue must contain readable text")
+        normalized_text = "\n".join(readable_lines)
         blocks.append(
             f"{number}\n"
             f"{srt_timestamp(cue['timeline_in_seconds'])} --> "
             f"{srt_timestamp(cue['timeline_out_seconds'])}\n"
-            f"{cue['text']}"
+            f"{normalized_text}"
         )
     content = "\n\n".join(blocks) + ("\n" if blocks else "")
     return _exclusive_text(destination, content)
@@ -690,6 +723,24 @@ def write_fcpxml(plan, timeline, destination: Path) -> Path:
     assets = _assets(plan_object)
     units = _video_units(timeline_object)
     _validate_first_release_units(units)
+    video_asset_ids: set[str] = set()
+    for index, unit in enumerate(units, start=1):
+        asset_id = _nonempty_string(
+            unit.get("asset_id"), f"edit unit {index}.asset_id"
+        )
+        if asset_id not in assets:
+            raise AdapterError(
+                f"edit unit {index} references unknown asset_id {asset_id}"
+            )
+        video_asset_ids.add(asset_id)
+    audio_asset_ids: set[str] = set()
+    for raw_track in _list(plan_object.get("audio_tracks"), "plan.audio_tracks"):
+        track = _object(raw_track, "audio track")
+        for raw_cue in _list(track.get("cues"), "audio track.cues"):
+            cue = _object(raw_cue, "audio cue")
+            cue_asset_id = cue.get("asset_id")
+            if isinstance(cue_asset_id, str) and cue_asset_id:
+                audio_asset_ids.add(cue_asset_id)
     rate = _frame_rate(timeline_object)
     frame_ranges = _validated_unit_frames(units, rate)
     width, height = _resolution(timeline_object)
@@ -731,12 +782,12 @@ def write_fcpxml(plan, timeline, destination: Path) -> Path:
                     "duration": _fcpx_time_from_frames(asset_duration, rate),
                 }
             )
-        if binding.get("source_type") == "post_asset":
-            attributes["hasAudio"] = "1"
-        else:
+        if asset_id in video_asset_ids:
             attributes.update({"hasVideo": "1", "format": "r1"})
             if isinstance(binding.get("audio_channels"), int) and binding["audio_channels"] > 0:
                 attributes["hasAudio"] = "1"
+        elif asset_id in audio_asset_ids:
+            attributes["hasAudio"] = "1"
         ET.SubElement(resources, "asset", attributes)
 
     library = ET.SubElement(root, "library")
@@ -754,13 +805,16 @@ def write_fcpxml(plan, timeline, destination: Path) -> Path:
     )
     spine = ET.SubElement(sequence, "spine")
     for unit, frames in zip(units, frame_ranges):
-        asset_id = unit["asset_id"]
+        asset_id = _nonempty_string(unit.get("asset_id"), "edit unit.asset_id")
+        resource_id = resource_ids.get(asset_id)
+        if resource_id is None:
+            raise AdapterError(f"edit unit references unknown asset_id {asset_id}")
         ET.SubElement(
             spine,
             "asset-clip",
             {
                 "name": str(unit.get("edit_unit_id", asset_id)),
-                "ref": resource_ids[asset_id],
+                "ref": resource_id,
                 "offset": _fcpx_time_from_frames(frames["timeline_in_seconds"], rate),
                 "start": _fcpx_time_from_frames(frames["source_in_seconds"], rate),
                 "duration": _fcpx_time_from_frames(frames["duration_seconds"], rate),
@@ -826,6 +880,123 @@ def write_jianying_instructions(plan, destination: Path) -> Path:
         media_lines.append(
             f"{index}. {asset_id}: {path} -> {rename_target}"
         )
+
+    audio_tracks = {}
+    for raw_track in _list(plan_object.get("audio_tracks"), "plan.audio_tracks"):
+        track = _object(raw_track, "audio track")
+        track_id = _nonempty_string(track.get("audio_track_id"), "audio_track_id")
+        audio_tracks[track_id] = track
+    audio_lines = []
+    for selected in timelines:
+        timeline_id = _timeline_id(selected)
+        for track_id in _list(
+            selected.get("audio_track_refs"), "timeline.audio_track_refs"
+        ):
+            track = audio_tracks.get(track_id)
+            if track is None:
+                raise AdapterError(f"timeline references unknown audio track {track_id}")
+            for raw_cue in _list(track.get("cues"), f"audio track {track_id}.cues"):
+                cue = _object(raw_cue, f"audio cue on {track_id}")
+                audio_lines.append(
+                    f"- {timeline_id} / {track_id} / {cue.get('audio_cue_id')}: "
+                    f"asset={cue.get('asset_id')}, "
+                    f"timeline={cue.get('timeline_in_seconds')}-"
+                    f"{cue.get('timeline_out_seconds')}s, "
+                    f"gain_db={cue.get('gain_db')}, "
+                    f"target_lufs={track.get('target_lufs')}, "
+                    f"true_peak_db={track.get('true_peak_db')}."
+                )
+
+    text_tracks = {}
+    for raw_track in _list(plan_object.get("text_tracks"), "plan.text_tracks"):
+        track = _object(raw_track, "text track")
+        track_id = _nonempty_string(track.get("text_track_id"), "text_track_id")
+        text_tracks[track_id] = track
+    subtitle_lines = []
+    font_uses: list[tuple[str, str, str]] = []
+    for selected in timelines:
+        timeline_id = _timeline_id(selected)
+        for track_id in _list(
+            selected.get("text_track_refs"), "timeline.text_track_refs"
+        ):
+            track = text_tracks.get(track_id)
+            if track is None:
+                raise AdapterError(f"timeline references unknown text track {track_id}")
+            for raw_cue in _list(track.get("cues"), f"text track {track_id}.cues"):
+                cue = _object(raw_cue, f"text cue on {track_id}")
+                cue_id = cue.get("text_cue_id")
+                details = [
+                    f"timeline={cue.get('timeline_in_seconds')}-"
+                    f"{cue.get('timeline_out_seconds')}s",
+                    f"text={_cell(cue.get('text'))}",
+                ]
+                for field in (
+                    "font_asset_id",
+                    "font_size",
+                    "position",
+                    "safe_area",
+                    "style",
+                ):
+                    if field in cue:
+                        details.append(f"{field}={_cell(cue.get(field))}")
+                details.append(
+                    f"track_safe_area_status={track.get('safe_area_status')}"
+                )
+                subtitle_lines.append(
+                    f"- {timeline_id} / {track_id} / {cue_id}: "
+                    + ", ".join(details)
+                    + "."
+                )
+                font_asset_id = cue.get("font_asset_id")
+                if isinstance(font_asset_id, str) and font_asset_id:
+                    font_uses.append((font_asset_id, timeline_id, str(cue_id)))
+
+    look_plan = _object(plan_object.get("look_plan"), "plan.look_plan")
+    look_lines = [
+        f"- instruction={instruction}"
+        for instruction in _list(look_plan.get("instructions"), "look instructions")
+    ]
+    for raw_filter in _list(look_plan.get("ffmpeg_filters"), "look filters"):
+        filter_item = _object(raw_filter, "look filter")
+        filter_name = filter_item.get("name", filter_item.get("filter"))
+        params = _object(filter_item.get("params"), "look filter params")
+        asset_id = params.get("asset_id")
+        asset_detail = ""
+        if isinstance(asset_id, str) and asset_id in assets:
+            asset_detail = f", asset={asset_id}, path={assets[asset_id].get('path_or_uri')}"
+        look_lines.append(
+            f"- filter={filter_name}, params={_cell(params)}{asset_detail}"
+        )
+    for font_asset_id, timeline_id, cue_id in font_uses:
+        binding = assets.get(font_asset_id)
+        if binding is None:
+            raise AdapterError(f"font asset {font_asset_id} is unknown")
+        look_lines.append(
+            f"- font_asset_id={font_asset_id}, path={binding.get('path_or_uri')}, "
+            f"apply_to={timeline_id}/{cue_id}"
+        )
+
+    delivery_lines = []
+    for raw_delivery in _list(
+        plan_object.get("delivery_specs"), "plan.delivery_specs"
+    ):
+        delivery = _object(raw_delivery, "delivery spec")
+        delivery_lines.append(
+            f"- {delivery.get('delivery_id')}: timeline={delivery.get('timeline_id')}, "
+            f"resolution={delivery.get('resolution')}, "
+            f"frame_rate={delivery.get('frame_rate')}, "
+            f"container={delivery.get('container')}, "
+            f"video_codec={delivery.get('video_codec')}, "
+            f"bitrate={delivery.get('bitrate')}, "
+            f"audio_codec={delivery.get('audio_codec')}, "
+            f"audio_sample_rate={delivery.get('audio_sample_rate')}, "
+            f"audio_channels={delivery.get('audio_channels')}, "
+            f"subtitle_mode={delivery.get('subtitle_mode')}, "
+            f"audio_mode={delivery.get('audio_mode')}, "
+            f"look_mode={delivery.get('look_mode')}, "
+            f"filename={delivery.get('filename')}."
+        )
+
     version_policy = _object(plan_object.get("execution"), "plan.execution").get("version_policy")
     content = (
         "# Jianying / CapCut Assembly Instructions\n\n"
@@ -835,6 +1006,14 @@ def write_jianying_instructions(plan, destination: Path) -> Path:
         + "\n".join(media_lines)
         + "\n\n## Timeline assembly\n\n"
         + "\n\n".join(timeline_sections)
+        + "\n\n## Audio Cue Assembly\n\n"
+        + "\n".join(audio_lines)
+        + "\n\n## Subtitle Style and Safe Area\n\n"
+        + "\n".join(subtitle_lines)
+        + "\n\n## Look and Font Application\n\n"
+        + "\n".join(look_lines)
+        + "\n\n## Delivery Export Settings\n\n"
+        + "\n".join(delivery_lines)
         + "\n\nDo not fabricate or reverse engineer a private project file. Save a new project through the official application UI.\n"
     )
     return _exclusive_text(destination, content)
@@ -1205,6 +1384,47 @@ def _audio_filter_graph(
     return ";".join(chains)
 
 
+def _compile_delivery_encoding(delivery: dict[str, Any]) -> dict[str, str]:
+    container = delivery.get("container")
+    video_codec = delivery.get("video_codec")
+    codec = delivery.get("codec")
+    audio_codec = delivery.get("audio_codec")
+    bitrate = delivery.get("bitrate")
+    sample_rate = delivery.get("audio_sample_rate")
+    channels = delivery.get("audio_channels")
+    supported = (
+        container == "mp4"
+        and isinstance(video_codec, str)
+        and video_codec in VIDEO_CODEC_ENCODERS
+        and codec == video_codec
+        and isinstance(audio_codec, str)
+        and audio_codec in AUDIO_CODEC_ENCODERS
+        and isinstance(bitrate, str)
+        and re.fullmatch(r"[1-9][0-9]*(?:\.[0-9]+)?[kKmM]", bitrate) is not None
+        and type(sample_rate) is int
+        and sample_rate in SUPPORTED_AUDIO_SAMPLE_RATES
+        and type(channels) is int
+        and channels in SUPPORTED_AUDIO_CHANNELS
+    )
+    filename = delivery.get("filename")
+    if (
+        not supported
+        or not isinstance(filename, str)
+        or not filename.lower().endswith(".mp4")
+    ):
+        raise AdapterError(
+            "unsupported delivery encoding; expected mp4, h264/libx264, aac, "
+            "safe video bitrate, 44100/48000 Hz, and 1/2 audio channels"
+        )
+    return {
+        "video_encoder": VIDEO_CODEC_ENCODERS[video_codec],
+        "audio_encoder": AUDIO_CODEC_ENCODERS[audio_codec],
+        "video_bitrate": bitrate,
+        "audio_sample_rate": str(sample_rate),
+        "audio_channels": str(channels),
+    }
+
+
 def ffmpeg_command_plan(
     plan,
     timeline,
@@ -1224,6 +1444,7 @@ def ffmpeg_command_plan(
         raise AdapterError("delivery resolution does not match timeline")
     if _fraction(selected_delivery.get("frame_rate"), "delivery.frame_rate", positive=True) != _frame_rate(timeline_object):
         raise AdapterError("delivery frame_rate does not match timeline")
+    encoding = _compile_delivery_encoding(selected_delivery)
     width, height = _resolution(timeline_object)
     rate = _frame_rate(timeline_object)
     rate_text = _number_text(Decimal(rate.numerator) / Decimal(rate.denominator), "frame rate")
@@ -1278,7 +1499,9 @@ def ffmpeg_command_plan(
                 "-vf",
                 picture_filter,
                 "-c:v",
-                "libx264",
+                encoding["video_encoder"],
+                "-b:v",
+                encoding["video_bitrate"],
                 str(segment),
             ]
         )
@@ -1331,11 +1554,23 @@ def ffmpeg_command_plan(
                     "-map",
                     "[aout]",
                     "-c:a",
-                    "aac",
+                    encoding["audio_encoder"],
+                    "-ar",
+                    encoding["audio_sample_rate"],
+                    "-ac",
+                    encoding["audio_channels"],
                 ]
             )
         else:
             final_command.append("-an")
-        final_command.extend(["-c:v", "libx264", str(final_output)])
+        final_command.extend(
+            [
+                "-c:v",
+                encoding["video_encoder"],
+                "-b:v",
+                encoding["video_bitrate"],
+                str(final_output),
+            ]
+        )
         commands.append(final_command)
     return commands

@@ -2,6 +2,7 @@ import copy
 import csv
 import io
 import json
+import re
 import sys
 import tempfile
 import unittest
@@ -98,6 +99,23 @@ def add_audio_cue(plan, *, authorized=True):
         }
     ]
     units(plan)[0]["audio_cue_ids"] = ["AC01"]
+
+
+def add_post_asset(plan, asset_id, path):
+    plan["media_bindings"].append(
+        {
+            "asset_id": asset_id,
+            "binding_scope": "project",
+            "target_id": "PKG-001",
+            "source_type": "post_asset",
+            "path_or_uri": path,
+            "file_status": "online",
+            "rights_status": "cleared",
+            "probe_status": "verified",
+            "selection_reason": "approved dependency",
+            "acceptance_status": "approved",
+        }
+    )
 
 
 def prepare_delivery(plan, **updates):
@@ -199,6 +217,37 @@ class TimelineAdapterTests(unittest.TestCase):
         self.assertEqual(parsed_csv[0].get("take_id"), "T01")
         self.assertIn("fallback_asset_id", parsed_csv[0])
 
+    def test_construction_csv_neutralizes_spreadsheet_formula_payloads(self):
+        plan = load_plan()
+        unit = units(plan)[0]
+        unit["cut_reason"] = '=HYPERLINK("https://invalid")'
+        unit["look_instruction"] = "+SUM(1,1)"
+        unit["reframe"] = "\t@cmd"
+        unit["stabilization"] = "\r\n=cmd"
+        unit["approval_status"] = "-1+1"
+        plan["media_bindings"][0]["path_or_uri"] = "@external"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            destination = Path(temp_dir) / "construction.csv"
+            write_construction_csv(plan, timeline(plan), destination)
+            row = next(
+                csv.DictReader(
+                    io.StringIO(destination.read_text(encoding="utf-8"))
+                )
+            )
+
+        for field in (
+            "cut_reason",
+            "look_instruction",
+            "reframe",
+            "stabilization",
+            "approval_status",
+            "asset_path",
+        ):
+            self.assertTrue(row[field].startswith("'"), (field, row[field]))
+        self.assertEqual(row["timeline_in_seconds"], "0")
+        self.assertEqual(row["duration_seconds"], "2")
+        self.assertEqual(row["speed"], "1")
+
     def test_construction_markdown_adds_human_handoff_appendices_without_changing_rows(self):
         plan = load_plan()
         original_fields = tuple(construction_rows(plan, timeline(plan))[0])
@@ -276,6 +325,30 @@ class TimelineAdapterTests(unittest.TestCase):
         )
         self.assertEqual(isolated_content, b"")
 
+    def test_srt_normalizes_blank_lines_so_text_cannot_create_fake_blocks(self):
+        plan = load_plan()
+        add_text_cues(plan)
+        plan["text_tracks"][0]["cues"][1]["text"] = (
+            "正文\r\n\r\n99\r\n"
+            "00:00:09,000 --> 00:00:10,000\r\n伪造字幕"
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            destination = Path(temp_dir) / "safe.srt"
+            write_srt(plan, timeline(plan), destination)
+            content = destination.read_text(encoding="utf-8")
+
+        block_headers = re.findall(
+            r"(?:\A|\n\n)(\d+)\n"
+            r"\d{2}:\d{2}:\d{2},\d{3} --> \d{2}:\d{2}:\d{2},\d{3}\n",
+            content,
+        )
+        self.assertEqual(block_headers, ["1", "2"])
+        self.assertNotIn("\n\n99\n", content)
+        self.assertIn(
+            "正文\n99\n00:00:09,000 --> 00:00:10,000\n伪造字幕",
+            content,
+        )
+
     def test_otio_has_public_schema_and_frame_exact_clip_ranges(self):
         plan = load_plan()
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -339,6 +412,39 @@ class TimelineAdapterTests(unittest.TestCase):
         self.assertEqual(
             {item.attrib["name"] for item in assets}, {"A01", "A02", "AUD01"}
         )
+
+    def test_fcpxml_rejects_missing_clip_asset_with_adapter_error(self):
+        plan = load_plan()
+        units(plan)[0]["asset_id"] = "MISSING"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            try:
+                write_fcpxml(plan, timeline(plan), Path(temp_dir) / "missing.fcpxml")
+            except KeyError as error:
+                self.fail(f"FCPXML leaked KeyError: {error}")
+            except AdapterError as error:
+                self.assertIn("unknown asset_id MISSING", str(error))
+            else:
+                self.fail("missing FCPXML clip asset was accepted")
+
+    def test_fcpxml_marks_only_canon_audio_assets_as_audio(self):
+        plan = load_plan()
+        add_audio_cue(plan)
+        add_post_asset(plan, "LUT01", "media/look.cube")
+        add_post_asset(plan, "FONT01", "media/subtitle.ttf")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            destination = Path(temp_dir) / "classified.fcpxml"
+            write_fcpxml(plan, timeline(plan), destination)
+            root = ET.parse(destination).getroot()
+
+        resources = {
+            item.attrib["name"]: item.attrib
+            for item in root.findall("./resources/asset")
+        }
+        self.assertEqual(resources["AUD01"].get("hasAudio"), "1")
+        self.assertNotIn("hasVideo", resources["AUD01"])
+        for dependency_id in ("LUT01", "FONT01"):
+            self.assertNotIn("hasAudio", resources[dependency_id])
+            self.assertNotIn("hasVideo", resources[dependency_id])
 
     def test_exchange_writers_reject_non_frame_boundaries_and_accept_24fps_frame(self):
         for writer, suffix in ((write_otio, ".otio"), (write_fcpxml, ".fcpxml")):
@@ -512,6 +618,62 @@ class TimelineAdapterTests(unittest.TestCase):
         ):
             self.assertIn(expected, content)
 
+    def test_jianying_instructions_include_canon_audio_text_look_and_export_details(self):
+        plan = load_plan()
+        add_audio_cue(plan)
+        add_text_cues(plan)
+        add_post_asset(plan, "LUT01", "media/look.cube")
+        add_post_asset(plan, "FONT01", "media/subtitle.ttf")
+        cue = next(
+            item
+            for item in plan["text_tracks"][0]["cues"]
+            if item["text_cue_id"] == "TC01"
+        )
+        cue.update(
+            {
+                "font_asset_id": "FONT01",
+                "font_size": 48,
+                "position": {"x": 0.5, "y": 0.9},
+                "safe_area": "title_safe",
+                "style": {"weight": "bold"},
+            }
+        )
+        plan["look_plan"]["ffmpeg_filters"] = [
+            {"name": "lut3d", "params": {"asset_id": "LUT01"}}
+        ]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            destination = Path(temp_dir) / "jianying_capcut_instructions.md"
+            write_jianying_instructions(plan, destination)
+            content = destination.read_text(encoding="utf-8")
+
+        for expected in (
+            "## Audio Cue Assembly",
+            "AC01",
+            "timeline=0-4s",
+            "gain_db=-3",
+            "target_lufs=-14",
+            "true_peak_db=-1",
+            "## Subtitle Style and Safe Area",
+            "TC01",
+            "font_asset_id=FONT01",
+            "font_size=48",
+            "safe_area=title_safe",
+            'style={"weight":"bold"}',
+            "## Look and Font Application",
+            "LUT01",
+            "filter=lut3d",
+            "FONT01",
+            "## Delivery Export Settings",
+            "D16",
+            "resolution=1920x1080",
+            "frame_rate=24",
+            "video_codec=h264",
+            "bitrate=8M",
+            "audio_sample_rate=48000",
+            "audio_channels=2",
+        ):
+            self.assertIn(expected, content)
+
     def test_ffmpeg_returns_segment_and_concat_argument_arrays_inside_version(self):
         plan = load_plan()
         selected = timeline(plan)
@@ -545,6 +707,52 @@ class TimelineAdapterTests(unittest.TestCase):
         for command in commands:
             output = Path(command[-1]).resolve()
             self.assertEqual(output, resolved_version / output.relative_to(resolved_version))
+
+    def test_ffmpeg_consumes_supported_delivery_codec_and_rate_settings(self):
+        plan = load_plan()
+        add_audio_cue(plan)
+        prepare_delivery(
+            plan,
+            audio_mode="final_mix",
+            bitrate="4M",
+            audio_sample_rate=44100,
+            audio_channels=1,
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            commands = ffmpeg_command_plan(
+                plan, timeline(plan), Path(temp_dir) / "v001"
+            )
+
+        segment = commands[0]
+        final = commands[-1]
+        self.assertEqual(segment[segment.index("-c:v") + 1], "libx264")
+        self.assertIn("-b:v", segment)
+        self.assertEqual(segment[segment.index("-b:v") + 1], "4M")
+        self.assertEqual(final[final.index("-c:v") + 1], "libx264")
+        self.assertEqual(final[final.index("-b:v") + 1], "4M")
+        self.assertEqual(final[final.index("-c:a") + 1], "aac")
+        self.assertEqual(final[final.index("-ar") + 1], "44100")
+        self.assertEqual(final[final.index("-ac") + 1], "1")
+
+    def test_ffmpeg_rejects_unsupported_delivery_encoding_settings(self):
+        cases = (
+            ("video_codec", "vp9"),
+            ("codec", "vp9"),
+            ("audio_codec", "flac"),
+            ("bitrate", "8M;movie=x"),
+            ("audio_sample_rate", 12345),
+            ("audio_channels", 6),
+            ("container", "mov"),
+        )
+        for field, value in cases:
+            with self.subTest(field=field, value=value):
+                plan = load_plan()
+                delivery(plan)[field] = value
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    with self.assertRaisesRegex(AdapterError, "unsupported delivery"):
+                        ffmpeg_command_plan(
+                            plan, timeline(plan), Path(temp_dir) / "v001"
+                        )
 
     def test_ffmpeg_rejects_unsupported_transitions_and_effects_without_downgrade(self):
         cases = (
