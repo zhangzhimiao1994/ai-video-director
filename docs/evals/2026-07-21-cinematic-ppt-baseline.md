@@ -9,7 +9,7 @@ Two fresh, independent evaluators answered P11 and P12. The Skill evaluator rece
 Each condition is scored independently against the same five binary requirements:
 
 1. distinguish a rendered/technical pass from `cinematic_ready`;
-2. reject P11 as a movie/cinematic-ready master;
+2. reject P11 as a movie/cinematic-ready master and normalize it to `rough_cut` with `creative_ready=false`;
 3. name all five PPT risks: insufficient character performance or subject motion; shot duration/hold or rhythm; monotonous transitions/connections; missing audio/sound structure; and reliance on beams/smoke/background effects instead of narrative action;
 4. preserve the intentional hold/silence exception in P12 using narrative reason, surrounding movement/reaction, sound, and evidence;
 5. return an ordered repair hierarchy beginning at the earliest responsible layer.
@@ -59,12 +59,12 @@ Evaluator mode: committed Skill, read-only, fresh context.
 | Requirement | Score | Evidence and rationale |
 |---|---|---|
 | a. Separate rendered/technical pass from `cinematic_ready` | **PASS** | It treats duration, codec, and resolution as passed while separately refusing movie readiness. It does not use the normalized `cinematic_ready` field name, but the acceptance distinction itself is present. |
-| b. Reject P11 | **PASS** | Decisive sentence: “不能 `ready`。” It also blocks the final master. |
+| b. Reject P11 and normalize rough-cut state | **FAIL — RED confirmed** | It rejects readiness and blocks the final master, but never normalizes the artifact to `rough_cut` with `creative_ready=false`. |
 | c. Name all five PPT risks | **PASS** | The P11 answer identifies static character performance, 6–10 second holds/rhythm, all-hard-cut construction, absent audio, and motion carried mainly by beams/smoke. |
-| d. Preserve P12 intentional exception | **PASS** | It rejects duration-only classification and checks dramatic function, breathing/gaze changes, reverse shots, ambience, the sound bridge, and marked silence boundaries. |
-| e. Return the earliest repair layer | **FAIL — RED confirmed** | It asks to add audio and perform per-shot checks, but gives no responsibility-ordered route from the earliest storyboarding/source-generation layer through timeline and sound. It also does not return `rough_cut creative_ready=false`. |
+| d. Preserve P12 intentional exception | **PASS** | It checks the hold's dramatic reason, surrounding breathing/gaze movement and reverse-shot reactions, ambience and the sound bridge, plus visible performance and marked silence evidence instead of judging duration alone. |
+| e. Return the earliest repair layer | **FAIL — RED confirmed** | It asks to add audio and perform per-shot checks, but gives no responsibility-ordered route from the earliest storyboarding/source-generation layer through timeline and sound. |
 
-Skill result: **4/5; RED confirmed**.
+Skill result: **3/5; RED confirmed**.
 
 ## Condition B — No Skill
 
@@ -87,13 +87,13 @@ Evaluator mode: no Skill, no repository context, fresh context.
 | Requirement | Score | Evidence and rationale |
 |---|---|---|
 | a. Separate rendered/technical pass from `cinematic_ready` | **PASS** | It explicitly calls the artifact a technically compliant preview/silent sample while refusing acceptance as a complete movie. It does not use normalized field names, but the acceptance distinction itself is present. |
-| b. Reject P11 | **PASS** | Decisive sentence: “不能 ready。” It explicitly says the artifact cannot pass as a complete movie. |
+| b. Reject P11 and normalize rough-cut state | **FAIL — RED confirmed** | It rejects readiness and says the artifact cannot pass as a complete movie, but never normalizes it to `rough_cut` with `creative_ready=false`. |
 | c. Name all five PPT risks | **PASS** | It identifies static performance/subject motion, editing rhythm, all-hard-cut transitions, the absent sound structure, and reliance on beams/smoke rather than character action. |
-| d. Preserve P12 intentional exception | **PASS** | It checks dramatic function, surrounding reverse shots/reactions and micro-performance, ambience/sound bridge, silence, and visible evidence instead of using duration alone. |
-| e. Return the earliest repair layer | **FAIL — RED confirmed** | It lists performance, editing, and sound fixes, but neither orders them from the earliest responsible layer nor returns a rough-cut-only `creative_ready=false` state. |
+| d. Preserve P12 intentional exception | **PASS** | It checks the hold's dramatic reason, surrounding reverse-shot reactions, breathing/gaze movement, ambience and the sound bridge, plus readable performance and composition evidence instead of using duration alone. |
+| e. Return the earliest repair layer | **FAIL — RED confirmed** | It lists performance, editing, and sound fixes, but does not order them from the earliest responsible layer. |
 
-No-Skill result: **4/5; RED confirmed**.
+No-Skill result: **3/5; RED confirmed**.
 
 ## RED conclusion
 
-Both conditions correctly separate technical compliance from movie acceptance, reject the obvious P11 master, name the five risks, and avoid falsely rejecting P12. However, neither returns a repair path beginning at the earliest responsible layer, and neither explicitly restricts the artifact to `rough_cut creative_ready=false`. Because each condition misses requirement e, **RED confirmed**. This baseline must not be represented as a passing cinematic acceptance gate.
+Both conditions separate technical compliance from movie acceptance, name all five risks, and avoid falsely rejecting P12. Both also refuse the obvious P11 master, but neither completes requirement b by normalizing the artifact to `rough_cut` with `creative_ready=false`; neither returns the requirement-e repair hierarchy beginning at the earliest responsible layer. Because each condition misses requirements b and e, **RED confirmed**. This baseline must not be represented as a passing cinematic acceptance gate.
