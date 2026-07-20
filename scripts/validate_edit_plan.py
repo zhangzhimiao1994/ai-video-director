@@ -9,6 +9,8 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 
+from cinematic_validation import validate_cinematic_plan
+
 
 MAX_JSON_INTEGER_DIGITS = 4300
 MAX_PLAN_BYTES = 10 * 1024 * 1024
@@ -29,6 +31,8 @@ TOP_LEVEL_FIELDS = (
     "execution",
     "edit_validation",
 )
+
+OPTIONAL_TOP_LEVEL_FIELDS = ("cinematic_validation",)
 
 PLAN_STATUSES = {"draft", "dry_run_passed", "authorized", "rendered", "blocked"}
 DELIVERY_ROLES = {"rough_cut", "fine_cut", "final_master"}
@@ -2445,7 +2449,11 @@ def _validate_final_requirements(
 
 
 def validate_edit_plan(
-    plan: object, *, require_final: bool = False, for_execution: bool = False
+    plan: object,
+    *,
+    require_final: bool = False,
+    for_execution: bool = False,
+    require_cinematic: bool = False,
 ) -> list[str]:
     """Return deterministic validation errors for an edit master plan."""
     errors: list[str] = []
@@ -2453,7 +2461,8 @@ def validate_edit_plan(
         return ["edit plan: expected object"]
 
     _require_fields(plan, TOP_LEVEL_FIELDS, "edit plan", errors)
-    for field in sorted(set(plan) - set(TOP_LEVEL_FIELDS)):
+    allowed_top_level_fields = TOP_LEVEL_FIELDS + OPTIONAL_TOP_LEVEL_FIELDS
+    for field in sorted(set(plan) - set(allowed_top_level_fields)):
         errors.append(f"edit plan: unknown top-level field {field}")
     if "edit_plan_id" in plan:
         _validate_id(plan.get("edit_plan_id"), "edit_plan_id", errors)
@@ -2597,6 +2606,38 @@ def validate_edit_plan(
     )
     _validate_edit_validation(edit_validation, set(deliveries), errors)
 
+    cinematic = plan.get("cinematic_validation")
+    cinematic_required = require_cinematic or (
+        isinstance(cinematic, dict)
+        and cinematic.get("declared_mode") == "cinematic"
+    )
+    cinematic_errors = validate_cinematic_plan(
+        plan, required=cinematic_required
+    )
+    errors.extend(cinematic_errors)
+    cinematic_blocked = bool(cinematic_errors) or (
+        cinematic_required
+        and isinstance(cinematic, dict)
+        and cinematic.get("cinematic_ready") is not True
+    )
+    if cinematic_blocked:
+        if plan.get("plan_status") == "rendered":
+            errors.append(
+                "plan_status rendered: cinematic blockers require aggregate "
+                "status blocked"
+            )
+        if edit_validation.get("ready") is True:
+            errors.append(
+                "edit_validation.ready: cannot be true while cinematic "
+                "blockers remain"
+            )
+        for delivery_id, delivery in deliveries.items():
+            if delivery.get("ready") is True:
+                errors.append(
+                    f"delivery {delivery_id}: ready cannot be true while "
+                    "cinematic blockers remain"
+                )
+
     plan_status = plan.get("plan_status")
     evidenced_delivery_ids = _validate_render_evidence(
         execution,
@@ -2701,6 +2742,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Require authorization bound to the dry-run manifest and directory.",
     )
+    parser.add_argument(
+        "--require-cinematic",
+        action="store_true",
+        help="Apply motion, coverage, transition, audio, and anti-PPT gates.",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -2729,6 +2775,7 @@ def main(argv: list[str] | None = None) -> int:
         plan,
         require_final=args.require_final,
         for_execution=args.for_execution,
+        require_cinematic=args.require_cinematic,
     )
     if errors:
         for error in errors:
