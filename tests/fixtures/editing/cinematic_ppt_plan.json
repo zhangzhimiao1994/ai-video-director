@@ -1053,6 +1053,142 @@
             "VIS-PPT-08"
           ],
           "status": "failed"
+        },
+        {
+          "edit_unit_id": "E9-01",
+          "motion_layers": [
+            "environment"
+          ],
+          "observed_motion_sources": [
+            "smoke",
+            "particles",
+            "light_beam"
+          ],
+          "intentional_hold": false,
+          "hold_reason": null,
+          "evidence_refs": [
+            "VIS-PPT-9-01"
+          ],
+          "status": "failed"
+        },
+        {
+          "edit_unit_id": "E9-02",
+          "motion_layers": [
+            "environment"
+          ],
+          "observed_motion_sources": [
+            "smoke",
+            "particles",
+            "light_beam"
+          ],
+          "intentional_hold": false,
+          "hold_reason": null,
+          "evidence_refs": [
+            "VIS-PPT-9-02"
+          ],
+          "status": "failed"
+        },
+        {
+          "edit_unit_id": "E9-03",
+          "motion_layers": [
+            "environment"
+          ],
+          "observed_motion_sources": [
+            "smoke",
+            "particles",
+            "light_beam"
+          ],
+          "intentional_hold": false,
+          "hold_reason": null,
+          "evidence_refs": [
+            "VIS-PPT-9-03"
+          ],
+          "status": "failed"
+        },
+        {
+          "edit_unit_id": "E9-04",
+          "motion_layers": [
+            "environment"
+          ],
+          "observed_motion_sources": [
+            "smoke",
+            "particles",
+            "light_beam"
+          ],
+          "intentional_hold": false,
+          "hold_reason": null,
+          "evidence_refs": [
+            "VIS-PPT-9-04"
+          ],
+          "status": "failed"
+        },
+        {
+          "edit_unit_id": "E9-05",
+          "motion_layers": [
+            "environment"
+          ],
+          "observed_motion_sources": [
+            "smoke",
+            "particles",
+            "light_beam"
+          ],
+          "intentional_hold": false,
+          "hold_reason": null,
+          "evidence_refs": [
+            "VIS-PPT-9-05"
+          ],
+          "status": "failed"
+        },
+        {
+          "edit_unit_id": "E9-06",
+          "motion_layers": [
+            "environment"
+          ],
+          "observed_motion_sources": [
+            "smoke",
+            "particles",
+            "light_beam"
+          ],
+          "intentional_hold": false,
+          "hold_reason": null,
+          "evidence_refs": [
+            "VIS-PPT-9-06"
+          ],
+          "status": "failed"
+        },
+        {
+          "edit_unit_id": "E9-07",
+          "motion_layers": [
+            "environment"
+          ],
+          "observed_motion_sources": [
+            "smoke",
+            "particles",
+            "light_beam"
+          ],
+          "intentional_hold": false,
+          "hold_reason": null,
+          "evidence_refs": [
+            "VIS-PPT-9-07"
+          ],
+          "status": "failed"
+        },
+        {
+          "edit_unit_id": "E9-08",
+          "motion_layers": [
+            "environment"
+          ],
+          "observed_motion_sources": [
+            "smoke",
+            "particles",
+            "light_beam"
+          ],
+          "intentional_hold": false,
+          "hold_reason": null,
+          "evidence_refs": [
+            "VIS-PPT-9-08"
+          ],
+          "status": "failed"
         }
       ]
     },
@@ -1061,7 +1197,7 @@
       "observed_scales": [
         "medium_full"
       ],
-      "repeated_centered_compositions": 8,
+      "repeated_centered_compositions": 16,
       "evidence_refs": [
         "CONTACT-PPT"
       ]
@@ -1165,6 +1301,104 @@
           "fulfillment_status": "failed",
           "evidence_refs": [
             "CUT-PPT-07"
+          ]
+        },
+        {
+          "boundary_id": "TR-PPT-9-01",
+          "from_edit_unit_id": "E9-01",
+          "to_edit_unit_id": "E9-02",
+          "type": "hard_cut",
+          "story_reason": "advance to the next effects tableau",
+          "visual_precondition": "none",
+          "audio_bridge_cue_id": "none",
+          "fallback": "none",
+          "fulfillment_status": "failed",
+          "evidence_refs": [
+            "CUT-PPT-9-01"
+          ]
+        },
+        {
+          "boundary_id": "TR-PPT-9-02",
+          "from_edit_unit_id": "E9-02",
+          "to_edit_unit_id": "E9-03",
+          "type": "hard_cut",
+          "story_reason": "advance to the next effects tableau",
+          "visual_precondition": "none",
+          "audio_bridge_cue_id": "none",
+          "fallback": "none",
+          "fulfillment_status": "failed",
+          "evidence_refs": [
+            "CUT-PPT-9-02"
+          ]
+        },
+        {
+          "boundary_id": "TR-PPT-9-03",
+          "from_edit_unit_id": "E9-03",
+          "to_edit_unit_id": "E9-04",
+          "type": "hard_cut",
+          "story_reason": "advance to the next effects tableau",
+          "visual_precondition": "none",
+          "audio_bridge_cue_id": "none",
+          "fallback": "none",
+          "fulfillment_status": "failed",
+          "evidence_refs": [
+            "CUT-PPT-9-03"
+          ]
+        },
+        {
+          "boundary_id": "TR-PPT-9-04",
+          "from_edit_unit_id": "E9-04",
+          "to_edit_unit_id": "E9-05",
+          "type": "hard_cut",
+          "story_reason": "advance to the next effects tableau",
+          "visual_precondition": "none",
+          "audio_bridge_cue_id": "none",
+          "fallback": "none",
+          "fulfillment_status": "failed",
+          "evidence_refs": [
+            "CUT-PPT-9-04"
+          ]
+        },
+        {
+          "boundary_id": "TR-PPT-9-05",
+          "from_edit_unit_id": "E9-05",
+          "to_edit_unit_id": "E9-06",
+          "type": "hard_cut",
+          "story_reason": "advance to the next effects tableau",
+          "visual_precondition": "none",
+          "audio_bridge_cue_id": "none",
+          "fallback": "none",
+          "fulfillment_status": "failed",
+          "evidence_refs": [
+            "CUT-PPT-9-05"
+          ]
+        },
+        {
+          "boundary_id": "TR-PPT-9-06",
+          "from_edit_unit_id": "E9-06",
+          "to_edit_unit_id": "E9-07",
+          "type": "hard_cut",
+          "story_reason": "advance to the next effects tableau",
+          "visual_precondition": "none",
+          "audio_bridge_cue_id": "none",
+          "fallback": "none",
+          "fulfillment_status": "failed",
+          "evidence_refs": [
+            "CUT-PPT-9-06"
+          ]
+        },
+        {
+          "boundary_id": "TR-PPT-9-07",
+          "from_edit_unit_id": "E9-07",
+          "to_edit_unit_id": "E9-08",
+          "type": "hard_cut",
+          "story_reason": "advance to the next effects tableau",
+          "visual_precondition": "none",
+          "audio_bridge_cue_id": "none",
+          "fallback": "none",
+          "fulfillment_status": "failed",
+          "evidence_refs": [
+            "CUT-PPT-9-07"
           ]
         }
       ]
