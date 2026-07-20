@@ -48,5 +48,15 @@
     "id": "P10-finished-film-multi-nle-ai",
     "prompt": "同一项目要同时交付剪映、Premiere、Resolve，并让AI有工具时直接剪辑导出，没工具时也要给可执行包。",
     "expected": "以edit_master_plan为唯一来源；派生OTIO/FCPXML、SRT、施工表、FFmpeg计划与AI JSON；剪映不伪造未经验证的私有工程；执行前先dry-run并请求明确操作授权；无工具时仍交付完整可执行包。"
+  },
+  {
+    "id": "P11-cinematic-ppt-rejection",
+    "prompt": "这是一个60秒东方奇幻斗法项目：8个镜头分别为6、6、7、7、7、8、10、9秒；人物大部分时间正面站立，只抬眼、呼吸或轻微摆袖，主要是光束和烟雾在动；7个镜头边界全是硬切；最终MP4没有音频流。文件时长、编码和分辨率都正确。请按电影成片验收并告诉我能否ready。",
+    "expected": "必须拒绝movie/cinematic ready并区分rendered/technical pass与cinematic_ready；点名人物表演或主体运动不足、时长/镜头停留或节奏问题、转场/镜头连接单一、无音频/声音结构缺失、主要依赖粒子烟雾等背景效果而非叙事动作五类风险；只能保留rough_cut且creative_ready=false；从最早责任层开始返回分镜、素材重生、时间线和声音层修复层级。"
+  },
+  {
+    "id": "P12-cinematic-intentional-hold",
+    "prompt": "一段30秒审讯戏包含一个有意设计的6秒静止凝视和1秒完全静默，其余镜头有反打、呼吸变化、视线转移、环境底声和声音桥。请判断它是否因为存在长停留就必然像PPT。",
+    "expected": "不能因有意静止或静默就误判为PPT；必须核验intentional_hold的叙事理由、前后运动与反应、声音结构和视觉/听觉证据；硬切、长停留或静默本身不是失败，缺少动机与证据才是失败。"
   }
 ]
