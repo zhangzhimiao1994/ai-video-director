@@ -1,0 +1,619 @@
+{
+  "edit_plan_id": "EDIT-001",
+  "plan_status": "dry_run_passed",
+  "source_package_id": "PKG-001",
+  "target_duration_seconds": 4,
+  "locked_event_ids": [
+    "EV01",
+    "EV02"
+  ],
+  "media_bindings": [
+    {
+      "asset_id": "A01",
+      "binding_scope": "shot",
+      "target_id": "SH01",
+      "shot_id": "SH01",
+      "take_id": "T01",
+      "runtime_role": "active",
+      "source_type": "local_file",
+      "path_or_uri": "media/SH01_T01.mp4",
+      "file_status": "online",
+      "rights_status": "cleared",
+      "probe_status": "verified",
+      "duration_seconds": 3,
+      "frame_rate": 24,
+      "resolution": "1920x1080",
+      "audio_channels": 0,
+      "source_in_seconds": 0,
+      "source_out_seconds": 2,
+      "selection_reason": "approved selection",
+      "acceptance_status": "approved",
+      "fallback_asset_id": null
+    },
+    {
+      "asset_id": "A02",
+      "binding_scope": "shot",
+      "target_id": "SH02",
+      "shot_id": "SH02",
+      "take_id": "T01",
+      "runtime_role": "active",
+      "source_type": "local_file",
+      "path_or_uri": "media/SH02_T01.mp4",
+      "file_status": "online",
+      "rights_status": "cleared",
+      "probe_status": "verified",
+      "duration_seconds": 3,
+      "frame_rate": 24,
+      "resolution": "1920x1080",
+      "audio_channels": 0,
+      "source_in_seconds": 0,
+      "source_out_seconds": 2,
+      "selection_reason": "approved selection",
+      "acceptance_status": "approved",
+      "fallback_asset_id": null
+    },
+    {
+      "asset_id": "PA01",
+      "binding_scope": "project",
+      "target_id": "PKG-001",
+      "source_type": "post_asset",
+      "path_or_uri": "media/PA01.wav",
+      "file_status": "online",
+      "rights_status": "cleared",
+      "probe_status": "verified",
+      "selection_reason": "approved cinematic audio bridge",
+      "acceptance_status": "approved"
+    }
+  ],
+  "timelines": [
+    {
+      "timeline_id": "TL-16",
+      "aspect_ratio": "16:9",
+      "resolution": "1920x1080",
+      "frame_rate": 24,
+      "duration_seconds": 4,
+      "video_tracks": [
+        {
+          "track_id": "V1",
+          "runtime_role": "active",
+          "release_role": "first_release",
+          "edit_units": [
+            {
+              "edit_unit_id": "E16-01",
+              "sequence": 1,
+              "shot_id": "SH01",
+              "asset_id": "A01",
+              "timeline_in_seconds": 0,
+              "timeline_out_seconds": 2,
+              "duration_seconds": 2,
+              "source_in_seconds": 0,
+              "source_out_seconds": 2,
+              "story_function": "opening",
+              "cut_reason": "begin first locked event",
+              "transition_in": "hard_cut",
+              "transition_out": "hard_cut",
+              "speed": 1,
+              "freeze_frames": 0,
+              "stabilization": "none",
+              "reframe": "landscape centered composition",
+              "safe_area": "passed",
+              "scale": 1,
+              "position": {
+                "x": 0.5,
+                "y": 0.5
+              },
+              "opening_state": "subject enters frame",
+              "closing_state": "subject reaches center",
+              "continuity_ids": [
+                "C01"
+              ],
+              "locked_event_ids": [
+                "EV01"
+              ],
+              "audio_cue_ids": [
+                "AC01"
+              ],
+              "text_cue_ids": [],
+              "look_instruction": "neutral",
+              "risk_triggers": [],
+              "approval_status": "approved"
+            },
+            {
+              "edit_unit_id": "E16-02",
+              "sequence": 2,
+              "shot_id": "SH02",
+              "asset_id": "A02",
+              "timeline_in_seconds": 2,
+              "timeline_out_seconds": 4,
+              "duration_seconds": 2,
+              "source_in_seconds": 0,
+              "source_out_seconds": 2,
+              "story_function": "closing",
+              "cut_reason": "complete second locked event",
+              "transition_in": "hard_cut",
+              "transition_out": "end",
+              "speed": 1,
+              "freeze_frames": 0,
+              "stabilization": "none",
+              "reframe": "landscape right-weighted composition",
+              "safe_area": "passed",
+              "scale": 1,
+              "position": {
+                "x": 0.55,
+                "y": 0.5
+              },
+              "opening_state": "subject reaches center",
+              "closing_state": "subject exits frame",
+              "continuity_ids": [
+                "C01"
+              ],
+              "locked_event_ids": [
+                "EV02"
+              ],
+              "audio_cue_ids": [],
+              "text_cue_ids": [],
+              "look_instruction": "neutral",
+              "risk_triggers": [],
+              "approval_status": "approved"
+            }
+          ]
+        }
+      ],
+      "audio_track_refs": [
+        "AT01"
+      ],
+      "text_track_refs": [
+        "TT01"
+      ],
+      "export_refs": [
+        "D16"
+      ]
+    },
+    {
+      "timeline_id": "TL-9",
+      "aspect_ratio": "9:16",
+      "resolution": "1080x1920",
+      "frame_rate": 24,
+      "duration_seconds": 4,
+      "video_tracks": [
+        {
+          "track_id": "V1",
+          "runtime_role": "active",
+          "release_role": "first_release",
+          "edit_units": [
+            {
+              "edit_unit_id": "E9-01",
+              "sequence": 1,
+              "shot_id": "SH01",
+              "asset_id": "A01",
+              "timeline_in_seconds": 0,
+              "timeline_out_seconds": 2,
+              "duration_seconds": 2,
+              "source_in_seconds": 0,
+              "source_out_seconds": 2,
+              "story_function": "opening",
+              "cut_reason": "begin first locked event",
+              "transition_in": "hard_cut",
+              "transition_out": "hard_cut",
+              "speed": 1,
+              "freeze_frames": 0,
+              "stabilization": "none",
+              "reframe": "portrait face-priority composition",
+              "safe_area": "passed",
+              "scale": 1.2,
+              "position": {
+                "x": 0.46,
+                "y": 0.42
+              },
+              "opening_state": "subject enters frame",
+              "closing_state": "subject reaches center",
+              "continuity_ids": [
+                "C01"
+              ],
+              "locked_event_ids": [
+                "EV01"
+              ],
+              "audio_cue_ids": [
+                "AC01"
+              ],
+              "text_cue_ids": [],
+              "look_instruction": "neutral",
+              "risk_triggers": [],
+              "approval_status": "approved"
+            },
+            {
+              "edit_unit_id": "E9-02",
+              "sequence": 2,
+              "shot_id": "SH02",
+              "asset_id": "A02",
+              "timeline_in_seconds": 2,
+              "timeline_out_seconds": 4,
+              "duration_seconds": 2,
+              "source_in_seconds": 0,
+              "source_out_seconds": 2,
+              "story_function": "closing",
+              "cut_reason": "complete second locked event",
+              "transition_in": "hard_cut",
+              "transition_out": "end",
+              "speed": 1,
+              "freeze_frames": 0,
+              "stabilization": "none",
+              "reframe": "portrait upper-body composition",
+              "safe_area": "passed",
+              "scale": 1.15,
+              "position": {
+                "x": 0.52,
+                "y": 0.4
+              },
+              "opening_state": "subject reaches center",
+              "closing_state": "subject exits frame",
+              "continuity_ids": [
+                "C01"
+              ],
+              "locked_event_ids": [
+                "EV02"
+              ],
+              "audio_cue_ids": [],
+              "text_cue_ids": [],
+              "look_instruction": "neutral",
+              "risk_triggers": [],
+              "approval_status": "approved"
+            }
+          ]
+        }
+      ],
+      "audio_track_refs": [
+        "AT01"
+      ],
+      "text_track_refs": [
+        "TT01"
+      ],
+      "export_refs": [
+        "D9"
+      ]
+    }
+  ],
+  "audio_tracks": [
+    {
+      "audio_track_id": "AT01",
+      "track_type": "ambience",
+      "cues": [
+        {
+          "audio_cue_id": "AC01",
+          "asset_id": "PA01",
+          "timeline_in_seconds": 0,
+          "timeline_out_seconds": 4
+        }
+      ],
+      "rights_status": "cleared",
+      "target_lufs": -14,
+      "true_peak_db": -1
+    }
+  ],
+  "text_tracks": [
+    {
+      "text_track_id": "TT01",
+      "language": "zh-CN",
+      "cues": [],
+      "safe_area_status": "passed"
+    }
+  ],
+  "look_plan": {
+    "input_color_space": "Rec.709",
+    "output_color_space": "Rec.709",
+    "matching_status": "passed",
+    "instructions": [
+      "Keep the approved neutral look."
+    ],
+    "ffmpeg_filters": []
+  },
+  "delivery_specs": [
+    {
+      "delivery_id": "D16",
+      "version_role": "rough_cut",
+      "version_id": "V001-R16",
+      "timeline_id": "TL-16",
+      "status": "dry_run_passed",
+      "ready": true,
+      "artifact_refs": [],
+      "validation_refs": [
+        "VAL-D16"
+      ],
+      "change_summary": "Initial 16:9 rough cut.",
+      "aspect_ratio": "16:9",
+      "resolution": "1920x1080",
+      "frame_rate": 24,
+      "container": "mp4",
+      "video_codec": "h264",
+      "audio_codec": "aac",
+      "codec": "h264",
+      "bitrate": "8M",
+      "audio_sample_rate": 48000,
+      "audio_channels": 2,
+      "filename": "EDIT-001_16x9_rough_v001.mp4",
+      "destination": "edit/v001/EDIT-001_16x9_rough_v001.mp4",
+      "subtitle_mode": "sidecar",
+      "audio_mode": "temporary_or_silent",
+      "look_mode": "none",
+      "render_backend": "ffmpeg"
+    },
+    {
+      "delivery_id": "D9",
+      "version_role": "rough_cut",
+      "version_id": "V001-R9",
+      "timeline_id": "TL-9",
+      "status": "dry_run_passed",
+      "ready": true,
+      "artifact_refs": [],
+      "validation_refs": [
+        "VAL-D9"
+      ],
+      "change_summary": "Initial 9:16 rough cut.",
+      "aspect_ratio": "9:16",
+      "resolution": "1080x1920",
+      "frame_rate": 24,
+      "container": "mp4",
+      "video_codec": "h264",
+      "audio_codec": "aac",
+      "codec": "h264",
+      "bitrate": "8M",
+      "audio_sample_rate": 48000,
+      "audio_channels": 2,
+      "filename": "EDIT-001_9x16_rough_v001.mp4",
+      "destination": "edit/v001/EDIT-001_9x16_rough_v001.mp4",
+      "subtitle_mode": "sidecar",
+      "audio_mode": "temporary_or_silent",
+      "look_mode": "none",
+      "render_backend": "ffmpeg"
+    }
+  ],
+  "software_targets": [
+    {
+      "target": "generic",
+      "status": "supported"
+    },
+    {
+      "target": "ai_editor",
+      "status": "supported"
+    }
+  ],
+  "execution": {
+    "dry_run_status": "passed",
+    "operation_authorization": "not_requested",
+    "output_root": "edit",
+    "version_policy": "create_new",
+    "dry_run_manifest_id": "MAN-001",
+    "version_directory": "edit/v001",
+    "authorized_manifest_id": null,
+    "authorized_version_directory": null,
+    "authorized_media_roots": [
+      "media"
+    ],
+    "tool_evidence": [],
+    "executed_commands": [],
+    "rendered_outputs": []
+  },
+  "edit_validation": {
+    "ready": false,
+    "checks": [],
+    "blocking_errors": [],
+    "per_delivery_results": [
+      {
+        "delivery_id": "D16",
+        "status": "pending"
+      },
+      {
+        "delivery_id": "D9",
+        "status": "pending"
+      }
+    ]
+  },
+  "cinematic_validation": {
+    "declared_mode": "cinematic",
+    "genre": "action_spectacle",
+    "content_consistency": {
+      "status": "passed",
+      "locked_event_ids": [
+        "EV01",
+        "EV02"
+      ],
+      "evidence_refs": [
+        "EVENT-TRACE-01"
+      ]
+    },
+    "character_identity_integrity": {
+      "status": "passed",
+      "identity_profile_ids": [
+        "IDP-C01"
+      ],
+      "model_lock_refs": [
+        "MODEL-LOCK-C01-KLING"
+      ],
+      "drift_conflicts": [],
+      "evidence_refs": [
+        "IDENTITY-CONTACT-C01"
+      ]
+    },
+    "action_reaction_coverage": {
+      "status": "passed",
+      "events": [
+        {
+          "event_id": "EV01",
+          "required_roles": [
+            "action",
+            "reaction",
+            "consequence"
+          ],
+          "edit_unit_ids": [
+            "E16-01",
+            "E16-02",
+            "E9-01",
+            "E9-02"
+          ],
+          "status": "passed"
+        },
+        {
+          "event_id": "EV02",
+          "required_roles": [
+            "action",
+            "reaction",
+            "consequence"
+          ],
+          "edit_unit_ids": [
+            "E16-02",
+            "E9-02"
+          ],
+          "status": "passed"
+        }
+      ]
+    },
+    "kinetic_profile_audit": {
+      "status": "passed",
+      "edit_units": [
+        {
+          "edit_unit_id": "E16-01",
+          "motion_layers": [
+            "subject",
+            "environment"
+          ],
+          "intentional_hold": false,
+          "hold_reason": null,
+          "evidence_refs": [
+            "VIS-E16-01"
+          ],
+          "status": "passed"
+        },
+        {
+          "edit_unit_id": "E16-02",
+          "motion_layers": [
+            "performance"
+          ],
+          "intentional_hold": true,
+          "hold_reason": "hold one beat on the reaction before the consequence",
+          "evidence_refs": [
+            "VIS-E16-02",
+            "STORY-BEAT-EV02"
+          ],
+          "status": "passed"
+        },
+        {
+          "edit_unit_id": "E9-01",
+          "motion_layers": [
+            "subject",
+            "environment"
+          ],
+          "intentional_hold": false,
+          "hold_reason": null,
+          "evidence_refs": [
+            "VIS-E9-01"
+          ],
+          "status": "passed"
+        },
+        {
+          "edit_unit_id": "E9-02",
+          "motion_layers": [
+            "performance",
+            "camera"
+          ],
+          "intentional_hold": false,
+          "hold_reason": null,
+          "evidence_refs": [
+            "VIS-E9-02"
+          ],
+          "status": "passed"
+        }
+      ]
+    },
+    "shot_scale_and_composition_variety": {
+      "status": "passed",
+      "evidence_refs": [
+        "CONTACT-16",
+        "CONTACT-9"
+      ]
+    },
+    "transition_fulfillment": {
+      "status": "passed",
+      "boundaries": [
+        {
+          "boundary_id": "TR01",
+          "from_edit_unit_id": "E16-01",
+          "to_edit_unit_id": "E16-02",
+          "type": "hard_cut",
+          "story_reason": "cut on completed action into reaction",
+          "visual_precondition": "hand completes downward movement",
+          "audio_bridge_cue_id": "AC01",
+          "fallback": "none",
+          "fulfillment_status": "passed",
+          "evidence_refs": [
+            "CUT-E16-01-02"
+          ]
+        },
+        {
+          "boundary_id": "TR02",
+          "from_edit_unit_id": "E9-01",
+          "to_edit_unit_id": "E9-02",
+          "type": "hard_cut",
+          "story_reason": "cut on completed action into reaction",
+          "visual_precondition": "hand completes downward movement",
+          "audio_bridge_cue_id": "AC01",
+          "fallback": "none",
+          "fulfillment_status": "passed",
+          "evidence_refs": [
+            "CUT-E9-01-02"
+          ]
+        }
+      ]
+    },
+    "audio_presence_and_structure": {
+      "status": "passed",
+      "audio_stream_status": "verified_present",
+      "track_types": [
+        "ambience",
+        "sfx",
+        "music",
+        "silence"
+      ],
+      "silent_form_authorization": null,
+      "evidence_refs": [
+        "PROBE-AUDIO-01",
+        "MIX-REVIEW-01"
+      ]
+    },
+    "static_hold_audit": {
+      "status": "passed",
+      "consecutive_long_low_motion_shots": 0,
+      "intentional_holds": [
+        {
+          "edit_unit_id": "E16-02",
+          "reason": "hold one beat on the reaction before the consequence",
+          "evidence_refs": [
+            "STORY-BEAT-EV02"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "CONTACT-16",
+        "CONTACT-9"
+      ]
+    },
+    "source_motion_review": {
+      "status": "passed",
+      "review_method": "contact_sheet_and_visual_review",
+      "reviewed_asset_ids": [
+        "A01",
+        "A02"
+      ],
+      "evidence_refs": [
+        "CONTACT-16",
+        "CONTACT-9"
+      ]
+    },
+    "ppt_risk_flags": [],
+    "evidence_refs": [
+      "CONTACT-16",
+      "CONTACT-9",
+      "PROBE-AUDIO-01"
+    ],
+    "cinematic_ready": true
+  }
+}

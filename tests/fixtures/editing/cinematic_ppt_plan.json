@@ -1,0 +1,1222 @@
+{
+  "edit_plan_id": "EDIT-PPT-001",
+  "plan_status": "dry_run_passed",
+  "source_package_id": "PKG-001",
+  "target_duration_seconds": 60,
+  "locked_event_ids": [
+    "EV01",
+    "EV02"
+  ],
+  "media_bindings": [
+    {
+      "asset_id": "A01",
+      "binding_scope": "shot",
+      "target_id": "SH01",
+      "shot_id": "SH01",
+      "take_id": "T01",
+      "runtime_role": "active",
+      "source_type": "local_file",
+      "path_or_uri": "media/SH01_T01.mp4",
+      "file_status": "online",
+      "rights_status": "cleared",
+      "probe_status": "verified",
+      "duration_seconds": 8,
+      "frame_rate": 24,
+      "resolution": "1920x1080",
+      "audio_channels": 0,
+      "source_in_seconds": 0,
+      "source_out_seconds": 7.5,
+      "selection_reason": "approved selection",
+      "acceptance_status": "approved",
+      "fallback_asset_id": null
+    },
+    {
+      "asset_id": "A02",
+      "binding_scope": "shot",
+      "target_id": "SH02",
+      "shot_id": "SH02",
+      "take_id": "T01",
+      "runtime_role": "active",
+      "source_type": "local_file",
+      "path_or_uri": "media/SH02_T01.mp4",
+      "file_status": "online",
+      "rights_status": "cleared",
+      "probe_status": "verified",
+      "duration_seconds": 8,
+      "frame_rate": 24,
+      "resolution": "1920x1080",
+      "audio_channels": 0,
+      "source_in_seconds": 0,
+      "source_out_seconds": 7.5,
+      "selection_reason": "approved selection",
+      "acceptance_status": "approved",
+      "fallback_asset_id": null
+    }
+  ],
+  "timelines": [
+    {
+      "timeline_id": "TL-16",
+      "aspect_ratio": "16:9",
+      "resolution": "1920x1080",
+      "frame_rate": 24,
+      "duration_seconds": 60,
+      "video_tracks": [
+        {
+          "track_id": "V1",
+          "runtime_role": "active",
+          "release_role": "first_release",
+          "edit_units": [
+            {
+              "edit_unit_id": "E16-01",
+              "sequence": 1,
+              "shot_id": "SH01",
+              "asset_id": "A01",
+              "timeline_in_seconds": 0,
+              "timeline_out_seconds": 7.5,
+              "duration_seconds": 7.5,
+              "source_in_seconds": 0,
+              "source_out_seconds": 7.5,
+              "story_function": "effects_tableau_01",
+              "cut_reason": "advance to the next effects tableau",
+              "transition_in": "hard_cut",
+              "transition_out": "hard_cut",
+              "speed": 1,
+              "freeze_frames": 0,
+              "stabilization": "none",
+              "reframe": "landscape centered poster composition",
+              "safe_area": "passed",
+              "scale": 1,
+              "position": {
+                "x": 0.5,
+                "y": 0.5
+              },
+              "opening_state": "poster pose 1",
+              "closing_state": "poster pose 2",
+              "continuity_ids": [
+                "C01"
+              ],
+              "locked_event_ids": [
+                "EV01"
+              ],
+              "audio_cue_ids": [],
+              "text_cue_ids": [],
+              "look_instruction": "neutral",
+              "risk_triggers": [
+                "poster_pose",
+                "effects_only_motion"
+              ],
+              "approval_status": "approved"
+            },
+            {
+              "edit_unit_id": "E16-02",
+              "sequence": 2,
+              "shot_id": "SH02",
+              "asset_id": "A02",
+              "timeline_in_seconds": 7.5,
+              "timeline_out_seconds": 15,
+              "duration_seconds": 7.5,
+              "source_in_seconds": 0,
+              "source_out_seconds": 7.5,
+              "story_function": "effects_tableau_02",
+              "cut_reason": "advance to the next effects tableau",
+              "transition_in": "hard_cut",
+              "transition_out": "hard_cut",
+              "speed": 1,
+              "freeze_frames": 0,
+              "stabilization": "none",
+              "reframe": "landscape centered poster composition",
+              "safe_area": "passed",
+              "scale": 1,
+              "position": {
+                "x": 0.5,
+                "y": 0.5
+              },
+              "opening_state": "poster pose 2",
+              "closing_state": "poster pose 3",
+              "continuity_ids": [
+                "C01"
+              ],
+              "locked_event_ids": [
+                "EV02"
+              ],
+              "audio_cue_ids": [],
+              "text_cue_ids": [],
+              "look_instruction": "neutral",
+              "risk_triggers": [
+                "poster_pose",
+                "effects_only_motion"
+              ],
+              "approval_status": "approved"
+            },
+            {
+              "edit_unit_id": "E16-03",
+              "sequence": 3,
+              "shot_id": "SH01",
+              "asset_id": "A01",
+              "timeline_in_seconds": 15,
+              "timeline_out_seconds": 22.5,
+              "duration_seconds": 7.5,
+              "source_in_seconds": 0,
+              "source_out_seconds": 7.5,
+              "story_function": "effects_tableau_03",
+              "cut_reason": "advance to the next effects tableau",
+              "transition_in": "hard_cut",
+              "transition_out": "hard_cut",
+              "speed": 1,
+              "freeze_frames": 0,
+              "stabilization": "none",
+              "reframe": "landscape centered poster composition",
+              "safe_area": "passed",
+              "scale": 1,
+              "position": {
+                "x": 0.5,
+                "y": 0.5
+              },
+              "opening_state": "poster pose 3",
+              "closing_state": "poster pose 4",
+              "continuity_ids": [
+                "C01"
+              ],
+              "locked_event_ids": [],
+              "audio_cue_ids": [],
+              "text_cue_ids": [],
+              "look_instruction": "neutral",
+              "risk_triggers": [
+                "poster_pose",
+                "effects_only_motion"
+              ],
+              "approval_status": "approved"
+            },
+            {
+              "edit_unit_id": "E16-04",
+              "sequence": 4,
+              "shot_id": "SH02",
+              "asset_id": "A02",
+              "timeline_in_seconds": 22.5,
+              "timeline_out_seconds": 30,
+              "duration_seconds": 7.5,
+              "source_in_seconds": 0,
+              "source_out_seconds": 7.5,
+              "story_function": "effects_tableau_04",
+              "cut_reason": "advance to the next effects tableau",
+              "transition_in": "hard_cut",
+              "transition_out": "hard_cut",
+              "speed": 1,
+              "freeze_frames": 0,
+              "stabilization": "none",
+              "reframe": "landscape centered poster composition",
+              "safe_area": "passed",
+              "scale": 1,
+              "position": {
+                "x": 0.5,
+                "y": 0.5
+              },
+              "opening_state": "poster pose 4",
+              "closing_state": "poster pose 5",
+              "continuity_ids": [
+                "C01"
+              ],
+              "locked_event_ids": [],
+              "audio_cue_ids": [],
+              "text_cue_ids": [],
+              "look_instruction": "neutral",
+              "risk_triggers": [
+                "poster_pose",
+                "effects_only_motion"
+              ],
+              "approval_status": "approved"
+            },
+            {
+              "edit_unit_id": "E16-05",
+              "sequence": 5,
+              "shot_id": "SH01",
+              "asset_id": "A01",
+              "timeline_in_seconds": 30,
+              "timeline_out_seconds": 37.5,
+              "duration_seconds": 7.5,
+              "source_in_seconds": 0,
+              "source_out_seconds": 7.5,
+              "story_function": "effects_tableau_05",
+              "cut_reason": "advance to the next effects tableau",
+              "transition_in": "hard_cut",
+              "transition_out": "hard_cut",
+              "speed": 1,
+              "freeze_frames": 0,
+              "stabilization": "none",
+              "reframe": "landscape centered poster composition",
+              "safe_area": "passed",
+              "scale": 1,
+              "position": {
+                "x": 0.5,
+                "y": 0.5
+              },
+              "opening_state": "poster pose 5",
+              "closing_state": "poster pose 6",
+              "continuity_ids": [
+                "C01"
+              ],
+              "locked_event_ids": [],
+              "audio_cue_ids": [],
+              "text_cue_ids": [],
+              "look_instruction": "neutral",
+              "risk_triggers": [
+                "poster_pose",
+                "effects_only_motion"
+              ],
+              "approval_status": "approved"
+            },
+            {
+              "edit_unit_id": "E16-06",
+              "sequence": 6,
+              "shot_id": "SH02",
+              "asset_id": "A02",
+              "timeline_in_seconds": 37.5,
+              "timeline_out_seconds": 45,
+              "duration_seconds": 7.5,
+              "source_in_seconds": 0,
+              "source_out_seconds": 7.5,
+              "story_function": "effects_tableau_06",
+              "cut_reason": "advance to the next effects tableau",
+              "transition_in": "hard_cut",
+              "transition_out": "hard_cut",
+              "speed": 1,
+              "freeze_frames": 0,
+              "stabilization": "none",
+              "reframe": "landscape centered poster composition",
+              "safe_area": "passed",
+              "scale": 1,
+              "position": {
+                "x": 0.5,
+                "y": 0.5
+              },
+              "opening_state": "poster pose 6",
+              "closing_state": "poster pose 7",
+              "continuity_ids": [
+                "C01"
+              ],
+              "locked_event_ids": [],
+              "audio_cue_ids": [],
+              "text_cue_ids": [],
+              "look_instruction": "neutral",
+              "risk_triggers": [
+                "poster_pose",
+                "effects_only_motion"
+              ],
+              "approval_status": "approved"
+            },
+            {
+              "edit_unit_id": "E16-07",
+              "sequence": 7,
+              "shot_id": "SH01",
+              "asset_id": "A01",
+              "timeline_in_seconds": 45,
+              "timeline_out_seconds": 52.5,
+              "duration_seconds": 7.5,
+              "source_in_seconds": 0,
+              "source_out_seconds": 7.5,
+              "story_function": "effects_tableau_07",
+              "cut_reason": "advance to the next effects tableau",
+              "transition_in": "hard_cut",
+              "transition_out": "hard_cut",
+              "speed": 1,
+              "freeze_frames": 0,
+              "stabilization": "none",
+              "reframe": "landscape centered poster composition",
+              "safe_area": "passed",
+              "scale": 1,
+              "position": {
+                "x": 0.5,
+                "y": 0.5
+              },
+              "opening_state": "poster pose 7",
+              "closing_state": "poster pose 8",
+              "continuity_ids": [
+                "C01"
+              ],
+              "locked_event_ids": [],
+              "audio_cue_ids": [],
+              "text_cue_ids": [],
+              "look_instruction": "neutral",
+              "risk_triggers": [
+                "poster_pose",
+                "effects_only_motion"
+              ],
+              "approval_status": "approved"
+            },
+            {
+              "edit_unit_id": "E16-08",
+              "sequence": 8,
+              "shot_id": "SH02",
+              "asset_id": "A02",
+              "timeline_in_seconds": 52.5,
+              "timeline_out_seconds": 60,
+              "duration_seconds": 7.5,
+              "source_in_seconds": 0,
+              "source_out_seconds": 7.5,
+              "story_function": "effects_tableau_08",
+              "cut_reason": "advance to the next effects tableau",
+              "transition_in": "hard_cut",
+              "transition_out": "end",
+              "speed": 1,
+              "freeze_frames": 0,
+              "stabilization": "none",
+              "reframe": "landscape centered poster composition",
+              "safe_area": "passed",
+              "scale": 1,
+              "position": {
+                "x": 0.5,
+                "y": 0.5
+              },
+              "opening_state": "poster pose 8",
+              "closing_state": "poster pose 9",
+              "continuity_ids": [
+                "C01"
+              ],
+              "locked_event_ids": [],
+              "audio_cue_ids": [],
+              "text_cue_ids": [],
+              "look_instruction": "neutral",
+              "risk_triggers": [
+                "poster_pose",
+                "effects_only_motion"
+              ],
+              "approval_status": "approved"
+            }
+          ]
+        }
+      ],
+      "audio_track_refs": [],
+      "text_track_refs": [
+        "TT01"
+      ],
+      "export_refs": [
+        "D16"
+      ]
+    },
+    {
+      "timeline_id": "TL-9",
+      "aspect_ratio": "9:16",
+      "resolution": "1080x1920",
+      "frame_rate": 24,
+      "duration_seconds": 60,
+      "video_tracks": [
+        {
+          "track_id": "V1",
+          "runtime_role": "active",
+          "release_role": "first_release",
+          "edit_units": [
+            {
+              "edit_unit_id": "E9-01",
+              "sequence": 1,
+              "shot_id": "SH01",
+              "asset_id": "A01",
+              "timeline_in_seconds": 0,
+              "timeline_out_seconds": 7.5,
+              "duration_seconds": 7.5,
+              "source_in_seconds": 0,
+              "source_out_seconds": 7.5,
+              "story_function": "effects_tableau_01",
+              "cut_reason": "advance to the next effects tableau",
+              "transition_in": "hard_cut",
+              "transition_out": "hard_cut",
+              "speed": 1,
+              "freeze_frames": 0,
+              "stabilization": "none",
+              "reframe": "portrait centered poster composition",
+              "safe_area": "passed",
+              "scale": 1.15,
+              "position": {
+                "x": 0.5,
+                "y": 0.42
+              },
+              "opening_state": "poster pose 1",
+              "closing_state": "poster pose 2",
+              "continuity_ids": [
+                "C01"
+              ],
+              "locked_event_ids": [
+                "EV01"
+              ],
+              "audio_cue_ids": [],
+              "text_cue_ids": [],
+              "look_instruction": "neutral",
+              "risk_triggers": [
+                "poster_pose",
+                "effects_only_motion"
+              ],
+              "approval_status": "approved"
+            },
+            {
+              "edit_unit_id": "E9-02",
+              "sequence": 2,
+              "shot_id": "SH02",
+              "asset_id": "A02",
+              "timeline_in_seconds": 7.5,
+              "timeline_out_seconds": 15,
+              "duration_seconds": 7.5,
+              "source_in_seconds": 0,
+              "source_out_seconds": 7.5,
+              "story_function": "effects_tableau_02",
+              "cut_reason": "advance to the next effects tableau",
+              "transition_in": "hard_cut",
+              "transition_out": "hard_cut",
+              "speed": 1,
+              "freeze_frames": 0,
+              "stabilization": "none",
+              "reframe": "portrait centered poster composition",
+              "safe_area": "passed",
+              "scale": 1.15,
+              "position": {
+                "x": 0.5,
+                "y": 0.42
+              },
+              "opening_state": "poster pose 2",
+              "closing_state": "poster pose 3",
+              "continuity_ids": [
+                "C01"
+              ],
+              "locked_event_ids": [
+                "EV02"
+              ],
+              "audio_cue_ids": [],
+              "text_cue_ids": [],
+              "look_instruction": "neutral",
+              "risk_triggers": [
+                "poster_pose",
+                "effects_only_motion"
+              ],
+              "approval_status": "approved"
+            },
+            {
+              "edit_unit_id": "E9-03",
+              "sequence": 3,
+              "shot_id": "SH01",
+              "asset_id": "A01",
+              "timeline_in_seconds": 15,
+              "timeline_out_seconds": 22.5,
+              "duration_seconds": 7.5,
+              "source_in_seconds": 0,
+              "source_out_seconds": 7.5,
+              "story_function": "effects_tableau_03",
+              "cut_reason": "advance to the next effects tableau",
+              "transition_in": "hard_cut",
+              "transition_out": "hard_cut",
+              "speed": 1,
+              "freeze_frames": 0,
+              "stabilization": "none",
+              "reframe": "portrait centered poster composition",
+              "safe_area": "passed",
+              "scale": 1.15,
+              "position": {
+                "x": 0.5,
+                "y": 0.42
+              },
+              "opening_state": "poster pose 3",
+              "closing_state": "poster pose 4",
+              "continuity_ids": [
+                "C01"
+              ],
+              "locked_event_ids": [],
+              "audio_cue_ids": [],
+              "text_cue_ids": [],
+              "look_instruction": "neutral",
+              "risk_triggers": [
+                "poster_pose",
+                "effects_only_motion"
+              ],
+              "approval_status": "approved"
+            },
+            {
+              "edit_unit_id": "E9-04",
+              "sequence": 4,
+              "shot_id": "SH02",
+              "asset_id": "A02",
+              "timeline_in_seconds": 22.5,
+              "timeline_out_seconds": 30,
+              "duration_seconds": 7.5,
+              "source_in_seconds": 0,
+              "source_out_seconds": 7.5,
+              "story_function": "effects_tableau_04",
+              "cut_reason": "advance to the next effects tableau",
+              "transition_in": "hard_cut",
+              "transition_out": "hard_cut",
+              "speed": 1,
+              "freeze_frames": 0,
+              "stabilization": "none",
+              "reframe": "portrait centered poster composition",
+              "safe_area": "passed",
+              "scale": 1.15,
+              "position": {
+                "x": 0.5,
+                "y": 0.42
+              },
+              "opening_state": "poster pose 4",
+              "closing_state": "poster pose 5",
+              "continuity_ids": [
+                "C01"
+              ],
+              "locked_event_ids": [],
+              "audio_cue_ids": [],
+              "text_cue_ids": [],
+              "look_instruction": "neutral",
+              "risk_triggers": [
+                "poster_pose",
+                "effects_only_motion"
+              ],
+              "approval_status": "approved"
+            },
+            {
+              "edit_unit_id": "E9-05",
+              "sequence": 5,
+              "shot_id": "SH01",
+              "asset_id": "A01",
+              "timeline_in_seconds": 30,
+              "timeline_out_seconds": 37.5,
+              "duration_seconds": 7.5,
+              "source_in_seconds": 0,
+              "source_out_seconds": 7.5,
+              "story_function": "effects_tableau_05",
+              "cut_reason": "advance to the next effects tableau",
+              "transition_in": "hard_cut",
+              "transition_out": "hard_cut",
+              "speed": 1,
+              "freeze_frames": 0,
+              "stabilization": "none",
+              "reframe": "portrait centered poster composition",
+              "safe_area": "passed",
+              "scale": 1.15,
+              "position": {
+                "x": 0.5,
+                "y": 0.42
+              },
+              "opening_state": "poster pose 5",
+              "closing_state": "poster pose 6",
+              "continuity_ids": [
+                "C01"
+              ],
+              "locked_event_ids": [],
+              "audio_cue_ids": [],
+              "text_cue_ids": [],
+              "look_instruction": "neutral",
+              "risk_triggers": [
+                "poster_pose",
+                "effects_only_motion"
+              ],
+              "approval_status": "approved"
+            },
+            {
+              "edit_unit_id": "E9-06",
+              "sequence": 6,
+              "shot_id": "SH02",
+              "asset_id": "A02",
+              "timeline_in_seconds": 37.5,
+              "timeline_out_seconds": 45,
+              "duration_seconds": 7.5,
+              "source_in_seconds": 0,
+              "source_out_seconds": 7.5,
+              "story_function": "effects_tableau_06",
+              "cut_reason": "advance to the next effects tableau",
+              "transition_in": "hard_cut",
+              "transition_out": "hard_cut",
+              "speed": 1,
+              "freeze_frames": 0,
+              "stabilization": "none",
+              "reframe": "portrait centered poster composition",
+              "safe_area": "passed",
+              "scale": 1.15,
+              "position": {
+                "x": 0.5,
+                "y": 0.42
+              },
+              "opening_state": "poster pose 6",
+              "closing_state": "poster pose 7",
+              "continuity_ids": [
+                "C01"
+              ],
+              "locked_event_ids": [],
+              "audio_cue_ids": [],
+              "text_cue_ids": [],
+              "look_instruction": "neutral",
+              "risk_triggers": [
+                "poster_pose",
+                "effects_only_motion"
+              ],
+              "approval_status": "approved"
+            },
+            {
+              "edit_unit_id": "E9-07",
+              "sequence": 7,
+              "shot_id": "SH01",
+              "asset_id": "A01",
+              "timeline_in_seconds": 45,
+              "timeline_out_seconds": 52.5,
+              "duration_seconds": 7.5,
+              "source_in_seconds": 0,
+              "source_out_seconds": 7.5,
+              "story_function": "effects_tableau_07",
+              "cut_reason": "advance to the next effects tableau",
+              "transition_in": "hard_cut",
+              "transition_out": "hard_cut",
+              "speed": 1,
+              "freeze_frames": 0,
+              "stabilization": "none",
+              "reframe": "portrait centered poster composition",
+              "safe_area": "passed",
+              "scale": 1.15,
+              "position": {
+                "x": 0.5,
+                "y": 0.42
+              },
+              "opening_state": "poster pose 7",
+              "closing_state": "poster pose 8",
+              "continuity_ids": [
+                "C01"
+              ],
+              "locked_event_ids": [],
+              "audio_cue_ids": [],
+              "text_cue_ids": [],
+              "look_instruction": "neutral",
+              "risk_triggers": [
+                "poster_pose",
+                "effects_only_motion"
+              ],
+              "approval_status": "approved"
+            },
+            {
+              "edit_unit_id": "E9-08",
+              "sequence": 8,
+              "shot_id": "SH02",
+              "asset_id": "A02",
+              "timeline_in_seconds": 52.5,
+              "timeline_out_seconds": 60,
+              "duration_seconds": 7.5,
+              "source_in_seconds": 0,
+              "source_out_seconds": 7.5,
+              "story_function": "effects_tableau_08",
+              "cut_reason": "advance to the next effects tableau",
+              "transition_in": "hard_cut",
+              "transition_out": "end",
+              "speed": 1,
+              "freeze_frames": 0,
+              "stabilization": "none",
+              "reframe": "portrait centered poster composition",
+              "safe_area": "passed",
+              "scale": 1.15,
+              "position": {
+                "x": 0.5,
+                "y": 0.42
+              },
+              "opening_state": "poster pose 8",
+              "closing_state": "poster pose 9",
+              "continuity_ids": [
+                "C01"
+              ],
+              "locked_event_ids": [],
+              "audio_cue_ids": [],
+              "text_cue_ids": [],
+              "look_instruction": "neutral",
+              "risk_triggers": [
+                "poster_pose",
+                "effects_only_motion"
+              ],
+              "approval_status": "approved"
+            }
+          ]
+        }
+      ],
+      "audio_track_refs": [],
+      "text_track_refs": [
+        "TT01"
+      ],
+      "export_refs": [
+        "D9"
+      ]
+    }
+  ],
+  "audio_tracks": [],
+  "text_tracks": [
+    {
+      "text_track_id": "TT01",
+      "language": "zh-CN",
+      "cues": [],
+      "safe_area_status": "passed"
+    }
+  ],
+  "look_plan": {
+    "input_color_space": "Rec.709",
+    "output_color_space": "Rec.709",
+    "matching_status": "passed",
+    "instructions": [
+      "Keep the approved neutral look."
+    ],
+    "ffmpeg_filters": []
+  },
+  "delivery_specs": [
+    {
+      "delivery_id": "D16",
+      "version_role": "rough_cut",
+      "version_id": "V001-R16",
+      "timeline_id": "TL-16",
+      "status": "dry_run_passed",
+      "ready": true,
+      "artifact_refs": [],
+      "validation_refs": [
+        "VAL-D16"
+      ],
+      "change_summary": "Initial 16:9 rough cut.",
+      "aspect_ratio": "16:9",
+      "resolution": "1920x1080",
+      "frame_rate": 24,
+      "container": "mp4",
+      "video_codec": "h264",
+      "audio_codec": "aac",
+      "codec": "h264",
+      "bitrate": "8M",
+      "audio_sample_rate": 48000,
+      "audio_channels": 2,
+      "filename": "EDIT-001_16x9_rough_v001.mp4",
+      "destination": "edit/v001/EDIT-001_16x9_rough_v001.mp4",
+      "subtitle_mode": "sidecar",
+      "audio_mode": "temporary_or_silent",
+      "look_mode": "none",
+      "render_backend": "ffmpeg"
+    },
+    {
+      "delivery_id": "D9",
+      "version_role": "rough_cut",
+      "version_id": "V001-R9",
+      "timeline_id": "TL-9",
+      "status": "dry_run_passed",
+      "ready": true,
+      "artifact_refs": [],
+      "validation_refs": [
+        "VAL-D9"
+      ],
+      "change_summary": "Initial 9:16 rough cut.",
+      "aspect_ratio": "9:16",
+      "resolution": "1080x1920",
+      "frame_rate": 24,
+      "container": "mp4",
+      "video_codec": "h264",
+      "audio_codec": "aac",
+      "codec": "h264",
+      "bitrate": "8M",
+      "audio_sample_rate": 48000,
+      "audio_channels": 2,
+      "filename": "EDIT-001_9x16_rough_v001.mp4",
+      "destination": "edit/v001/EDIT-001_9x16_rough_v001.mp4",
+      "subtitle_mode": "sidecar",
+      "audio_mode": "temporary_or_silent",
+      "look_mode": "none",
+      "render_backend": "ffmpeg"
+    }
+  ],
+  "software_targets": [
+    {
+      "target": "generic",
+      "status": "supported"
+    },
+    {
+      "target": "ai_editor",
+      "status": "supported"
+    }
+  ],
+  "execution": {
+    "dry_run_status": "passed",
+    "operation_authorization": "not_requested",
+    "output_root": "edit",
+    "version_policy": "create_new",
+    "dry_run_manifest_id": "MAN-001",
+    "version_directory": "edit/v001",
+    "authorized_manifest_id": null,
+    "authorized_version_directory": null,
+    "authorized_media_roots": [
+      "media"
+    ],
+    "tool_evidence": [],
+    "executed_commands": [],
+    "rendered_outputs": []
+  },
+  "edit_validation": {
+    "ready": false,
+    "checks": [],
+    "blocking_errors": [],
+    "per_delivery_results": [
+      {
+        "delivery_id": "D16",
+        "status": "pending"
+      },
+      {
+        "delivery_id": "D9",
+        "status": "pending"
+      }
+    ]
+  },
+  "cinematic_validation": {
+    "declared_mode": "cinematic",
+    "genre": "action_spectacle",
+    "content_consistency": {
+      "status": "passed",
+      "locked_event_ids": [
+        "EV01",
+        "EV02"
+      ],
+      "evidence_refs": [
+        "EVENT-TRACE-PPT"
+      ]
+    },
+    "character_identity_integrity": {
+      "status": "passed",
+      "identity_profile_ids": [
+        "IDP-C01"
+      ],
+      "model_lock_refs": [
+        "MODEL-LOCK-C01-KLING"
+      ],
+      "drift_conflicts": [],
+      "evidence_refs": [
+        "IDENTITY-CONTACT-PPT"
+      ]
+    },
+    "action_reaction_coverage": {
+      "status": "failed",
+      "events": [
+        {
+          "event_id": "EV01",
+          "required_roles": [
+            "action",
+            "reaction",
+            "consequence"
+          ],
+          "edit_unit_ids": [
+            "E16-01"
+          ],
+          "missing_roles": [
+            "reaction",
+            "consequence"
+          ],
+          "status": "failed"
+        },
+        {
+          "event_id": "EV02",
+          "required_roles": [
+            "action",
+            "reaction",
+            "consequence"
+          ],
+          "edit_unit_ids": [
+            "E16-02"
+          ],
+          "missing_roles": [
+            "action",
+            "consequence"
+          ],
+          "status": "failed"
+        }
+      ]
+    },
+    "kinetic_profile_audit": {
+      "status": "failed",
+      "edit_units": [
+        {
+          "edit_unit_id": "E16-01",
+          "motion_layers": [
+            "environment"
+          ],
+          "observed_motion_sources": [
+            "smoke",
+            "particles",
+            "light_beam"
+          ],
+          "intentional_hold": false,
+          "hold_reason": null,
+          "evidence_refs": [
+            "VIS-PPT-01"
+          ],
+          "status": "failed"
+        },
+        {
+          "edit_unit_id": "E16-02",
+          "motion_layers": [
+            "environment"
+          ],
+          "observed_motion_sources": [
+            "smoke",
+            "particles",
+            "light_beam"
+          ],
+          "intentional_hold": false,
+          "hold_reason": null,
+          "evidence_refs": [
+            "VIS-PPT-02"
+          ],
+          "status": "failed"
+        },
+        {
+          "edit_unit_id": "E16-03",
+          "motion_layers": [
+            "environment"
+          ],
+          "observed_motion_sources": [
+            "smoke",
+            "particles",
+            "light_beam"
+          ],
+          "intentional_hold": false,
+          "hold_reason": null,
+          "evidence_refs": [
+            "VIS-PPT-03"
+          ],
+          "status": "failed"
+        },
+        {
+          "edit_unit_id": "E16-04",
+          "motion_layers": [
+            "environment"
+          ],
+          "observed_motion_sources": [
+            "smoke",
+            "particles",
+            "light_beam"
+          ],
+          "intentional_hold": false,
+          "hold_reason": null,
+          "evidence_refs": [
+            "VIS-PPT-04"
+          ],
+          "status": "failed"
+        },
+        {
+          "edit_unit_id": "E16-05",
+          "motion_layers": [
+            "environment"
+          ],
+          "observed_motion_sources": [
+            "smoke",
+            "particles",
+            "light_beam"
+          ],
+          "intentional_hold": false,
+          "hold_reason": null,
+          "evidence_refs": [
+            "VIS-PPT-05"
+          ],
+          "status": "failed"
+        },
+        {
+          "edit_unit_id": "E16-06",
+          "motion_layers": [
+            "environment"
+          ],
+          "observed_motion_sources": [
+            "smoke",
+            "particles",
+            "light_beam"
+          ],
+          "intentional_hold": false,
+          "hold_reason": null,
+          "evidence_refs": [
+            "VIS-PPT-06"
+          ],
+          "status": "failed"
+        },
+        {
+          "edit_unit_id": "E16-07",
+          "motion_layers": [
+            "environment"
+          ],
+          "observed_motion_sources": [
+            "smoke",
+            "particles",
+            "light_beam"
+          ],
+          "intentional_hold": false,
+          "hold_reason": null,
+          "evidence_refs": [
+            "VIS-PPT-07"
+          ],
+          "status": "failed"
+        },
+        {
+          "edit_unit_id": "E16-08",
+          "motion_layers": [
+            "environment"
+          ],
+          "observed_motion_sources": [
+            "smoke",
+            "particles",
+            "light_beam"
+          ],
+          "intentional_hold": false,
+          "hold_reason": null,
+          "evidence_refs": [
+            "VIS-PPT-08"
+          ],
+          "status": "failed"
+        }
+      ]
+    },
+    "shot_scale_and_composition_variety": {
+      "status": "failed",
+      "observed_scales": [
+        "medium_full"
+      ],
+      "repeated_centered_compositions": 8,
+      "evidence_refs": [
+        "CONTACT-PPT"
+      ]
+    },
+    "transition_fulfillment": {
+      "status": "failed",
+      "boundaries": [
+        {
+          "boundary_id": "TR-PPT-01",
+          "from_edit_unit_id": "E16-01",
+          "to_edit_unit_id": "E16-02",
+          "type": "hard_cut",
+          "story_reason": "advance to the next effects tableau",
+          "visual_precondition": "none",
+          "audio_bridge_cue_id": "none",
+          "fallback": "none",
+          "fulfillment_status": "failed",
+          "evidence_refs": [
+            "CUT-PPT-01"
+          ]
+        },
+        {
+          "boundary_id": "TR-PPT-02",
+          "from_edit_unit_id": "E16-02",
+          "to_edit_unit_id": "E16-03",
+          "type": "hard_cut",
+          "story_reason": "advance to the next effects tableau",
+          "visual_precondition": "none",
+          "audio_bridge_cue_id": "none",
+          "fallback": "none",
+          "fulfillment_status": "failed",
+          "evidence_refs": [
+            "CUT-PPT-02"
+          ]
+        },
+        {
+          "boundary_id": "TR-PPT-03",
+          "from_edit_unit_id": "E16-03",
+          "to_edit_unit_id": "E16-04",
+          "type": "hard_cut",
+          "story_reason": "advance to the next effects tableau",
+          "visual_precondition": "none",
+          "audio_bridge_cue_id": "none",
+          "fallback": "none",
+          "fulfillment_status": "failed",
+          "evidence_refs": [
+            "CUT-PPT-03"
+          ]
+        },
+        {
+          "boundary_id": "TR-PPT-04",
+          "from_edit_unit_id": "E16-04",
+          "to_edit_unit_id": "E16-05",
+          "type": "hard_cut",
+          "story_reason": "advance to the next effects tableau",
+          "visual_precondition": "none",
+          "audio_bridge_cue_id": "none",
+          "fallback": "none",
+          "fulfillment_status": "failed",
+          "evidence_refs": [
+            "CUT-PPT-04"
+          ]
+        },
+        {
+          "boundary_id": "TR-PPT-05",
+          "from_edit_unit_id": "E16-05",
+          "to_edit_unit_id": "E16-06",
+          "type": "hard_cut",
+          "story_reason": "advance to the next effects tableau",
+          "visual_precondition": "none",
+          "audio_bridge_cue_id": "none",
+          "fallback": "none",
+          "fulfillment_status": "failed",
+          "evidence_refs": [
+            "CUT-PPT-05"
+          ]
+        },
+        {
+          "boundary_id": "TR-PPT-06",
+          "from_edit_unit_id": "E16-06",
+          "to_edit_unit_id": "E16-07",
+          "type": "hard_cut",
+          "story_reason": "advance to the next effects tableau",
+          "visual_precondition": "none",
+          "audio_bridge_cue_id": "none",
+          "fallback": "none",
+          "fulfillment_status": "failed",
+          "evidence_refs": [
+            "CUT-PPT-06"
+          ]
+        },
+        {
+          "boundary_id": "TR-PPT-07",
+          "from_edit_unit_id": "E16-07",
+          "to_edit_unit_id": "E16-08",
+          "type": "hard_cut",
+          "story_reason": "advance to the next effects tableau",
+          "visual_precondition": "none",
+          "audio_bridge_cue_id": "none",
+          "fallback": "none",
+          "fulfillment_status": "failed",
+          "evidence_refs": [
+            "CUT-PPT-07"
+          ]
+        }
+      ]
+    },
+    "audio_presence_and_structure": {
+      "status": "failed",
+      "audio_stream_status": "missing",
+      "track_types": [],
+      "silent_form_authorization": null,
+      "evidence_refs": [
+        "PROBE-NO-AUDIO"
+      ]
+    },
+    "static_hold_audit": {
+      "status": "failed",
+      "consecutive_long_low_motion_shots": 8,
+      "intentional_holds": [],
+      "average_shot_duration_seconds": 7.5,
+      "evidence_refs": [
+        "CONTACT-PPT"
+      ]
+    },
+    "source_motion_review": {
+      "status": "failed",
+      "review_method": "contact_sheet_and_visual_review",
+      "reviewed_asset_ids": [
+        "A01",
+        "A02"
+      ],
+      "dominant_motion_sources": [
+        "smoke",
+        "particles",
+        "light_beam"
+      ],
+      "subject_action_sufficient": false,
+      "evidence_refs": [
+        "CONTACT-PPT"
+      ]
+    },
+    "ppt_risk_flags": [
+      "poster_pose",
+      "insufficient_subject_action",
+      "missing_action_reaction",
+      "silent_master",
+      "transition_monotony",
+      "long_low_motion_run",
+      "effects_only_motion"
+    ],
+    "evidence_refs": [
+      "CONTACT-PPT",
+      "PROBE-NO-AUDIO"
+    ],
+    "cinematic_ready": true
+  }
+}
