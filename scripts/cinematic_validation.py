@@ -83,6 +83,67 @@ def _audit_object(
     return value
 
 
+def _collect_timeline_coverage(
+    plan: dict[str, object],
+) -> tuple[list[str], dict[str, str], list[tuple[str, str]]]:
+    """Collect valid active V1 unit IDs and adjacent pairs without shape errors."""
+    timelines = plan.get("timelines")
+    if not isinstance(timelines, list):
+        return [], {}, []
+
+    ordered_unit_ids: list[str] = []
+    unit_timelines: dict[str, str] = {}
+    adjacent_pairs: list[tuple[str, str]] = []
+    for timeline_index, timeline in enumerate(timelines, start=1):
+        if not isinstance(timeline, dict):
+            continue
+        raw_timeline_id = timeline.get("timeline_id")
+        timeline_id = (
+            raw_timeline_id
+            if _nonempty_string(raw_timeline_id)
+            else f"item-{timeline_index}"
+        )
+        video_tracks = timeline.get("video_tracks")
+        if not isinstance(video_tracks, list):
+            continue
+        selected_tracks = [
+            track
+            for track in video_tracks
+            if isinstance(track, dict)
+            and track.get("track_id") == "V1"
+            and track.get("runtime_role") == "active"
+            and track.get("release_role") == "first_release"
+        ]
+        if not selected_tracks:
+            continue
+        raw_units = selected_tracks[0].get("edit_units")
+        if not isinstance(raw_units, list):
+            continue
+
+        sortable_units: list[tuple[int, int, str]] = []
+        for unit_index, unit in enumerate(raw_units):
+            if not isinstance(unit, dict):
+                continue
+            unit_id = unit.get("edit_unit_id")
+            if not _nonempty_string(unit_id):
+                continue
+            sequence = unit.get("sequence")
+            sort_sequence = (
+                sequence
+                if isinstance(sequence, int) and not isinstance(sequence, bool)
+                else 10**9
+            )
+            sortable_units.append((sort_sequence, unit_index, unit_id))
+        sortable_units.sort(key=lambda entry: (entry[0], entry[1]))
+        timeline_unit_ids = [entry[2] for entry in sortable_units]
+        for unit_id in timeline_unit_ids:
+            if unit_id not in unit_timelines:
+                ordered_unit_ids.append(unit_id)
+                unit_timelines[unit_id] = timeline_id
+        adjacent_pairs.extend(zip(timeline_unit_ids, timeline_unit_ids[1:]))
+    return ordered_unit_ids, unit_timelines, adjacent_pairs
+
+
 def _validate_audit_status(
     audit: dict[str, object], label: str, errors: list[str]
 ) -> None:
@@ -140,12 +201,14 @@ def _validate_identity(
 
 
 def _validate_action_events(
-    audit: dict[str, object], errors: list[str]
+    audit: dict[str, object], real_unit_ids: set[str], errors: list[str]
 ) -> None:
     label = "cinematic_validation.action_reaction_coverage.events"
     events = _array(audit.get("events"), label, errors)
     if events is None:
         return
+    if not events:
+        errors.append(f"{label}: must not be empty")
     required_fields = ("event_id", "required_roles", "edit_unit_ids", "status")
     for index, event in enumerate(events, start=1):
         item_label = f"{label} item {index}"
@@ -170,26 +233,61 @@ def _validate_action_events(
                 f"{item_label}.required_roles: must include action, reaction, "
                 "and consequence"
             )
-        _string_list(
+        edit_unit_ids = _string_list(
             event.get("edit_unit_ids"),
             f"{item_label}.edit_unit_ids",
             errors,
             nonempty=True,
         )
+        if edit_unit_ids is not None:
+            seen_unit_ids: set[str] = set()
+            for unit_id in edit_unit_ids:
+                if unit_id in seen_unit_ids:
+                    errors.append(
+                        f"{item_label}.edit_unit_ids: duplicate edit_unit_id "
+                        f"{unit_id}"
+                    )
+                elif unit_id not in real_unit_ids:
+                    errors.append(
+                        f"{item_label}.edit_unit_ids: unknown edit_unit_id "
+                        f"{unit_id}"
+                    )
+                seen_unit_ids.add(unit_id)
 
 
 def _validate_kinetic_records(
-    audit: dict[str, object], errors: list[str]
+    audit: dict[str, object], real_unit_ids: list[str], errors: list[str]
 ) -> None:
     label = "cinematic_validation.kinetic_profile_audit.edit_units"
     records = _array(audit.get("edit_units"), label, errors)
     if records is None:
         return
+    if not records:
+        errors.append(f"{label}: must not be empty")
+    real_unit_id_set = set(real_unit_ids)
+    seen_unit_ids: set[str] = set()
     for index, record in enumerate(records, start=1):
         item_label = f"{label} item {index}"
         if not isinstance(record, dict):
             errors.append(f"{item_label}: must be an object")
             continue
+        if "edit_unit_id" not in record:
+            errors.append(f"{item_label}: missing field edit_unit_id")
+        unit_id = record.get("edit_unit_id")
+        if "edit_unit_id" in record and not _nonempty_string(unit_id):
+            errors.append(
+                f"{item_label}.edit_unit_id: must be a non-empty string"
+            )
+        elif isinstance(unit_id, str):
+            if unit_id in seen_unit_ids:
+                errors.append(
+                    f"{item_label}.edit_unit_id: duplicate edit_unit_id {unit_id}"
+                )
+            elif unit_id not in real_unit_id_set:
+                errors.append(
+                    f"{item_label}.edit_unit_id: unknown edit_unit_id {unit_id}"
+                )
+            seen_unit_ids.add(unit_id)
         layers = _string_list(
             record.get("motion_layers"),
             f"{item_label}.motion_layers",
@@ -215,15 +313,28 @@ def _validate_kinetic_records(
                 f"{item_label}.motion_layers: requires at least two distinct "
                 "valid motion layers unless intentional_hold is evidenced"
             )
+    for unit_id in real_unit_ids:
+        if unit_id not in seen_unit_ids:
+            errors.append(f"{label}: missing edit_unit_id {unit_id}")
 
 
 def _validate_transition_boundaries(
-    audit: dict[str, object], errors: list[str]
+    audit: dict[str, object],
+    unit_timelines: dict[str, str],
+    real_pairs: list[tuple[str, str]],
+    errors: list[str],
 ) -> None:
     label = "cinematic_validation.transition_fulfillment.boundaries"
     boundaries = _array(audit.get("boundaries"), label, errors)
     if boundaries is None:
         return
+    if real_pairs and not boundaries:
+        errors.append(
+            f"{label}: must not be empty when timelines have adjacent edit units"
+        )
+    real_pair_set = set(real_pairs)
+    seen_boundary_ids: set[str] = set()
+    seen_pairs: set[tuple[str, str]] = set()
     required_fields = (
         "boundary_id",
         "from_edit_unit_id",
@@ -257,6 +368,41 @@ def _validate_transition_boundaries(
                 errors.append(
                     f"{item_label}.{field}: must be a non-empty string"
                 )
+        boundary_id = boundary.get("boundary_id")
+        if _nonempty_string(boundary_id):
+            if boundary_id in seen_boundary_ids:
+                errors.append(
+                    f"{item_label}.boundary_id: duplicate boundary_id "
+                    f"{boundary_id}"
+                )
+            seen_boundary_ids.add(boundary_id)
+        from_id = boundary.get("from_edit_unit_id")
+        to_id = boundary.get("to_edit_unit_id")
+        from_known = _nonempty_string(from_id) and from_id in unit_timelines
+        to_known = _nonempty_string(to_id) and to_id in unit_timelines
+        if _nonempty_string(from_id) and not from_known:
+            errors.append(
+                f"{item_label}.from_edit_unit_id: unknown edit_unit_id {from_id}"
+            )
+        if _nonempty_string(to_id) and not to_known:
+            errors.append(
+                f"{item_label}.to_edit_unit_id: unknown edit_unit_id {to_id}"
+            )
+        if from_known and to_known:
+            pair = (from_id, to_id)
+            if unit_timelines[from_id] != unit_timelines[to_id]:
+                errors.append(f"{item_label}: {from_id} -> {to_id} crosses timelines")
+            elif pair not in real_pair_set:
+                errors.append(
+                    f"{item_label}: {from_id} -> {to_id} is not an actual "
+                    "adjacent pair"
+                )
+            elif pair in seen_pairs:
+                errors.append(
+                    f"{item_label}: duplicate adjacent pair {from_id} -> {to_id}"
+                )
+            else:
+                seen_pairs.add(pair)
         bridge = boundary.get("audio_bridge_cue_id")
         if "audio_bridge_cue_id" in boundary and not _nonempty_string(bridge):
             errors.append(
@@ -276,6 +422,11 @@ def _validate_transition_boundaries(
             errors,
             nonempty=True,
         )
+    for from_id, to_id in real_pairs:
+        if (from_id, to_id) not in seen_pairs:
+            errors.append(
+                f"{label}: missing adjacent pair {from_id} -> {to_id}"
+            )
 
 
 def _validate_audio(
@@ -357,6 +508,8 @@ def validate_cinematic_plan(
     if not isinstance(cinematic, dict):
         return ["cinematic_validation: must be an object"]
 
+    real_unit_ids, unit_timelines, real_pairs = _collect_timeline_coverage(plan)
+
     for field in CINEMATIC_FIELDS:
         if field not in cinematic:
             errors.append(f"cinematic_validation: missing field {field}")
@@ -383,13 +536,15 @@ def validate_cinematic_plan(
         _validate_identity(identity, errors)
     action = audits.get("action_reaction_coverage")
     if action is not None:
-        _validate_action_events(action, errors)
+        _validate_action_events(action, set(real_unit_ids), errors)
     kinetic = audits.get("kinetic_profile_audit")
     if kinetic is not None:
-        _validate_kinetic_records(kinetic, errors)
+        _validate_kinetic_records(kinetic, real_unit_ids, errors)
     transition = audits.get("transition_fulfillment")
     if transition is not None:
-        _validate_transition_boundaries(transition, errors)
+        _validate_transition_boundaries(
+            transition, unit_timelines, real_pairs, errors
+        )
     audio = audits.get("audio_presence_and_structure")
     if audio is not None:
         _validate_audio(audio, audits, errors)

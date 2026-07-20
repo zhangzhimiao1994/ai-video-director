@@ -13,6 +13,7 @@ SCRIPTS_DIR = ROOT / "scripts"
 FIXTURES = ROOT / "tests" / "fixtures" / "editing"
 sys.path.insert(0, str(SCRIPTS_DIR))
 
+from cinematic_validation import validate_cinematic_plan
 from validate_edit_plan import main, validate_edit_plan
 
 
@@ -487,6 +488,57 @@ class CinematicValidationTests(unittest.TestCase):
                     ),
                 )
 
+    def test_cinematic_coverage_collections_cannot_be_empty(self):
+        cases = (
+            (
+                "action_reaction_coverage",
+                "events",
+                "cinematic_validation.action_reaction_coverage.events: "
+                "must not be empty",
+            ),
+            (
+                "kinetic_profile_audit",
+                "edit_units",
+                "cinematic_validation.kinetic_profile_audit.edit_units: "
+                "must not be empty",
+            ),
+            (
+                "transition_fulfillment",
+                "boundaries",
+                "cinematic_validation.transition_fulfillment.boundaries: "
+                "must not be empty when timelines have adjacent edit units",
+            ),
+        )
+        for audit, field, expected in cases:
+            with self.subTest(audit=audit):
+                plan = copy.deepcopy(load_plan("cinematic_valid_plan.json"))
+                plan["cinematic_validation"][audit][field] = []
+
+                self.assert_deterministic_errors(plan, (expected,))
+
+    def test_action_event_edit_units_are_unique_and_resolve(self):
+        cases = (
+            (
+                ["E16-01", "E16-01"],
+                "cinematic_validation.action_reaction_coverage.events item "
+                "1.edit_unit_ids: duplicate edit_unit_id E16-01",
+            ),
+            (
+                ["E16-01", "E-MISSING"],
+                "cinematic_validation.action_reaction_coverage.events item "
+                "1.edit_unit_ids: unknown edit_unit_id E-MISSING",
+            ),
+        )
+        for edit_unit_ids, expected in cases:
+            with self.subTest(edit_unit_ids=edit_unit_ids):
+                plan = copy.deepcopy(load_plan("cinematic_valid_plan.json"))
+                event = plan["cinematic_validation"][
+                    "action_reaction_coverage"
+                ]["events"][0]
+                event["edit_unit_ids"] = edit_unit_ids
+
+                self.assert_deterministic_errors(plan, (expected,))
+
     def test_kinetic_layers_must_be_distinct_and_valid(self):
         cases = (
             ("single", ["environment"]),
@@ -545,6 +597,40 @@ class CinematicValidationTests(unittest.TestCase):
                 record["hold_reason"] = "hold for the reaction beat"
                 record["evidence_refs"] = ["STORY-BEAT-HOLD-01"]
                 record[field] = value
+
+                self.assert_deterministic_errors(plan, (expected,))
+
+    def test_kinetic_records_bind_exactly_once_to_real_edit_units(self):
+        cases = (
+            (
+                "missing",
+                "cinematic_validation.kinetic_profile_audit.edit_units: "
+                "missing edit_unit_id E9-02",
+            ),
+            (
+                "duplicate",
+                "cinematic_validation.kinetic_profile_audit.edit_units item "
+                "5.edit_unit_id: duplicate edit_unit_id E16-01",
+            ),
+            (
+                "extra",
+                "cinematic_validation.kinetic_profile_audit.edit_units item "
+                "5.edit_unit_id: unknown edit_unit_id E-MISSING",
+            ),
+        )
+        for case, expected in cases:
+            with self.subTest(case=case):
+                plan = copy.deepcopy(load_plan("cinematic_valid_plan.json"))
+                records = plan["cinematic_validation"][
+                    "kinetic_profile_audit"
+                ]["edit_units"]
+                if case == "missing":
+                    records.pop()
+                else:
+                    record = copy.deepcopy(records[0])
+                    if case == "extra":
+                        record["edit_unit_id"] = "E-MISSING"
+                    records.append(record)
 
                 self.assert_deterministic_errors(plan, (expected,))
 
@@ -648,6 +734,141 @@ class CinematicValidationTests(unittest.TestCase):
                         "a cue or explicit none",
                     ),
                 )
+
+    def test_transition_boundaries_resolve_to_actual_adjacent_pairs(self):
+        cases = (
+            (
+                "dangling",
+                "E-MISSING",
+                "E16-02",
+                "cinematic_validation.transition_fulfillment.boundaries item "
+                "1.from_edit_unit_id: unknown edit_unit_id E-MISSING",
+            ),
+            (
+                "non_adjacent",
+                "E16-02",
+                "E16-01",
+                "cinematic_validation.transition_fulfillment.boundaries item "
+                "1: E16-02 -> E16-01 is not an actual adjacent pair",
+            ),
+            (
+                "cross_timeline",
+                "E16-01",
+                "E9-02",
+                "cinematic_validation.transition_fulfillment.boundaries item "
+                "1: E16-01 -> E9-02 crosses timelines",
+            ),
+        )
+        for case, from_id, to_id, expected in cases:
+            with self.subTest(case=case):
+                plan = copy.deepcopy(load_plan("cinematic_valid_plan.json"))
+                boundary = plan["cinematic_validation"][
+                    "transition_fulfillment"
+                ]["boundaries"][0]
+                boundary["from_edit_unit_id"] = from_id
+                boundary["to_edit_unit_id"] = to_id
+
+                self.assert_deterministic_errors(plan, (expected,))
+
+    def test_transition_boundary_ids_pairs_and_coverage_are_exact(self):
+        cases = (
+            (
+                "missing",
+                "cinematic_validation.transition_fulfillment.boundaries: "
+                "missing adjacent pair E9-01 -> E9-02",
+            ),
+            (
+                "duplicate_pair",
+                "cinematic_validation.transition_fulfillment.boundaries item "
+                "3: duplicate adjacent pair E16-01 -> E16-02",
+            ),
+            (
+                "duplicate_boundary_id",
+                "cinematic_validation.transition_fulfillment.boundaries item "
+                "2.boundary_id: duplicate boundary_id TR01",
+            ),
+        )
+        for case, expected in cases:
+            with self.subTest(case=case):
+                plan = copy.deepcopy(load_plan("cinematic_valid_plan.json"))
+                boundaries = plan["cinematic_validation"][
+                    "transition_fulfillment"
+                ]["boundaries"]
+                if case == "missing":
+                    boundaries.pop()
+                elif case == "duplicate_pair":
+                    duplicate = copy.deepcopy(boundaries[0])
+                    duplicate["boundary_id"] = "TR-DUP"
+                    boundaries.append(duplicate)
+                else:
+                    boundaries[1]["boundary_id"] = boundaries[0][
+                        "boundary_id"
+                    ]
+
+                self.assert_deterministic_errors(plan, (expected,))
+
+    def test_single_unit_timelines_allow_empty_transition_boundaries(self):
+        plan = copy.deepcopy(load_plan("cinematic_valid_plan.json"))
+        retained_ids = {"E16-01", "E9-01"}
+        for timeline in plan["timelines"]:
+            units = timeline["video_tracks"][0]["edit_units"]
+            timeline["video_tracks"][0]["edit_units"] = [units[0]]
+        action_events = plan["cinematic_validation"][
+            "action_reaction_coverage"
+        ]["events"]
+        for event in action_events:
+            event["edit_unit_ids"] = ["E16-01"]
+        kinetic_records = plan["cinematic_validation"][
+            "kinetic_profile_audit"
+        ]["edit_units"]
+        plan["cinematic_validation"]["kinetic_profile_audit"][
+            "edit_units"
+        ] = [
+            record
+            for record in kinetic_records
+            if record["edit_unit_id"] in retained_ids
+        ]
+        plan["cinematic_validation"]["transition_fulfillment"][
+            "boundaries"
+        ] = []
+
+        self.assertEqual(
+            validate_cinematic_plan(plan, required=True),
+            [],
+        )
+
+    def test_malformed_timelines_do_not_crash_cinematic_helper(self):
+        malformed_timelines = (
+            None,
+            "timelines",
+            [None, 7],
+            [
+                {
+                    "timeline_id": [],
+                    "video_tracks": [
+                        {
+                            "track_id": "V1",
+                            "runtime_role": "active",
+                            "release_role": "first_release",
+                            "edit_units": [
+                                {"edit_unit_id": [], "sequence": {}},
+                                None,
+                            ],
+                        }
+                    ],
+                }
+            ],
+        )
+        for timelines in malformed_timelines:
+            with self.subTest(timelines=timelines):
+                plan = copy.deepcopy(load_plan("cinematic_valid_plan.json"))
+                plan["timelines"] = timelines
+
+                first = validate_cinematic_plan(plan, required=True)
+                second = validate_cinematic_plan(plan, required=True)
+
+                self.assertIsInstance(first, list)
+                self.assertEqual(first, second)
 
     def test_missing_audio_requires_silent_form_authorization(self):
         plan = copy.deepcopy(load_plan("cinematic_valid_plan.json"))
