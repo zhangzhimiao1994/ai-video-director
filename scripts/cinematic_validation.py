@@ -244,6 +244,19 @@ def _validate_transition_boundaries(
         for field in required_fields:
             if field not in boundary:
                 errors.append(f"{item_label}: missing field {field}")
+        for field in (
+            "boundary_id",
+            "from_edit_unit_id",
+            "to_edit_unit_id",
+            "type",
+            "story_reason",
+            "visual_precondition",
+            "fallback",
+        ):
+            if field in boundary and not _nonempty_string(boundary.get(field)):
+                errors.append(
+                    f"{item_label}.{field}: must be a non-empty string"
+                )
         bridge = boundary.get("audio_bridge_cue_id")
         if "audio_bridge_cue_id" in boundary and not _nonempty_string(bridge):
             errors.append(

@@ -602,6 +602,53 @@ class CinematicValidationTests(unittest.TestCase):
 
                 self.assert_deterministic_errors(plan, (expected,))
 
+    def test_transition_contract_values_must_be_non_empty_strings(self):
+        fields = (
+            "boundary_id",
+            "from_edit_unit_id",
+            "to_edit_unit_id",
+            "type",
+            "story_reason",
+            "visual_precondition",
+            "fallback",
+        )
+        for field in fields:
+            for value in (None, ""):
+                with self.subTest(field=field, value=value):
+                    plan = copy.deepcopy(
+                        load_plan("cinematic_valid_plan.json")
+                    )
+                    boundary = plan["cinematic_validation"][
+                        "transition_fulfillment"
+                    ]["boundaries"][0]
+                    boundary[field] = value
+
+                    self.assert_deterministic_errors(
+                        plan,
+                        (
+                            "cinematic_validation.transition_fulfillment."
+                            f"boundaries item 1.{field}: must be a non-empty "
+                            "string",
+                        ),
+                    )
+
+        for value in (None, ""):
+            with self.subTest(field="audio_bridge_cue_id", value=value):
+                plan = copy.deepcopy(load_plan("cinematic_valid_plan.json"))
+                boundary = plan["cinematic_validation"][
+                    "transition_fulfillment"
+                ]["boundaries"][0]
+                boundary["audio_bridge_cue_id"] = value
+
+                self.assert_deterministic_errors(
+                    plan,
+                    (
+                        "cinematic_validation.transition_fulfillment."
+                        "boundaries item 1.audio_bridge_cue_id: must identify "
+                        "a cue or explicit none",
+                    ),
+                )
+
     def test_missing_audio_requires_silent_form_authorization(self):
         plan = copy.deepcopy(load_plan("cinematic_valid_plan.json"))
         audio = plan["cinematic_validation"]["audio_presence_and_structure"]
@@ -734,6 +781,30 @@ class CinematicValidationTests(unittest.TestCase):
                     plan["delivery_specs"][0]["ready"] = True
 
                 self.assert_deterministic_errors(plan, (expected,))
+
+    def test_blocked_plan_accepts_cinematic_blocker_as_real_blocker(self):
+        plan = copy.deepcopy(load_plan("cinematic_valid_plan.json"))
+        plan["cinematic_validation"]["static_hold_audit"][
+            "status"
+        ] = "failed"
+        plan["cinematic_validation"]["cinematic_ready"] = False
+        plan["plan_status"] = "blocked"
+        plan["edit_validation"]["ready"] = False
+        for delivery in plan["delivery_specs"]:
+            delivery["ready"] = False
+
+        errors = self.assert_deterministic_errors(
+            plan,
+            (
+                "cinematic_validation.static_hold_audit: status failed blocks "
+                "cinematic readiness",
+            ),
+        )
+        self.assertNotIn(
+            "plan_status blocked: no blocking requested delivery or shared "
+            "dependency",
+            errors,
+        )
 
     def test_ppt_fixture_captures_both_timelines_and_reported_failure(self):
         plan = load_plan("cinematic_ppt_plan.json")

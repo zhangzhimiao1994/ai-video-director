@@ -2651,7 +2651,7 @@ def validate_edit_plan(
     has_blocker = (
         isinstance(blocking_errors, list)
         and bool(blocking_errors)
-    ) or has_blocking_execution_step or any(
+    ) or cinematic_blocked or has_blocking_execution_step or any(
         delivery.get("status") == "blocked"
         for delivery in deliveries.values()
     ) or any(
