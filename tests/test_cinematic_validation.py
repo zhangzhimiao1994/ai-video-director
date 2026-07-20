@@ -2,6 +2,7 @@ import copy
 import io
 import json
 import sys
+import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
@@ -120,6 +121,200 @@ class CinematicValidationTests(unittest.TestCase):
             load_plan("valid_plan.json"),
             ("cinematic_validation: required for cinematic delivery",),
         )
+
+    def test_cinematic_validation_rejects_non_object_shapes(self):
+        for value in (7, "cinematic", [], None):
+            with self.subTest(value=value):
+                plan = copy.deepcopy(load_plan("cinematic_valid_plan.json"))
+                plan["cinematic_validation"] = value
+
+                self.assert_deterministic_errors(
+                    plan,
+                    ("cinematic_validation: must be an object",),
+                )
+
+    def test_audit_objects_reject_non_object_shapes_under_auto_gate(self):
+        for audit in AUDIT_FIELDS:
+            for value in ([], "passed", 7, None):
+                with self.subTest(audit=audit, value=value):
+                    plan = copy.deepcopy(
+                        load_plan("cinematic_valid_plan.json")
+                    )
+                    plan["cinematic_validation"][audit] = value
+
+                    self.assert_deterministic_errors(
+                        plan,
+                        (f"cinematic_validation.{audit}: must be an object",),
+                        require_cinematic=False,
+                    )
+
+    def test_nested_audit_collections_reject_non_array_shapes(self):
+        collection_paths = (
+            ("action_reaction_coverage", "events"),
+            ("kinetic_profile_audit", "edit_units"),
+            ("transition_fulfillment", "boundaries"),
+        )
+        for audit, field in collection_paths:
+            for value in ({}, "items", 7, None):
+                with self.subTest(audit=audit, field=field, value=value):
+                    plan = copy.deepcopy(
+                        load_plan("cinematic_valid_plan.json")
+                    )
+                    plan["cinematic_validation"][audit][field] = value
+
+                    self.assert_deterministic_errors(
+                        plan,
+                        (
+                            f"cinematic_validation.{audit}.{field}: "
+                            "must be an array",
+                        ),
+                    )
+
+    def test_nested_audit_collection_items_must_be_objects(self):
+        collection_paths = (
+            ("action_reaction_coverage", "events"),
+            ("kinetic_profile_audit", "edit_units"),
+            ("transition_fulfillment", "boundaries"),
+        )
+        for audit, field in collection_paths:
+            for value in ("item", 7, None):
+                with self.subTest(audit=audit, field=field, value=value):
+                    plan = copy.deepcopy(
+                        load_plan("cinematic_valid_plan.json")
+                    )
+                    plan["cinematic_validation"][audit][field] = [value]
+
+                    self.assert_deterministic_errors(
+                        plan,
+                        (
+                            f"cinematic_validation.{audit}.{field} item 1: "
+                            "must be an object",
+                        ),
+                    )
+
+    def test_evidence_collection_containers_reject_non_array_shapes(self):
+        collection_paths = (
+            (("ppt_risk_flags",), "cinematic_validation.ppt_risk_flags"),
+            (("evidence_refs",), "cinematic_validation.evidence_refs"),
+            (
+                ("content_consistency", "locked_event_ids"),
+                "cinematic_validation.content_consistency.locked_event_ids",
+            ),
+            (
+                ("content_consistency", "evidence_refs"),
+                "cinematic_validation.content_consistency.evidence_refs",
+            ),
+            (
+                ("character_identity_integrity", "identity_profile_ids"),
+                "cinematic_validation.character_identity_integrity."
+                "identity_profile_ids",
+            ),
+            (
+                ("character_identity_integrity", "model_lock_refs"),
+                "cinematic_validation.character_identity_integrity."
+                "model_lock_refs",
+            ),
+            (
+                ("character_identity_integrity", "drift_conflicts"),
+                "cinematic_validation.character_identity_integrity."
+                "drift_conflicts",
+            ),
+            (
+                ("character_identity_integrity", "evidence_refs"),
+                "cinematic_validation.character_identity_integrity."
+                "evidence_refs",
+            ),
+            (
+                (
+                    "action_reaction_coverage",
+                    "events",
+                    0,
+                    "required_roles",
+                ),
+                "cinematic_validation.action_reaction_coverage.events item "
+                "1.required_roles",
+            ),
+            (
+                (
+                    "action_reaction_coverage",
+                    "events",
+                    0,
+                    "edit_unit_ids",
+                ),
+                "cinematic_validation.action_reaction_coverage.events item "
+                "1.edit_unit_ids",
+            ),
+            (
+                (
+                    "kinetic_profile_audit",
+                    "edit_units",
+                    0,
+                    "motion_layers",
+                ),
+                "cinematic_validation.kinetic_profile_audit.edit_units item "
+                "1.motion_layers",
+            ),
+            (
+                (
+                    "kinetic_profile_audit",
+                    "edit_units",
+                    0,
+                    "evidence_refs",
+                ),
+                "cinematic_validation.kinetic_profile_audit.edit_units item "
+                "1.evidence_refs",
+            ),
+            (
+                (
+                    "transition_fulfillment",
+                    "boundaries",
+                    0,
+                    "evidence_refs",
+                ),
+                "cinematic_validation.transition_fulfillment.boundaries item "
+                "1.evidence_refs",
+            ),
+            (
+                ("audio_presence_and_structure", "track_types"),
+                "cinematic_validation.audio_presence_and_structure.track_types",
+            ),
+            (
+                ("audio_presence_and_structure", "evidence_refs"),
+                "cinematic_validation.audio_presence_and_structure."
+                "evidence_refs",
+            ),
+            (
+                ("static_hold_audit", "intentional_holds"),
+                "cinematic_validation.static_hold_audit.intentional_holds",
+            ),
+            (
+                ("static_hold_audit", "evidence_refs"),
+                "cinematic_validation.static_hold_audit.evidence_refs",
+            ),
+            (
+                ("source_motion_review", "reviewed_asset_ids"),
+                "cinematic_validation.source_motion_review.reviewed_asset_ids",
+            ),
+            (
+                ("source_motion_review", "evidence_refs"),
+                "cinematic_validation.source_motion_review.evidence_refs",
+            ),
+        )
+        for path, label in collection_paths:
+            for value in ({}, "items", 7, None):
+                with self.subTest(path=label, value=value):
+                    plan = copy.deepcopy(
+                        load_plan("cinematic_valid_plan.json")
+                    )
+                    target = plan["cinematic_validation"]
+                    for component in path[:-1]:
+                        target = target[component]
+                    target[path[-1]] = value
+
+                    self.assert_deterministic_errors(
+                        plan,
+                        (f"{label}: must be an array",),
+                    )
 
     def test_all_cinematic_fields_are_required(self):
         self.assertEqual(len(CINEMATIC_FIELDS), 14)
@@ -455,7 +650,7 @@ class CinematicValidationTests(unittest.TestCase):
         cases = (
             (
                 {"poster_pose": True},
-                "cinematic_validation.ppt_risk_flags: must be a list of strings",
+                "cinematic_validation.ppt_risk_flags: must be an array",
             ),
             (
                 ["poster_pose", 7],
@@ -671,6 +866,29 @@ class CinematicValidationTests(unittest.TestCase):
         self.assertEqual(valid_code, 0)
         self.assertEqual(valid_stdout, "Edit plan is valid.\n")
         self.assertEqual(valid_stderr, "")
+
+    def test_cli_reports_malformed_cinematic_shape_without_traceback(self):
+        plan = copy.deepcopy(load_plan("cinematic_valid_plan.json"))
+        plan["cinematic_validation"]["kinetic_profile_audit"] = [
+            "not-an-object"
+        ]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            malformed_path = Path(temp_dir) / "malformed-cinematic.json"
+            malformed_path.write_text(
+                json.dumps(plan),
+                encoding="utf-8",
+            )
+            code, stdout, stderr = run_cli(
+                [malformed_path, "--require-cinematic"]
+            )
+
+        self.assertEqual(code, 1)
+        self.assertIn(
+            "- cinematic_validation.kinetic_profile_audit: must be an object\n",
+            stdout,
+        )
+        self.assertNotIn("Traceback", stdout)
+        self.assertNotIn("Traceback", stderr)
 
 
 if __name__ == "__main__":
