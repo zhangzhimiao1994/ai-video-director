@@ -45,6 +45,8 @@ CHARACTER_MODEL_BINDING_STRING_FIELDS = (
     "identity_binding_method",
 )
 
+IDENTITY_LOCK_STATUSES = {"pending", "locked"}
+
 
 def _nonempty_string(value: object) -> bool:
     return isinstance(value, str) and bool(value.strip())
@@ -298,8 +300,21 @@ def validate_identity_locks(
                 else:
                     normalized_strings[field] = value.strip()
 
-            if binding.get("lock_status") != "locked":
-                errors.append(f"{owner}: lock_status must be locked")
+            lock_status = binding.get("lock_status")
+            if (
+                not isinstance(lock_status, str)
+                or lock_status not in IDENTITY_LOCK_STATUSES
+            ):
+                errors.append(
+                    f"{owner}: lock_status must be pending or locked"
+                )
+            elif (
+                job.get("approval_status") == "approved"
+                and lock_status != "locked"
+            ):
+                errors.append(
+                    f"{owner}: lock_status must be locked"
+                )
 
             reference_ids = _nonempty_string_list(
                 binding.get("reference_input_ids"),

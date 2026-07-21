@@ -1137,6 +1137,42 @@ class CinematicBriefValidationTests(unittest.TestCase):
             validate_package(package),
         )
 
+    def test_pending_identity_lock_is_allowed_until_job_approval(self):
+        package = cinematic_package()
+        package["quality_report"]["ready"] = False
+        package["shot_prompts"][0]["approval_status"] = "draft"
+        for job, approval_status in zip(
+            package["model_job_manifest"],
+            ("blocked", "non_executable"),
+        ):
+            job["approval_status"] = approval_status
+            job["character_model_bindings"][0]["lock_status"] = "pending"
+
+        self.assertEqual(validate_package(package), [])
+
+        package["model_job_manifest"][0]["approval_status"] = "approved"
+        self.assertIn(
+            "model_job_manifest job-01 character_model_binding item 1: lock_status must be locked",
+            validate_package(package),
+        )
+
+    def test_unapproved_identity_lock_requires_an_allowed_non_empty_status(self):
+        for invalid_status in ("", "unlocking", None, {}):
+            with self.subTest(invalid_status=invalid_status):
+                package = cinematic_package()
+                package["quality_report"]["ready"] = False
+                package["shot_prompts"][0]["approval_status"] = "draft"
+                for job in package["model_job_manifest"]:
+                    job["approval_status"] = "blocked"
+                package["model_job_manifest"][0]["character_model_bindings"][0][
+                    "lock_status"
+                ] = invalid_status
+                self.assertIn(
+                    "model_job_manifest job-01 character_model_binding item 1: "
+                    "lock_status must be pending or locked",
+                    validate_package(package),
+                )
+
     def test_character_binding_reference_ids_are_non_empty_strings(self):
         for invalid_value, expected in (
             ([], "reference_input_ids must be a non-empty list"),
