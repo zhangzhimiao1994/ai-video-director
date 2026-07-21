@@ -2,7 +2,7 @@
 
 ## Verdict
 
-The upgraded `aibiandao` Skill passes P11, P12, and the exact rename/copy pressure prompt after one validation-gated TDD repair. The first fresh effect run remained RED and is preserved below without rewriting. Commit `0b870cd` fixes the observed response-contract gap; the second fresh effect run is GREEN. No commit was reverted.
+The upgraded `aibiandao` Skill passes the complete P01–P12 prompt catalog and the exact rename/copy pressure prompt after validation-gated TDD repairs. The fresh behavior runs preserved three genuine failures without rewriting them: P11 and the adversarial prompt at `9d82bbf`, then P04 and P10 in the supplemental P01–P10 run. Commits `0b870cd` and `3fc6b2d` fix only the observed response-contract gaps; every repaired prompt passed a new blind rerun. No commit was reverted.
 
 Darwin score: **96.9 → 98.3 (+1.4)**, `status=keep`, `eval_mode=full_test`.
 
@@ -14,8 +14,9 @@ This is a Skill-behavior and repository regression evaluation. It did not render
 - Darwin score baseline: the latest pre-evaluation `results.tsv` row, commit `0edb4e9`, Skill `aibiandao`, `new_score=96.9`. This value was read from the row rather than reconstructed.
 - First upgraded evaluation: committed state `9d82bbf`.
 - Targeted behavior repair: `0b870cd` (`fix: make cinematic rejection status explicit`). Its only files are `SKILL.md` and `tests/test_cinematic_mode_docs.py`.
-- Upgrade range evaluated for regression: `843425e..0b870cd`.
-- Skill version at final effect test: committed `SKILL.md` from `0b870cd`; frontmatter name `aibiandao`.
+- Supplemental behavior repair: `3fc6b2d` (`fix: complete cinematic one-pass and AI editor handoffs`). Its only files are `SKILL.md`, `tests/test_cinematic_mode_docs.py`, and `tests/test_editing_finish_docs.py`.
+- Upgrade range evaluated for regression: `843425e..3fc6b2d`.
+- Skill version at final effect test: committed `SKILL.md` from `3fc6b2d`; frontmatter name `aibiandao`.
 
 ## Pressure prompts
 
@@ -42,6 +43,8 @@ This is a Skill-behavior and repository regression evaluation. It did not render
 Each round used fresh, read-only evaluators in isolated contexts. The P11/P12 evaluator received only those two prompts and an instruction to read the named committed `SKILL.md` plus references that the Skill explicitly routed. It treated P11 and P12 as isolated cases. A separate evaluator received only the exact adversarial prompt and the committed upgraded Skill. Evaluators were not given the rubric, expected outputs, prior outputs, or RED/GREEN labels, and did not edit the worktree.
 
 Round 1 read commit `9d82bbf`. After its genuine failures were recorded, two section-local documentation tests were written and observed failing before production text changed. The minimum Skill response contract was then added and committed as `0b870cd`; a new pair of evaluators, blind to round 1, ran round 2. No-Skill was not rerun because the existing baseline report already preserves a fresh no-Skill control and the available independent contexts were reserved for the two upgraded-Skill rounds.
+
+The supplemental P01–P10 regression used two more fresh read-only evaluators: one received P01–P05 and the other P06–P10. They received only exact prompt text and committed Skill routing instructions, not `expected`, rubrics, prior outputs, or labels. Strict grading against `test-prompts.json` occurred only after raw outputs returned. P04 and P10 failed; those failures were reported before any change. Two section-local tests were then observed RED, the minimum contracts were committed as `3fc6b2d`, and one new blind evaluator reran only P04 and P10 without seeing expected results or prior outputs. The controller transcript preserves the complete P01–P05 response; repository appendices preserve P06–P10 and the repaired P04/P10 response.
 
 ## Round 1 raw outputs — effect RED at `9d82bbf`
 
@@ -199,6 +202,25 @@ The same binary requirements were applied to both effect rounds. Round 2 results
 
 Effect result: **17/17 PASS; D8=10.0/10**. P11, P12, and adversarial verdicts are all GREEN.
 
+## Full P01–P10 behavioral regression
+
+The complete P01–P05 evaluator output is preserved in the controller's evaluator transcript. Repository appendices preserve the complete [`P06–P10 initial blind run`](2026-07-21-prompt-regression-raw-p06-p10.md) and the complete [`P04/P10 post-repair blind rerun`](2026-07-21-prompt-regression-raw-repair-p04-p10.md). Grading below applies each record's exact `expected` text from `test-prompts.json`; response length or polish is not used as a substitute for a required behavior.
+
+| Prompt | Strict result | Decisive evidence against `expected` |
+|---|---|---|
+| P01 | PASS | Delivers the complete one-pass draft, three mechanically distinct directions, recommendation followed by the remaining package, exactly 15 seconds of active shots, one primary action per shot, state/continuity IDs, canonical prompts and traceable jobs; unspecified providers stay generic/manual. |
+| P02 | PASS | Identifies the 10-second, three-location, transformation, climax and orbit overload; withholds a generation prompt; asks one decision question and offers true one-take, hidden-cut and explicit-split paths with consequences. |
+| P03 | PASS | Enters adapter-only without reopening creative direction; builds minimal IDs with unresolved fields, four canonical prompts and eight Veo/Sora jobs; routes exact Chinese to post; keeps unsupported exact five-second Sora jobs blocked rather than inventing a fallback; states full-package validation was not run. |
+| P04 | **FAIL → PASS** | Initial output stopped after three directions and explicitly refused to continue, omitting required IDs, Shot Graph, dual-aspect compositions and provider jobs. At `3fc6b2d`, the blind rerun produces a 45-second preset-A draft with protagonist/goal/obstacle/causality/ending, six continuity classes, nine dependent shots, per-shot 16:9 and 9:16 compositions, Kling/Seedance manual-only jobs, verified HappyHorse t2v fields, and `ready: false`. |
+| P05 | PASS | Declares `screenplay_mode`, locks ending, motive, causality and dialogue meaning, compresses to 60 seconds without reversing the choice, limits B/C to coverage/resource changes, and supplies dual-aspect and auditable hard-gate checks. |
+| P06 | PASS | Refuses unsupported whole-novel/season processing, invents no cast, episode count or plot, and asks exactly one question requesting a self-contained excerpt or script segment. |
+| P07 | PASS | Refuses spectacle as a hard-gate override, identifies identity/age/hair/ring conflicts, returns to the earliest story/continuity/storyboard layer, asks one decision question, keeps prompt blocked and job non-executable, and leaves Seedance manual-only. |
+| P08 | PASS | Enters finished-film editing, marks `media_bindings` missing, plans a sole edit master with independent 16:9/9:16 timelines and the required edit-unit fields, and limits current delivery to a dry-run package pending manifest-specific authorization without claiming a render. |
+| P09 | PASS | Allows a duration-preserving `shot-04` placeholder only in rough cut, sets creative readiness false, blocks final master, identifies `media_bindings[shot-04]` as the earliest gap, and refuses rename/copy or user-pressure bypass. |
+| P10 | **FAIL → PASS** | Initial output covered the sole edit master, interchanges, SRT, construction sheets, FFmpeg plan, dry-run authorization and no fake Jianying schema, but omitted a separately named AI JSON derivative. At `3fc6b2d`, the blind rerun explicitly derives `ai_editor_plan.json` from the sole `edit_master_plan`, retains all other handoffs, requires dry-run plus explicit operation authorization, and supplies the no-tool manual package. |
+
+Final supplemental result: **P01–P10 = 10/10 PASS** after the two recorded repairs. Combined with round-2 P11/P12, the complete prompt catalog is **P01–P12 = 12/12 PASS**. The adversarial rename/copy prompt also remains PASS. This satisfies the behavioral condition for retaining the recorded **98.3** score.
+
 ## P11 RED versus GREEN
 
 | Requirement | RED baseline at `843425e` | First upgraded run at `9d82bbf` | GREEN at `0b870cd` |
@@ -224,21 +246,21 @@ Weights sum to 99 in Darwin Skill 2.0, so the raw weighted total is normalized t
 | D5 Executable specificity | 9.0 | 17 | 15.3 | Literal status schema, risk labels, commands, and repair order; conservative large-Skill discount |
 | D6 Resource integration | 10.0 | 4 | 4.0 | Routed references and scripts resolve; no new runtime dependency |
 | D7 Architecture | 10.0 | 12 | 12.0 | Response contract is local to the finish gate and does not duplicate stage authorities |
-| D8 Effect performance | 10.0 | 23 | 23.0 | 17/17 assertions across three fresh upgraded-Skill outputs |
+| D8 Effect performance | 10.0 | 23 | 23.0 | 17/17 targeted P11/P12/adversarial assertions plus final 10/10 P01–P10 blind prompt verdicts |
 | D9 Counterexamples/blacklist | 10.0 | 6 | 6.0 | Failure matrix, Common Mistakes, and explicit rename/effects prohibitions |
 
 Calculation: static `74.3/76`; effect `10.0 × 23 / 10 = 23.0`; raw `97.3/99`; normalized `97.3 / 99 × 100 = 98.2828…`, recorded to one decimal as **98.3**. Latest old score **96.9**; delta **+1.4**. The strict-improvement ratchet passes.
 
 ## Regression and runtime-neutrality evidence
 
-- `python -m unittest discover -s tests -v` → **425/425 PASS** after `0b870cd`.
+- `python -m unittest discover -s tests -v` → **427/427 PASS** after `3fc6b2d`.
 - `python -m unittest tests.test_test_prompts -v` → **4/4 PASS**; `test-prompts.json` parses with **12 records and 12 unique IDs**, P1 through P12. P11/P12 text was not changed in this round.
-- P01–P10 were not regenerated by an LLM in Task 7. Their catalog contracts remain unchanged, and the full repository suite—including their routing, legacy, cinematic, editing, validation, bundle, and documentation contracts—has no regression. P11/P12 received the fresh behavior rerun required here.
-- Targeted TDD: 2/2 tests observed RED before the Skill edit, then 2/2 GREEN; related docs/prompt suite 38/38 PASS.
+- P01–P10 received fresh blind behavioral outputs. P04 and P10 failed strict grading on their first run, were repaired only after the failures were reported, and passed a new blind rerun. Full raw outputs and decisive grading are preserved above.
+- Targeted TDD: the first repair's 2/2 tests and the supplemental repair's 2/2 tests were each observed RED before their respective Skill edits, then GREEN; the final related docs/prompt suite passed 40/40.
 - Legacy CLI checks: 4/4 PASS, including legacy edit plans without the cinematic gate, legacy packages without cinematic mode, no new cinematic storyboard requirements for legacy packages, and unrestricted legacy job aspect behavior.
 - Runtime drift regex against `SKILL.md` → `runtime_warn=0`; soft-gate scan for `TBD|TODO|灵活处理|视情况而定` across Skill/references/scripts/tests → 0 hits.
-- Dependency scan over `843425e..0b870cd` finds no dependency manifest change. Added script imports are Python standard-library (`__future__`, `html`, `typing`) or repository-local modules; commit `0b870cd` itself changes only Skill text and tests.
-- Skill size from `9d82bbf` to `0b870cd`: 227 → 252 lines (+11.0%), 4,216 → 4,430 whitespace-delimited words (+5.1%), 30,400 → 32,282 bytes (+6.2%). This is well below Darwin's 150% size gate; no third-party tokenizer was installed, so the word count is an explicit runtime-neutral proxy rather than a claimed model-token count.
+- Dependency scan over `843425e..3fc6b2d` finds no dependency manifest change. Added script imports are Python standard-library (`__future__`, `html`, `typing`) or repository-local modules; commits `0b870cd` and `3fc6b2d` change only Skill text and tests.
+- Skill size from `9d82bbf` to `3fc6b2d`: 227 → 256 lines (+12.8%), 4,216 → 4,616 whitespace-delimited words (+9.5%), 30,400 → 33,428 bytes (+10.0%). This is well below Darwin's 150% size gate; no third-party tokenizer was installed, so the word count is an explicit runtime-neutral proxy rather than a claimed model-token count.
 - `git diff --check` passed before the behavior commit and is rerun before the evidence commit.
 
 ## Limitations
