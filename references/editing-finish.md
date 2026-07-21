@@ -24,6 +24,8 @@ Every `execution.rendered_outputs` record and every per-delivery result in `edit
 
 Bind every shot-derived asset to a stable `shot_id`, `asset_id`, and take identity before placing it on a timeline. Every `media_bindings` record requires `asset_id`, `binding_scope`, `target_id`, `source_type`, `path_or_uri`, `file_status`, `rights_status`, `probe_status`, `selection_reason`, and `acceptance_status`. Shot-derived records also require `shot_id`, `take_id`, `runtime_role`, `duration_seconds`, `frame_rate`, `resolution`, `audio_channels`, `source_in_seconds`, `source_out_seconds`, and `fallback_asset_id`; technical fields that do not apply to a scoped post asset may be null or omitted.
 
+The source media and edit units are separate: `media_bindings` own source identity, rights, probe facts, take selection, and legal source bounds; timeline edit units own editorial placement, trims, transitions, continuity handoff, and story purpose. Reusing one source asset across versions or aspects does not merge those edit units, and changing an edit unit never mutates or overwrites the source.
+
 `binding_scope` is one of `shot`, `edit_unit`, `timeline`, or `project`, and `target_id` is required. For `shot`, `target_id` equals the stable `shot_id`; for the other scopes it names the target `edit_unit_id`, `timeline_id`, or stable project ID. Shot clips, provider outputs, and placeholders require `binding_scope: shot` and a non-null `shot_id`. Project- or timeline-wide audio, LUTs, fonts, legal copy, and similar `post_asset` records bind through `binding_scope` and `target_id`; their `shot_id` is null or omitted unless the asset is genuinely shot-derived. Never fabricate a `shot_id` for a shared post asset.
 
 Use `local_file` for local media, `provider_result` for a platform output already linked through its job and shot, `generated_placeholder` for a declared rough-cut placeholder, and `post_asset` for authorized audio, text, graphics, or other post-production media. Prefer exact `shot_id` and `take_id` filename matches for local files and existing job-to-shot references for platform outputs. A fuzzy match is only a suggestion until a person or validated rule confirms it.
@@ -44,6 +46,8 @@ Produce a human-executable construction sheet for each timeline, with one row pe
 
 Append the track layout, media inventory and relink map, subtitle table, audio cue sheet, look/color sheet, export matrix, and acceptance checklist. Instructions must name measurable actions and values. Phrases such as “cut faster,” “add cinematic music,” or “apply a consistent grade” are not executable without timing, source, parameter, and acceptance details.
 
+For cinematic delivery, verify `transition_fulfillment` against every actual adjacent edit-unit pair. Each boundary carries its declared type, story reason, visual precondition, audio bridge cue or explicit none, fallback, fulfillment status, and evidence. A supported hard cut may pass when motivated and evidenced; if an adapter drops a storyboard transition, declare and review its fallback and create a new dry-run rather than silently turning every boundary into a hard cut.
+
 ## Rough Cut, Fine Cut, and Final Master
 
 Treat `rough_cut`, `fine_cut`, and `final_master` as distinct versioned deliverables, never the same output under three names.
@@ -53,6 +57,16 @@ Treat `rough_cut`, `fine_cut`, and `final_master` as distinct versioned delivera
 - `final_master` removes all placeholders and offline media and passes final color, mix, rights, text, encoding, and export checks. It may be called rendered or ready only when the output exists and tool probes match the declaration.
 
 Each layer has its own version record, status, artifact IDs, validation result, and change summary. Failure at a later layer leaves the latest valid earlier layer and construction package intact.
+
+For human-facing review, a rough cut with unresolved creative work may be labeled `creative_ready: false`; this is an explanatory review annotation, not a fabricated field in the validated Canon. Preserve that rough cut and build a genuine fine/final version. Copying or renaming the rough output can never satisfy a later version role.
+
+## Technical Render vs Cinematic Readiness
+
+The optional `cinematic_validation` object is the creative-finish authority for movie/cinematic delivery. Validate it with `--require-cinematic`; its audits cover content consistency, character identity, action/reaction/consequence coverage, kinetic profiles, shot/composition variety, `transition_fulfillment`, `audio_presence_and_structure`, intentional holds, source motion, and `ppt_risk_flags`.
+
+`rendered` does not equal cinematic readiness. `rendered` means the requested outputs have the required tool/probe evidence; `cinematic_ready` means every cinematic audit passed with evidence and `ppt_risk_flags` is empty. If cinematic validation fails, aggregate status, delivery readiness, and edit validation remain blocked even when a technical file exists. Static poster posing, subject-less particles/background motion, content mismatch, identity/model-lock drift, or unfulfilled transitions directly fail the cinematic master.
+
+Movie sound is a hard gate. `audio_presence_and_structure` must prove an authorized and structured stream spanning the applicable dialogue, ambience, SFX, music, silence, and routing. Missing audio blocks cinematic readiness unless a specific `silent_form_authorization` exists and all visual audits pass; motivated silence inside an otherwise designed soundtrack is valid.
 
 ## Audio, Text, and Look Tracks
 
@@ -66,7 +80,7 @@ Each layer has its own version record, status, artifact IDs, validation result, 
 
 The generic package includes `edit_master_plan.json`, per-aspect construction sheets in Markdown and CSV, per-aspect SRT, relink and rename instructions, FFmpeg dry-run report and command plan, and edit quality reports. Emit OTIO or FCPXML as importable only when the generator implements the relevant public structure and verified fixtures pass; otherwise report `manual_or_unverified` and keep the Canon, construction sheets, and textual handoff. Never create a plausible-looking file with an unsupported exchange extension.
 
-An AI editor consumes strict JSON from `edit_master_plan` and executes dependencies in order: probe, bind, build timelines, apply text, build audio, apply look, export, then validate. Each step records `pending`, `running`, `passed`, `failed`, or `blocked`, including tool/version evidence and artifacts. Compilation produces this AI-ready plan but does not grant execution. A failed AI step returns the earliest repairable Canon object rather than patching only the rendered output.
+An AI editor consumes strict JSON from `edit_master_plan` and executes dependencies in order: probe, bind, build timelines, apply text, build audio, apply look, export, then validate. Jianying/CapCut, Premiere Pro, DaVinci Resolve, FFmpeg, current NLEs, and future AI editors all consume the same Canon and QC evidence; adapters may expose only verified public formats or a `manual_or_unverified` handoff and must not invent a private schema. Each step records `pending`, `running`, `passed`, `failed`, or `blocked`, including tool/version evidence and artifacts. Compilation produces this AI-ready plan but does not grant execution. A failed AI step returns the earliest repairable Canon object rather than patching only the rendered output.
 
 ## Premiere Pro Adapter
 
@@ -95,6 +109,8 @@ Before FFmpeg, NLE/AI-editor execution, media or project generation or modificat
 Use `create_new` as the version strategy. Source media and existing projects are read-only. Before dry-run materialization, choose a new unused directory such as `edit/v003/`; non-executable handoff artifacts may be written there before operation authorization. After the manifest and report are shown, that directory is immutable for the operation: a conflict requires a new dry-run and new authorization, never automatic renumbering. Only explicit authorization permits external-tool media, project, render, or export writes into the locked directory. Never overwrite source media, an existing project, an earlier edit, or an existing master.
 
 On failure, preserve the `edit_master_plan`, construction sheets, dry-run report, exact command/action log, stdout/stderr or tool report, partial-artifact inventory, validation results, and last successful step in the new version directory. Do not present a partial file as a completed render. Recover from the earliest failing object: repair binding/probe problems in `media_bindings`, timeline problems in the affected edit unit, cue problems in their track, and adapter problems in the adapter. Re-run dry-run after any material repair.
+
+Creative failure follows the same earliest-responsibility rule: story inconsistency returns to story; missing action/reaction/consequence or transition intent returns to storyboard; unusable motion or identity evidence returns to prompt/media regeneration; editorial boundary errors return to timeline; missing or uncleared cues return to sound. Do not treat color, particles, speed ramps, or final effects as substitutes for those repairs.
 
 If an NLE adapter fails, retain the generic FFmpeg/OTIO/SRT/construction path where it is genuinely supported; a proprietary target must never be required for the Canon to remain usable. Stop UI automation when the software version, language, plugin, or selector differs from verified evidence. Preserve valid earlier cut layers and never conceal a failure by renaming one as a later layer.
 

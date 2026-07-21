@@ -107,6 +107,8 @@ opening/closing state -> continuity constraints -> audio -> exclusions
 
 反奇怪感检查要求每镜只有一个主要动作、一个主要运镜、一个主要情绪转折和一个视觉关注点。发现两个独立动作、相互冲突的运镜或无法同时验收的特效时，返回分镜阶段拆分或选择 fallback，而不是继续堆形容词。
 
+动作编译不能停在姿势名词。对每个运动镜头写清 `body path`、`weight shift`、可观察的 `reaction`、接触或加速造成的 `counterforce`，以及道具、衣物、地面、空气或人群的 `environment response`。缺少这些物理与表演线索时返回 storyboard 的 `kinetic_profile` 修复，不用粒子和镜头抖动冒充主体运动。
+
 电影化 prompt 必须有 `approval_status`：只能为 `draft`、`blocked` 或 `final`。每个电影化 job 同样必须有可审计的 `approval_status`：只能为 `blocked`、`non_executable` 或 `approved`。其 `prompt_source` 使用一个明确对象，同时绑定共享锁与该 job 的画幅导演文本：
 
 ```json
@@ -169,6 +171,7 @@ Maintain [continuity constraints]. [Audio guidance if reliable].
 - **Unwanted text**：readable brand text, misspelled label, random subtitles, watermark。
 - **Unwanted camera behavior**：camera shake, unrequested zoom, orbit, rolling horizon, focus pumping。
 - **Continuity breaks**：prop changes hands, reversed screen direction, door changes side, weather shift, light direction flip。
+- **Static poster**：static poster pose, frozen performance, decorative particles only, background motion without subject response；只在分镜要求真实动作时使用，不否定有理由且有证据的 `intentional_hold`。
 
 只加入与本镜有关的类别。负向提示不能否定正向目标，例如正向要求人物跑动时禁止写 “no motion”。不要把内容安全绕过指令写入负向提示。
 
@@ -238,6 +241,12 @@ Maintain [continuity constraints]. [Audio guidance if reliable].
 - 增删主动作、剧情信息、台词、产品能力或结局；
 - 把未核实的参数名、时长、尺寸、种子或运动强度写成可调用字段；
 - 因模型不支持而静默改写镜头。应回到分镜选择 fallback 或请求用户决定。
+
+### Character model bindings
+
+电影化 job 必须按平台和镜头生成 `character_model_bindings`，并且它的 character IDs 与该 shot 的 `character_ids` 精确一致。每项使用已实现的字段：`character_id`、`identity_profile_id`、`model_family`、`model_version`、`identity_binding_method`、`reference_input_ids`、`lock_status`。`identity_profile_id` 必须引用已批准 profile；`reference_input_ids` 必须来自该 profile 的 `reference_asset_ids`，且 approved job 的 `lock_status` 必须为 `locked`。
+
+同一角色、同一 `model_family` 的跨 job 锁必须保持 `model_version`、`identity_binding_method` 与参考集一致。Kling、Seedance、HappyHorse 或通用手工配置都使用同一契约；平台 adapter 只映射已核实能力，不得假装已执行模型锁。版本、方法或 reference set 迁移必须先做隔离的 A/B 对照并获得明确批准，再整体迁移；未批准迁移不得与原人物模型混用。
 
 ## 低风险回退
 

@@ -86,6 +86,56 @@ class EditingFinishDocsTests(unittest.TestCase):
             ),
         )
 
+    def test_skill_enforces_cinematic_finish_hard_gate(self):
+        skill = self.read_required("SKILL.md")
+        self.assert_contract_tokens(
+            skill,
+            (
+                "## Cinematic Finish Hard Gate",
+                "--require-cinematic",
+                "ppt_risk_flags",
+                "cinematic_ready",
+                "rendered",
+                "rough_cut",
+                "story → storyboard → prompt/media regeneration → timeline → sound",
+            ),
+        )
+
+    def test_editing_reference_separates_render_and_creative_readiness(self):
+        reference = self.read_required("references/editing-finish.md")
+        self.assert_contract_tokens(
+            reference,
+            (
+                "source media and edit units are separate",
+                "transition_fulfillment",
+                "audio_presence_and_structure",
+                "cinematic_validation",
+                "cinematic_ready",
+                "ppt_risk_flags",
+                "creative_ready: false",
+            ),
+        )
+        self.assertIn("`rendered` does not equal cinematic readiness", reference)
+
+    def test_output_contract_exposes_optional_cinematic_finish_report(self):
+        output_contract = self.read_required("references/output-contract.md")
+        self.assert_contract_tokens(
+            output_contract,
+            (
+                "optional `cinematic_validation`",
+                "14 required fields",
+                "character_identity_integrity",
+                "identity_integrity",
+                "action_reaction_coverage",
+                "kinetic_profile_audit",
+                "transition_fulfillment",
+                "ppt_risk_flags",
+                "cinematic_ready",
+                "--require-cinematic",
+                "legacy compatibility",
+            ),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

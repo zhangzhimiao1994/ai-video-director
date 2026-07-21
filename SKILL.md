@@ -54,6 +54,12 @@ Create the optional `edit_master_plan` only when editing or finished-film delive
 
 Compilation and dry-run may materialize `non-executable handoff artifacts` in one new `create_new` version directory; they never authorize external execution or `external media, project, or render writes`. Before FFmpeg, NLE/AI-tool execution, media or project generation or modification, render, or export, show the exact inputs, outputs, blockers, commands, and dry-run manifest, then require explicit `operation authorization` bound to that `manifest and exact version directory`. Once shown, the directory is locked; any input, command, blocker, directory, or manifest change requires a new dry-run and authorization, never a silent version increment. This operational boundary is not a fourth creative approval gate and cannot be bypassed by `one-pass draft`.
 
+## Cinematic Finish Hard Gate
+
+When the user asks for a movie, blockbuster, cinematic film, finished film, or final master, cinematic quality is not optional polish: validate the edit plan with `--require-cinematic`. Any non-empty `ppt_risk_flags`, content inconsistency, character identity drift, model-lock drift, failed motion or action coverage, unfulfilled transition, or failed sound gate blocks final delivery and `cinematic_ready`.
+
+Technical `rendered` status and creative `cinematic_ready` are separate. A valid `rough_cut` remains rough; never copy or rename it to impersonate a fine cut or final master. On failure, return to the earliest responsible object—story → storyboard → prompt/media regeneration → timeline → sound—instead of hiding an upstream defect with final-stage effects.
+
 ## Scope Boundary
 
 This Skill may design and compile editing deliverables, including non-executable handoff artifacts in a new `create_new` version directory. It may execute FFmpeg or an available NLE/AI editing tool only after the finished-film dry-run passes and the user gives explicit operation authorization for the displayed manifest and locked directory. Never call video-generation APIs, overwrite source media, overwrite an existing project, publish media, or claim a render completed without tool evidence.
@@ -77,7 +83,7 @@ For a complete production package, follow this sequence. For a partial deliverab
 For an editing or finished-film package, continue from the earliest available upstream object through this resource path:
 
 1. Read `references/editing-finish.md`; create one canonical `edit_master_plan.json` from the locked shots, media bindings, tracks, timelines, delivery specs, software targets, and execution state.
-2. Run `python scripts/validate_edit_plan.py <edit_master_plan.json>` from the Skill directory. Add `--require-final` for a requested final master; repair every reported error before calling the plan ready.
+2. Run `python scripts/validate_edit_plan.py <edit_master_plan.json>` from the Skill directory. Add `--require-final` for a requested final master and `--require-cinematic` whenever the request promises movie, blockbuster, cinematic, finished-film, or final-master quality; repair every reported error before calling the plan ready.
 3. Run `python scripts/build_edit_bundle.py <edit_master_plan.json> --out <new_output_root>` without `--execute` to create a new versioned dry-run/handoff bundle. Report the actual version directory, manifest, blockers, adapter status, and validation result; do not claim an NLE import or render.
 4. External execution remains subject to the operation-authorization boundary above. For an authorized FFmpeg path, first run `python scripts/validate_edit_plan.py <edit_master_plan.json> --for-execution`, then use `scripts/build_edit_bundle.py ... --execute` only when the displayed manifest, exact version directory, inputs, commands, tool evidence, and authorization still match. NLE or AI-editor execution must preserve the same Canon and evidence rules.
 
@@ -112,6 +118,13 @@ Before advancing, match any failure to this table. Apply the first repair, then 
 
 | Trigger | First repair | If the repair still fails |
 |---|---|---|
+| static poster poses | Rebuild `action`/`reaction`/`consequence` coverage at story and storyboard level | Block and regenerate the affected shots; background decoration alone is not repair evidence |
+| storyboard transition dropped | Restore the declared transition or declare a tested fallback and run a new dry-run | Do not normalize every boundary to a hard cut; block the affected delivery until fulfillment is evidenced |
+| missing movie audio | Restore a cleared audio structure with source, rights, routing, and evidence | Block unless an explicit `silent_form_authorization` applies |
+| particles/background-only motion | Restore visible subject/performance evidence and a valid multi-layer kinetic profile | Block the cinematic master; particles or background drift do not prove performance motion |
+| rough cut relabeled final | Preserve the rough version and create a genuine fine cut/final master with its own work and evidence | Never copy or rename a rough cut into a later version role |
+| face/body/hair/accessory drift | Return to the approved identity profile and reference set | Block affected jobs and edit units until identity evidence passes |
+| model version/subject-binding drift | Restore the platform model lock or run an approved migration A/B test | Never mix unverified character model versions or binding methods |
 | A material brief field is missing, ambiguous, or conflicts with another hard constraint | Return to the earliest affected field, show its consequence, and ask exactly one decision question | Keep downstream objects `draft` or absent, print the active checkpoint, and end the response without fabricating a choice |
 | Rights, consent, minor, identifiable-person, or voice-clone evidence is unresolved | Isolate the affected asset and request only the minimum authorization evidence needed for the stated use | Block the affected stage; offer a fictional, project-owned, or otherwise authorized replacement only as a user-approved alternative |
 | A shot is overloaded or its acceptance check is likely to fail | Reduce it to one primary change, or create a lower-risk same-slot fallback that preserves duration, story function, boundary states, and continuity IDs | If a hard user constraint forbids both repairs, mark the shot `blocked`, explain the exact conflict, and request a path choice instead of compiling a prompt |

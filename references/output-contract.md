@@ -56,6 +56,10 @@ Markdown 标题与 JSON 顶层键必须严格按以下顺序出现：
 
 `quality_report.checks.narrative_clarity` 必须逐项记录 `protagonist`、`goal`、`obstacle`、`causality`、`ending_change` 的 `pass` 或 `fail`。`quality_report.checks.continuity_integrity` 必须记录 `status` 与 `unresolved_conflicts`。prompt 的 `approval_status` 为 `draft`、`blocked` 或 `final`；job 的 `approval_status` 为 `blocked`、`non_executable` 或 `approved`。任一硬门失败时，`quality_report.ready` 只能是 `false`，prompt 只能为 `draft`/`blocked`，job 只能为 `blocked`/`non_executable`；硬门通过但 `ready: false` 时也保持这组非最终状态。只有 `ready: true` 且两道硬门通过时，prompt 才能为 `final`、job 才能为 `approved`。
 
+每个电影化 `continuity_bible.characters[]` 还必须包含 `identity_profile`，字段为 `identity_profile_id`、`approval_status`、`face_anchors`、`body_anchors`、`hair_anchors`、`fixed_accessories`、`signature_effect_anchors`、`reference_asset_ids`、`forbidden_drift`；只有 approved profile 才能进入最终平台锁。每个电影化 job 的 `character_model_bindings` 必须与该 shot 的 `character_ids` 精确一一对应，并使用 `character_id`、`identity_profile_id`、`model_family`、`model_version`、`identity_binding_method`、`reference_input_ids`、`lock_status`。approved job 只接受 `locked`，且同一角色/模型族跨 job 不得漂移版本、绑定方法或参考集。
+
+`quality_report.checks.identity_integrity` 使用 `status`、`unresolved_conflicts`、`evidence_refs`。当 `quality_report.ready: true` 或存在 approved cinematic job 时，它必须通过、冲突为空且证据非空；失败时阻塞 prompt/job，不得把调色或相似脸主观判断当成证据。模型迁移是显式批准的 A/B 测试与整体迁移流程，不是验证器会自动执行的工具行为。
+
 导演摘要、剧本、Canon 与资产圣经、Shot Graph、关键帧、平台包、双画幅方案和质检报告是逻辑交付部分。默认在 Markdown 或十对象 JSON 中表达；只有用户明确要求保存文件时才创建实际目录。
 
 ## 1. `project_brief`
@@ -509,6 +513,12 @@ Anatomy: extra fingers, fused hands, distorted face. Duplication: duplicate woma
 
 ## Optional Finished-Film Extension
 
-The legacy ten-object package remains valid without editing objects. When finished-film delivery is requested, Markdown and JSON add one optional `edit_master_plan`; every construction sheet, CSV, SRT, OTIO, FCPXML, FFmpeg plan, and NLE handoff is derived from the same edit Canon.
+The legacy ten-object package remains valid without editing objects; this is the explicit `legacy compatibility` rule. When finished-film delivery is requested, Markdown and JSON add one optional `edit_master_plan`; every construction sheet, CSV, SRT, OTIO, FCPXML, FFmpeg plan, and NLE handoff is derived from the same edit Canon.
 
 `edit_master_plan` contains `edit_plan_id`, `plan_status`, `source_package_id`, `target_duration_seconds`, `locked_event_ids`, `media_bindings`, `timelines`, `audio_tracks`, `text_tracks`, `look_plan`, `delivery_specs`, `software_targets`, `execution`, and `edit_validation`.
+
+For cinematic finished-film delivery, `edit_master_plan` adds one optional `cinematic_validation`. It has exactly 14 required fields aligned with `scripts/cinematic_validation.py`: `declared_mode`, `genre`, `content_consistency`, `character_identity_integrity`, `action_reaction_coverage`, `kinetic_profile_audit`, `shot_scale_and_composition_variety`, `transition_fulfillment`, `audio_presence_and_structure`, `static_hold_audit`, `source_motion_review`, `ppt_risk_flags`, `evidence_refs`, and `cinematic_ready`.
+
+Run `scripts/validate_edit_plan.py ... --require-cinematic` whenever cinematic/movie/final-film quality is promised. Declaring `cinematic_validation.declared_mode: cinematic` also activates the same validator gate. All nine audit objects must have `status: passed`; action coverage requires `action`, `reaction`, and `consequence`; kinetic evidence covers every actual edit unit; transition evidence covers every actual adjacent pair; missing audio requires `silent_form_authorization` and passed visual audits; `ppt_risk_flags` must be empty before ready.
+
+`cinematic_ready` is linked to, but distinct from, technical render state. Cinematic blockers force `plan_status: blocked`, every affected `delivery_specs[].ready: false`, and `edit_validation.ready: false`; therefore technical `rendered` evidence never overrides a creative blocker. A rough cut may remain a valid rough deliverable with unresolved creative work, but it cannot be copied or renamed into a final master. Errors return to the earliest responsible story, storyboard, prompt/media, timeline, or sound object.

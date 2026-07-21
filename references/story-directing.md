@@ -141,6 +141,12 @@
 
 若两行的主要变化、证据和后果实质相同，视为重复 beat，合并或重写。
 
+### Action–reaction–consequence coverage
+
+电影化事件必须显式记录 `action`、`reaction`、`consequence` 三个因果角色。`action` 是角色或世界施加的变化，`reaction` 是人物、对象或环境对该变化的可见/可听响应，`consequence` 是改变下一选择、关系、风险或物理状态的结果。它们可以分布在多镜，也可以在一个可读镜头中完成，但不能用一张姿势海报或背景粒子替代反应与后果。
+
+声音也是因果链的一部分。通过既有 `timing_or_trigger` 字段记录 `sound_trigger` 语义（不是新增平行 JSON 字段），把 cue 绑定到动作开始、接触、察觉、选择或后果落点；每个关键 cue 都要说明它触发或证明哪一环，并由后续 storyboard/edit 继承。`audio_presence_and_structure` 在成片阶段审计已获权的对白、环境、音效、音乐与有意静默；除非存在明确 silent-form 授权，缺少电影声音结构会阻塞成片。
+
 ## 时长设计
 
 标准流程只在 `target_duration_seconds` 已确认后进行精确分配；`one-pass draft` 使用已记录为未批准、可逆并附影响说明的暂定正数值，同样精确分配，但不得据此进入执行编译。

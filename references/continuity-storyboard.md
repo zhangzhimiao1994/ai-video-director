@@ -70,6 +70,8 @@ ID 一经进入下游引用，不因排序、改名或文案润色而变化。
 
 补充角色年龄段、体态、脸部可见特征、发型、左右侧辨识点、动作习惯与授权状态。禁止用族群刻板印象代替可见描述。真人参考必须与 `rights_and_consents` 对齐。
 
+电影化角色在 `identity_profile` 中使用验证器契约：`identity_profile_id`、`approval_status`、`face_anchors`、`body_anchors`、`hair_anchors`、`fixed_accessories`、`signature_effect_anchors`、`reference_asset_ids`、`forbidden_drift`。这些锚点分别锁脸、体型、发型、固定配饰、标志特效和已授权参考图；每个列表必须非空。只有 `approval_status: approved` 的 profile 才能成为下游平台锁。草案身份可用于规划，但 prompt/job 不得标为 final/approved；脸、体型、发型、配饰或标志特效漂移必须阻塞相关镜头、job 与 edit unit。
+
 ### `locations`
 
 记录入口、出口、窗、桌、走廊、光源和角色活动区的相对位置。使用简短平面关系，例如“电梯门在北墙，角色面向北，右侧是控制面板”。
@@ -116,6 +118,11 @@ ID 一经进入下游引用，不因排序、改名或文案润色而变化。
 - `composition_16x9`：非空字符串，记录电影母版构图、人物调度和前中后景关系。
 - `recomposition_9x16`：包含 `strategy`、`composition`、`safe_areas`；`strategy` 只能为 `recompose` 或 `independent_generation`，`composition` 必须为非空字符串，`safe_areas` 必须为非空的字符串数组且每项非空。
 - `platform_capability_needs`：实现该镜所需的参考图、首帧、尾帧、音频或编辑能力，不在此映射厂商字段。
+- `coverage_role`：本镜对事件承担的 `action`、`reaction`、`consequence` 角色数组；关键事件的三类角色必须都能追溯到实际镜头。
+- `kinetic_profile`：声明 `subject`、`performance`、`camera`、`environment` 运动层、是否 `intentional_hold`、`hold_reason` 与 `evidence_refs`。非 hold 镜头至少两种有效运动层；有意 hold 不按固定时长判罚，但理由与证据不能为空。
+- `transition_contract`：对每个镜头边界声明 `type`、`story_reason`、`visual_precondition`、`audio_bridge_cue_id`、`fallback`、`fulfillment_status` 和 `evidence_refs`。交接给剪辑时，履约状态与证据必须按实际相邻 edit unit 审计；storyboard 转场不可被静默丢弃。
+
+`transition_contract` 可以声明 hard cut、声音桥、动作匹配、叠化或其他有动机的边界。硬切本身不是失败；只有缺少故事理由、视觉前提、声音桥/明确 none、fallback 或履约证据时才阻塞。若目标 NLE 不支持原转场，必须先声明 fallback 并重新 dry-run，不得把所有边界默认为硬切。
 
 两种画幅共享 `story_function`、角色 ID、事件、对白意义、`opening_state`、`closing_state`、`state_before` 和 `state_after`。16:9 导演文本必须包含 `composition_16x9`，9:16 导演文本必须包含 `recomposition_9x16.composition`；无论策略是 `recompose` 还是 `independent_generation`，两份文本都必须不同。9:16 不得写成对 16:9 的机械裁切。完整制作包必须为每个镜头和每个 `delivery_aspects` 值生成可追踪 job。
 

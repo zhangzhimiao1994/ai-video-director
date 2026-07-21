@@ -153,6 +153,101 @@ class CinematicModeDocsTests(unittest.TestCase):
         )
         self.assertEqual(adapters.count(manual_only_status), 2)
 
+    def test_cinematic_direction_defines_genre_aware_motion_and_coverage(self):
+        reference = self.read("references/cinematic-directing.md")
+        for token in (
+            "genre-aware shot density",
+            "coverage_role",
+            "action",
+            "reaction",
+            "consequence",
+            "kinetic_profile",
+            "subject",
+            "performance",
+            "camera",
+            "environment",
+            "intentional_hold",
+            "hold_reason",
+            "evidence_refs",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, reference)
+
+    def test_story_direction_requires_action_reaction_consequence_and_sound_cause(self):
+        reference = self.read("references/story-directing.md")
+        for token in (
+            "action",
+            "reaction",
+            "consequence",
+            "sound_trigger",
+            "audio_presence_and_structure",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, reference)
+
+    def test_storyboard_owns_coverage_transition_and_identity_contracts(self):
+        reference = self.read("references/continuity-storyboard.md")
+        for token in (
+            "coverage_role",
+            "kinetic_profile",
+            "transition_contract",
+            "visual_precondition",
+            "audio_bridge_cue_id",
+            "fallback",
+            "fulfillment_status",
+            "identity_profile",
+            "identity_profile_id",
+            "face_anchors",
+            "body_anchors",
+            "hair_anchors",
+            "fixed_accessories",
+            "signature_effect_anchors",
+            "reference_asset_ids",
+            "forbidden_drift",
+            "approval_status",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, reference)
+
+    def test_prompt_compiler_owns_performance_physics_and_model_lock(self):
+        reference = self.read("references/prompt-compiler.md")
+        for token in (
+            "body path",
+            "weight shift",
+            "reaction",
+            "counterforce",
+            "environment response",
+            "static poster",
+            "character_model_bindings",
+            "identity_profile_id",
+            "model_family",
+            "model_version",
+            "identity_binding_method",
+            "reference_input_ids",
+            "lock_status",
+            "A/B",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, reference)
+
+    def test_skill_failure_matrix_contains_all_cinematic_recovery_rows(self):
+        skill = self.read("SKILL.md")
+        expected_rows = (
+            ("static poster poses", "`action`/`reaction`/`consequence`", "Block and regenerate"),
+            ("storyboard transition dropped", "tested fallback", "Do not normalize every boundary"),
+            ("missing movie audio", "cleared audio structure", "silent_form_authorization"),
+            ("particles/background-only motion", "subject/performance evidence", "Block the cinematic master"),
+            ("rough cut relabeled final", "Preserve the rough version", "Never copy or rename"),
+            ("face/body/hair/accessory drift", "approved identity profile", "Block affected jobs and edit units"),
+            ("model version/subject-binding drift", "approved migration A/B test", "Never mix unverified"),
+        )
+        skill_lines = skill.splitlines()
+        for trigger, repair, blocked_outcome in expected_rows:
+            with self.subTest(trigger=trigger):
+                row = next((line for line in skill_lines if trigger in line), "")
+                self.assertIn(repair, row)
+                self.assertIn(blocked_outcome, row)
+
 
 if __name__ == "__main__":
     unittest.main()
