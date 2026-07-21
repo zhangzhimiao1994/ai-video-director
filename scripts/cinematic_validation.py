@@ -560,7 +560,7 @@ def _validate_typed_review_refs(
     if refs is None:
         return
     seen_refs: set[str] = set()
-    referenced_deliveries: set[str] = set()
+    delivery_counts: dict[str, int] = {}
     for evidence_id in refs:
         if evidence_id in seen_refs:
             errors.append(
@@ -582,12 +582,18 @@ def _validate_typed_review_refs(
             continue
         delivery_id = evidence.get("delivery_id")
         if isinstance(delivery_id, str):
-            referenced_deliveries.add(delivery_id)
-    if referenced_deliveries != requested_ids:
+            delivery_counts[delivery_id] = delivery_counts.get(delivery_id, 0) + 1
+    if set(delivery_counts) != requested_ids:
         errors.append(
             f"{label}: referenced delivery IDs must match requested delivery "
             "IDs exactly"
         )
+    for delivery_id in sorted(requested_ids):
+        if delivery_counts.get(delivery_id, 0) > 1:
+            errors.append(
+                f"{label}: delivery_id {delivery_id} must be referenced "
+                "exactly once"
+            )
 
 
 def _validate_actual_output_review(

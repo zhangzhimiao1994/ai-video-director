@@ -1412,6 +1412,47 @@ class CinematicValidationTests(unittest.TestCase):
                     validate_edit_plan(plan, require_cinematic=True),
                 )
 
+    def test_each_review_type_allows_one_artifact_per_delivery(self):
+        cases = (
+            (
+                "frame_change",
+                "frame_change_evidence_refs",
+                "FRAME-CHANGE-D16-SECOND",
+            ),
+            (
+                "contact_sheet",
+                "contact_sheet_evidence_refs",
+                "CONTACT-SHEET-D16-SECOND",
+            ),
+        )
+        for evidence_type, refs_field, duplicate_id in cases:
+            with self.subTest(evidence_type=evidence_type):
+                plan = rendered_cinematic_plan()
+                original = next(
+                    evidence
+                    for evidence in plan["execution"]["review_evidence"]
+                    if evidence["delivery_id"] == "D16"
+                    and evidence["evidence_type"] == evidence_type
+                )
+                duplicate = copy.deepcopy(original)
+                duplicate["review_evidence_id"] = duplicate_id
+                duplicate["artifact_ref"] = f"reviews/D16/{evidence_type}-second.json"
+                plan["execution"]["review_evidence"].append(duplicate)
+                plan["cinematic_validation"]["source_motion_review"][
+                    refs_field
+                ].append(duplicate_id)
+
+                expected = (
+                    "cinematic_validation.source_motion_review."
+                    f"{refs_field}: delivery_id D16 must be referenced exactly once"
+                )
+                first = validate_edit_plan(plan, require_cinematic=True)
+                second = validate_edit_plan(
+                    copy.deepcopy(plan), require_cinematic=True
+                )
+                self.assertEqual(first, second)
+                self.assertIn(expected, first)
+
     def test_review_evidence_records_are_strict_and_resolve_verified_tools(self):
         cases = (
             (
