@@ -64,6 +64,36 @@ _OPTIONAL_EMPTY_SCENE_LIST_FIELDS = {"rejected_choices"}
 _OPTIONAL_EMPTY_SHOT_FIELDS = {"director_rejection_reason", *DIRECTOR_DELTA_FIELDS}
 _QUALITY_GATE_FIELDS = ("intent_fidelity", "director_quality")
 _QUALITY_STATUSES = {"pass", "fail"}
+SERIES_CONTEXT_FIELDS = (
+    "series_project_id",
+    "episode_id",
+    "series_snapshot_id",
+    "asset_registry_version",
+    "episode_opening_state_ref",
+    "foreshadow_refs",
+    "payoff_refs",
+)
+SERIES_HANDOFF_FIELDS = (
+    "episode_closing_state_delta",
+    "continuity_evidence_refs",
+    "foreshadow_status_changes",
+    "payoff_status_changes",
+    "commit_eligibility",
+    "handoff_status",
+)
+_SERIES_CONTEXT_STRING_FIELDS = (
+    "series_project_id",
+    "episode_id",
+    "series_snapshot_id",
+    "asset_registry_version",
+    "episode_opening_state_ref",
+)
+_SERIES_CONTEXT_LIST_FIELDS = ("foreshadow_refs", "payoff_refs")
+_SERIES_HANDOFF_LIST_FIELDS = (
+    "continuity_evidence_refs",
+    "foreshadow_status_changes",
+    "payoff_status_changes",
+)
 
 
 def _nonempty_string(value: object) -> bool:
@@ -137,9 +167,107 @@ def _has_director_fields(package: object) -> bool:
         return True
     quality = package.get("quality_report")
     checks = quality.get("checks") if isinstance(quality, dict) else None
-    return isinstance(checks, dict) and any(
+    if isinstance(checks, dict) and any(
         field in checks for field in _QUALITY_GATE_FIELDS
+    ):
+        return True
+    return isinstance(quality, dict) and "series_handoff" in quality
+
+
+def _validate_series_context(
+    brief: dict[str, Any], errors: list[str]
+) -> bool:
+    context = brief.get("series_context")
+    if context is None:
+        return False
+    context_object = _object(context, "project_brief.series_context", errors)
+    if context_object is None:
+        return False
+
+    _require_fields(
+        context_object,
+        SERIES_CONTEXT_FIELDS,
+        "project_brief.series_context",
+        errors,
     )
+    for field in _SERIES_CONTEXT_STRING_FIELDS:
+        if field in context_object and not _nonempty_string(context_object.get(field)):
+            errors.append(
+                f"project_brief.series_context.{field}: must be a non-empty string"
+            )
+    for field in _SERIES_CONTEXT_LIST_FIELDS:
+        if field in context_object:
+            _string_list(
+                context_object.get(field),
+                f"project_brief.series_context.{field}",
+                errors,
+                nonempty=False,
+            )
+    return True
+
+
+def _validate_series_handoff(
+    package: dict[str, Any], has_series_context: bool, errors: list[str]
+) -> None:
+    quality = package.get("quality_report")
+    if not isinstance(quality, dict) or "series_handoff" not in quality:
+        return
+    if not has_series_context:
+        errors.append(
+            "quality_report.series_handoff: requires project_brief.series_context"
+        )
+
+    handoff = quality.get("series_handoff")
+    handoff_object = _object(
+        handoff, "quality_report.series_handoff", errors
+    )
+    if handoff_object is None:
+        return
+
+    _require_fields(
+        handoff_object,
+        SERIES_HANDOFF_FIELDS,
+        "quality_report.series_handoff",
+        errors,
+    )
+    state_delta = handoff_object.get("episode_closing_state_delta")
+    if "episode_closing_state_delta" in handoff_object:
+        if not isinstance(state_delta, dict):
+            errors.append(
+                "quality_report.series_handoff.episode_closing_state_delta: "
+                "must be an object"
+            )
+        elif not state_delta:
+            errors.append(
+                "quality_report.series_handoff.episode_closing_state_delta: "
+                "must not be empty"
+            )
+
+    for field in _SERIES_HANDOFF_LIST_FIELDS:
+        if field in handoff_object:
+            _string_list(
+                handoff_object.get(field),
+                f"quality_report.series_handoff.{field}",
+                errors,
+                nonempty=False,
+            )
+
+    if (
+        "commit_eligibility" in handoff_object
+        and handoff_object.get("commit_eligibility")
+        != "external_series_controller_required"
+    ):
+        errors.append(
+            "quality_report.series_handoff.commit_eligibility: must be "
+            "external_series_controller_required"
+        )
+    if "handoff_status" in handoff_object and handoff_object.get(
+        "handoff_status"
+    ) not in ("draft", "unresolved"):
+        errors.append(
+            "quality_report.series_handoff.handoff_status: must be draft or "
+            "unresolved"
+        )
 
 
 def _validate_intent_contract(
@@ -435,11 +563,13 @@ def validate_director_package(
         return ["package: must be an object"], True
 
     brief = _project_brief(package)
+    has_series_context = _validate_series_context(brief, errors)
     intent_ids = _validate_intent_contract(brief, errors)
     _validate_beat_refs(package, intent_ids, errors)
     _validate_scene_refs_and_plans(package, intent_ids, errors)
     shot_refs = _validate_active_shot_refs(package, intent_ids, errors)
     _validate_prompt_refs(package, intent_ids, shot_refs, errors)
+    _validate_series_handoff(package, has_series_context, errors)
     gate_failed = _validate_quality_gates(package, errors)
     deduped_errors = list(dict.fromkeys(errors))
     return deduped_errors, gate_failed or bool(deduped_errors)

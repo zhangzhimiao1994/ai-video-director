@@ -131,6 +131,32 @@ def valid_director_package():
     }
 
 
+def valid_series_context():
+    return {
+        "series_project_id": "series-divine-game",
+        "episode_id": "EP-003",
+        "series_snapshot_id": "snapshot-EP-002-lock",
+        "asset_registry_version": "assets-v007",
+        "episode_opening_state_ref": "episode_state.EP-002.closing",
+        "foreshadow_refs": ["FS-shadow-oath"],
+        "payoff_refs": ["PO-cost-reveal"],
+    }
+
+
+def valid_series_handoff():
+    return {
+        "episode_closing_state_delta": {
+            "lead_wound_visibility": "hidden from companion",
+            "antagonist_knowledge": "suspects the oath can be broken",
+        },
+        "continuity_evidence_refs": ["SH001.closing_state"],
+        "foreshadow_status_changes": ["FS-shadow-oath: escalated"],
+        "payoff_status_changes": [],
+        "commit_eligibility": "external_series_controller_required",
+        "handoff_status": "draft",
+    }
+
+
 class DirectorValidationTests(unittest.TestCase):
     def test_valid_director_package_passes(self):
         errors, blocked = validate_director_package(
@@ -194,6 +220,44 @@ class DirectorValidationTests(unittest.TestCase):
         errors, blocked = validate_director_package(package, required=True)
         self.assertIn(
             "quality_report: ready cannot be true while director hard gates fail",
+            errors,
+        )
+        self.assertTrue(blocked)
+
+    def test_series_context_requires_exact_read_snapshot_fields(self):
+        package = valid_director_package()
+        package["project_brief"]["series_context"] = valid_series_context()
+        del package["project_brief"]["series_context"]["series_snapshot_id"]
+        errors, blocked = validate_director_package(package, required=True)
+        self.assertIn(
+            "project_brief.series_context: missing required field "
+            "series_snapshot_id",
+            errors,
+        )
+        self.assertTrue(blocked)
+
+    def test_series_handoff_cannot_claim_commit(self):
+        package = valid_director_package()
+        package["project_brief"]["series_context"] = valid_series_context()
+        package["quality_report"]["series_handoff"] = valid_series_handoff()
+        package["quality_report"]["series_handoff"][
+            "handoff_status"
+        ] = "committed"
+        errors, blocked = validate_director_package(package, required=True)
+        self.assertIn(
+            "quality_report.series_handoff.handoff_status: must be draft or "
+            "unresolved",
+            errors,
+        )
+        self.assertTrue(blocked)
+
+    def test_series_handoff_requires_series_context(self):
+        package = valid_director_package()
+        package["quality_report"]["series_handoff"] = valid_series_handoff()
+        errors, blocked = validate_director_package(package, required=True)
+        self.assertIn(
+            "quality_report.series_handoff: requires "
+            "project_brief.series_context",
             errors,
         )
         self.assertTrue(blocked)

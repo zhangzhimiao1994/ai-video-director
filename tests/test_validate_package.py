@@ -2212,6 +2212,24 @@ class CinematicBriefValidationTests(unittest.TestCase):
     def test_legacy_non_cinematic_package_does_not_require_director_fields(self):
         self.assertEqual(validate_package(valid_package()), [])
 
+    def test_cinematic_series_handoff_requires_series_context(self):
+        package = cinematic_package()
+        package["quality_report"]["series_handoff"] = {
+            "episode_closing_state_delta": {
+                "lead_wound_visibility": "hidden from companion"
+            },
+            "continuity_evidence_refs": ["shot-01.closing_state"],
+            "foreshadow_status_changes": ["FS-oath: escalated"],
+            "payoff_status_changes": [],
+            "commit_eligibility": "external_series_controller_required",
+            "handoff_status": "draft",
+        }
+        self.assertIn(
+            "quality_report.series_handoff: requires "
+            "project_brief.series_context",
+            validate_package(package),
+        )
+
     def test_ready_cinematic_package_rejects_failed_narrative_gate(self):
         package = cinematic_package()
         package["quality_report"]["checks"]["narrative_clarity"][
