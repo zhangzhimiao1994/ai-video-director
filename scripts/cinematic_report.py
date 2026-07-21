@@ -7,6 +7,7 @@ import html
 
 AUDIT_FIELDS = (
     "content_consistency",
+    "intent_fidelity",
     "character_identity_integrity",
     "action_reaction_coverage",
     "kinetic_profile_audit",
@@ -15,6 +16,7 @@ AUDIT_FIELDS = (
     "audio_presence_and_structure",
     "static_hold_audit",
     "source_motion_review",
+    "director_quality",
 )
 
 _MARKDOWN_CONTROL_CHARACTERS = frozenset("`*_{}[]()#+-.!|~=^")

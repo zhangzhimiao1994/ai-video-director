@@ -7,6 +7,7 @@ CINEMATIC_FIELDS = (
     "declared_mode",
     "genre",
     "content_consistency",
+    "intent_fidelity",
     "character_identity_integrity",
     "action_reaction_coverage",
     "kinetic_profile_audit",
@@ -15,6 +16,7 @@ CINEMATIC_FIELDS = (
     "audio_presence_and_structure",
     "static_hold_audit",
     "source_motion_review",
+    "director_quality",
     "ppt_risk_flags",
     "evidence_refs",
     "cinematic_ready",
@@ -22,6 +24,7 @@ CINEMATIC_FIELDS = (
 
 AUDIT_FIELDS = (
     "content_consistency",
+    "intent_fidelity",
     "character_identity_integrity",
     "action_reaction_coverage",
     "kinetic_profile_audit",
@@ -30,6 +33,7 @@ AUDIT_FIELDS = (
     "audio_presence_and_structure",
     "static_hold_audit",
     "source_motion_review",
+    "director_quality",
 )
 
 VISUAL_AUDIT_FIELDS = tuple(
@@ -85,15 +89,21 @@ def _audit_object(
 
 def _collect_timeline_coverage(
     plan: dict[str, object],
-) -> tuple[list[str], dict[str, str], list[tuple[str, str]]]:
+) -> tuple[
+    list[str],
+    dict[str, str],
+    list[tuple[str, str]],
+    dict[str, dict[str, object]],
+]:
     """Collect valid active V1 unit IDs and adjacent pairs without shape errors."""
     timelines = plan.get("timelines")
     if not isinstance(timelines, list):
-        return [], {}, []
+        return [], {}, [], {}
 
     ordered_unit_ids: list[str] = []
     unit_timelines: dict[str, str] = {}
     adjacent_pairs: list[tuple[str, str]] = []
+    units_by_id: dict[str, dict[str, object]] = {}
     for timeline_index, timeline in enumerate(timelines, start=1):
         if not isinstance(timeline, dict):
             continue
@@ -140,8 +150,14 @@ def _collect_timeline_coverage(
             if unit_id not in unit_timelines:
                 ordered_unit_ids.append(unit_id)
                 unit_timelines[unit_id] = timeline_id
+                units_by_id[unit_id] = next(
+                    unit
+                    for unit in raw_units
+                    if isinstance(unit, dict)
+                    and unit.get("edit_unit_id") == unit_id
+                )
         adjacent_pairs.extend(zip(timeline_unit_ids, timeline_unit_ids[1:]))
-    return ordered_unit_ids, unit_timelines, adjacent_pairs
+    return ordered_unit_ids, unit_timelines, adjacent_pairs, units_by_id
 
 
 def _validate_audit_status(
@@ -171,6 +187,127 @@ def _validate_content(
         errors,
         nonempty=True,
     )
+    _string_list(
+        audit.get("evidence_refs"),
+        f"{label}.evidence_refs",
+        errors,
+        nonempty=True,
+    )
+
+
+def _validate_intent_fidelity(
+    audit: dict[str, object],
+    real_unit_ids: list[str],
+    units_by_id: dict[str, dict[str, object]],
+    errors: list[str],
+) -> None:
+    label = "cinematic_validation.intent_fidelity"
+    intent_ids = _string_list(
+        audit.get("intent_ids"),
+        f"{label}.intent_ids",
+        errors,
+        nonempty=True,
+    )
+    known_intent_ids = set(intent_ids or ())
+    seen_intents: set[str] = set()
+    if intent_ids is not None:
+        for intent_id in intent_ids:
+            if intent_id in seen_intents:
+                errors.append(f"{label}.intent_ids: duplicate intent_id {intent_id}")
+            seen_intents.add(intent_id)
+
+    for unit_id in real_unit_ids:
+        unit = units_by_id.get(unit_id, {})
+        if "intent_refs" not in unit:
+            errors.append(
+                f"edit unit {unit_id}.intent_refs: must be a non-empty "
+                "list of strings"
+            )
+            continue
+        refs = _string_list(
+            unit.get("intent_refs"),
+            f"edit unit {unit_id}.intent_refs",
+            errors,
+            nonempty=True,
+        )
+        if refs is None:
+            continue
+        seen_refs: set[str] = set()
+        for intent_id in refs:
+            if intent_id in seen_refs:
+                errors.append(
+                    f"edit unit {unit_id}.intent_refs: duplicate intent_id "
+                    f"{intent_id}"
+                )
+            elif intent_id not in known_intent_ids:
+                errors.append(
+                    f"edit unit {unit_id}.intent_refs: unknown intent_id {intent_id}"
+                )
+            seen_refs.add(intent_id)
+
+    mappings = _array(
+        audit.get("edit_unit_mappings"),
+        f"{label}.edit_unit_mappings",
+        errors,
+    )
+    if mappings is None:
+        return
+    if not mappings:
+        errors.append(f"{label}.edit_unit_mappings: must not be empty")
+    mapped_intents: set[str] = set()
+    mapped_units: set[str] = set()
+    real_unit_id_set = set(real_unit_ids)
+    for index, mapping in enumerate(mappings, start=1):
+        item_label = f"{label}.edit_unit_mappings item {index}"
+        if not isinstance(mapping, dict):
+            errors.append(f"{item_label}: must be an object")
+            continue
+        for field in ("intent_id", "edit_unit_ids", "evidence_refs"):
+            if field not in mapping:
+                errors.append(f"{item_label}: missing field {field}")
+        intent_id = mapping.get("intent_id")
+        if "intent_id" in mapping:
+            if not _nonempty_string(intent_id):
+                errors.append(f"{item_label}.intent_id: must be a non-empty string")
+            elif isinstance(intent_id, str):
+                if intent_id not in known_intent_ids:
+                    errors.append(f"{item_label}.intent_id: unknown intent_id {intent_id}")
+                else:
+                    mapped_intents.add(intent_id)
+        edit_unit_ids = _string_list(
+            mapping.get("edit_unit_ids"),
+            f"{item_label}.edit_unit_ids",
+            errors,
+            nonempty=True,
+        )
+        if edit_unit_ids is not None:
+            seen_units: set[str] = set()
+            for unit_id in edit_unit_ids:
+                if unit_id in seen_units:
+                    errors.append(
+                        f"{item_label}.edit_unit_ids: duplicate edit_unit_id "
+                        f"{unit_id}"
+                    )
+                elif unit_id not in real_unit_id_set:
+                    errors.append(
+                        f"{item_label}.edit_unit_ids: unknown edit_unit_id "
+                        f"{unit_id}"
+                    )
+                else:
+                    mapped_units.add(unit_id)
+                seen_units.add(unit_id)
+        _string_list(
+            mapping.get("evidence_refs"),
+            f"{item_label}.evidence_refs",
+            errors,
+            nonempty=True,
+        )
+    for intent_id in sorted(known_intent_ids):
+        if intent_id not in mapped_intents:
+            errors.append(f"{label}.edit_unit_mappings: missing intent_id {intent_id}")
+    for unit_id in real_unit_ids:
+        if unit_id not in mapped_units:
+            errors.append(f"{label}.edit_unit_mappings: missing edit_unit_id {unit_id}")
     _string_list(
         audit.get("evidence_refs"),
         f"{label}.evidence_refs",
@@ -637,6 +774,52 @@ def _validate_actual_output_review(
     )
 
 
+def _validate_director_quality(
+    audit: dict[str, object], real_unit_ids: list[str], errors: list[str]
+) -> None:
+    label = "cinematic_validation.director_quality"
+    reviewed_ids = _string_list(
+        audit.get("reviewed_edit_unit_ids"),
+        f"{label}.reviewed_edit_unit_ids",
+        errors,
+        nonempty=True,
+    )
+    real_unit_id_set = set(real_unit_ids)
+    reviewed_id_set: set[str] = set()
+    if reviewed_ids is not None:
+        for unit_id in reviewed_ids:
+            if unit_id in reviewed_id_set:
+                errors.append(
+                    f"{label}.reviewed_edit_unit_ids: duplicate edit_unit_id "
+                    f"{unit_id}"
+                )
+            elif unit_id not in real_unit_id_set:
+                errors.append(
+                    f"{label}.reviewed_edit_unit_ids: unknown edit_unit_id {unit_id}"
+                )
+            reviewed_id_set.add(unit_id)
+        for unit_id in real_unit_ids:
+            if unit_id not in reviewed_id_set:
+                errors.append(
+                    f"{label}.reviewed_edit_unit_ids: missing edit_unit_id {unit_id}"
+                )
+
+    rejected_flags = _string_list(
+        audit.get("rejected_pattern_flags"),
+        f"{label}.rejected_pattern_flags",
+        errors,
+        nonempty=False,
+    )
+    if rejected_flags:
+        errors.append(f"{label}.rejected_pattern_flags: must be empty")
+    _string_list(
+        audit.get("evidence_refs"),
+        f"{label}.evidence_refs",
+        errors,
+        nonempty=True,
+    )
+
+
 def _validate_ready_execution_claim(
     plan: dict[str, object], errors: list[str]
 ) -> None:
@@ -723,7 +906,12 @@ def validate_cinematic_plan(
     if not isinstance(cinematic, dict):
         return ["cinematic_validation: must be an object"]
 
-    real_unit_ids, unit_timelines, real_pairs = _collect_timeline_coverage(plan)
+    (
+        real_unit_ids,
+        unit_timelines,
+        real_pairs,
+        units_by_id,
+    ) = _collect_timeline_coverage(plan)
 
     for field in CINEMATIC_FIELDS:
         if field not in cinematic:
@@ -746,6 +934,9 @@ def validate_cinematic_plan(
     content = audits.get("content_consistency")
     if content is not None:
         _validate_content(content, errors)
+    intent = audits.get("intent_fidelity")
+    if intent is not None:
+        _validate_intent_fidelity(intent, real_unit_ids, units_by_id, errors)
     identity = audits.get("character_identity_integrity")
     if identity is not None:
         _validate_identity(identity, errors)
@@ -763,6 +954,9 @@ def validate_cinematic_plan(
     audio = audits.get("audio_presence_and_structure")
     if audio is not None:
         _validate_audio(audio, audits, errors)
+    director = audits.get("director_quality")
+    if director is not None:
+        _validate_director_quality(director, real_unit_ids, errors)
     cinematic_ready = cinematic.get("cinematic_ready") is True
     _validate_supporting_audit_arrays(
         audits, plan, cinematic_ready, errors

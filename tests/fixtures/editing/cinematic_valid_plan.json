@@ -116,7 +116,10 @@
               "text_cue_ids": [],
               "look_instruction": "neutral",
               "risk_triggers": [],
-              "approval_status": "approved"
+              "approval_status": "approved",
+              "intent_refs": [
+                "INT-EV01"
+              ]
             },
             {
               "edit_unit_id": "E16-02",
@@ -154,7 +157,10 @@
               "text_cue_ids": [],
               "look_instruction": "neutral",
               "risk_triggers": [],
-              "approval_status": "approved"
+              "approval_status": "approved",
+              "intent_refs": [
+                "INT-EV02"
+              ]
             }
           ]
         }
@@ -219,7 +225,10 @@
               "text_cue_ids": [],
               "look_instruction": "neutral",
               "risk_triggers": [],
-              "approval_status": "approved"
+              "approval_status": "approved",
+              "intent_refs": [
+                "INT-EV01"
+              ]
             },
             {
               "edit_unit_id": "E9-02",
@@ -257,7 +266,10 @@
               "text_cue_ids": [],
               "look_instruction": "neutral",
               "risk_triggers": [],
-              "approval_status": "approved"
+              "approval_status": "approved",
+              "intent_refs": [
+                "INT-EV02"
+              ]
             }
           ]
         }
@@ -618,6 +630,51 @@
       "CONTACT-9",
       "PROBE-AUDIO-01"
     ],
-    "cinematic_ready": false
+    "cinematic_ready": false,
+    "intent_fidelity": {
+      "status": "passed",
+      "intent_ids": [
+        "INT-EV01",
+        "INT-EV02"
+      ],
+      "edit_unit_mappings": [
+        {
+          "intent_id": "INT-EV01",
+          "edit_unit_ids": [
+            "E16-01",
+            "E9-01"
+          ],
+          "evidence_refs": [
+            "INT-MAP-EV01"
+          ]
+        },
+        {
+          "intent_id": "INT-EV02",
+          "edit_unit_ids": [
+            "E16-02",
+            "E9-02"
+          ],
+          "evidence_refs": [
+            "INT-MAP-EV02"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "INT-FIDELITY-REVIEW-01"
+      ]
+    },
+    "director_quality": {
+      "status": "passed",
+      "reviewed_edit_unit_ids": [
+        "E16-01",
+        "E16-02",
+        "E9-01",
+        "E9-02"
+      ],
+      "rejected_pattern_flags": [],
+      "evidence_refs": [
+        "DIRECTOR-QUALITY-REVIEW-01"
+      ]
+    }
   }
 }

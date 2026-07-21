@@ -105,7 +105,10 @@
                 "poster_pose",
                 "effects_only_motion"
               ],
-              "approval_status": "approved"
+              "approval_status": "approved",
+              "intent_refs": [
+                "INT-EV01"
+              ]
             },
             {
               "edit_unit_id": "E16-02",
@@ -146,7 +149,10 @@
                 "poster_pose",
                 "effects_only_motion"
               ],
-              "approval_status": "approved"
+              "approval_status": "approved",
+              "intent_refs": [
+                "INT-EV01"
+              ]
             },
             {
               "edit_unit_id": "E16-03",
@@ -185,7 +191,10 @@
                 "poster_pose",
                 "effects_only_motion"
               ],
-              "approval_status": "approved"
+              "approval_status": "approved",
+              "intent_refs": [
+                "INT-EV01"
+              ]
             },
             {
               "edit_unit_id": "E16-04",
@@ -224,7 +233,10 @@
                 "poster_pose",
                 "effects_only_motion"
               ],
-              "approval_status": "approved"
+              "approval_status": "approved",
+              "intent_refs": [
+                "INT-EV01"
+              ]
             },
             {
               "edit_unit_id": "E16-05",
@@ -263,7 +275,10 @@
                 "poster_pose",
                 "effects_only_motion"
               ],
-              "approval_status": "approved"
+              "approval_status": "approved",
+              "intent_refs": [
+                "INT-EV02"
+              ]
             },
             {
               "edit_unit_id": "E16-06",
@@ -302,7 +317,10 @@
                 "poster_pose",
                 "effects_only_motion"
               ],
-              "approval_status": "approved"
+              "approval_status": "approved",
+              "intent_refs": [
+                "INT-EV02"
+              ]
             },
             {
               "edit_unit_id": "E16-07",
@@ -341,7 +359,10 @@
                 "poster_pose",
                 "effects_only_motion"
               ],
-              "approval_status": "approved"
+              "approval_status": "approved",
+              "intent_refs": [
+                "INT-EV02"
+              ]
             },
             {
               "edit_unit_id": "E16-08",
@@ -380,7 +401,10 @@
                 "poster_pose",
                 "effects_only_motion"
               ],
-              "approval_status": "approved"
+              "approval_status": "approved",
+              "intent_refs": [
+                "INT-EV02"
+              ]
             }
           ]
         }
@@ -444,7 +468,10 @@
                 "poster_pose",
                 "effects_only_motion"
               ],
-              "approval_status": "approved"
+              "approval_status": "approved",
+              "intent_refs": [
+                "INT-EV01"
+              ]
             },
             {
               "edit_unit_id": "E9-02",
@@ -485,7 +512,10 @@
                 "poster_pose",
                 "effects_only_motion"
               ],
-              "approval_status": "approved"
+              "approval_status": "approved",
+              "intent_refs": [
+                "INT-EV01"
+              ]
             },
             {
               "edit_unit_id": "E9-03",
@@ -524,7 +554,10 @@
                 "poster_pose",
                 "effects_only_motion"
               ],
-              "approval_status": "approved"
+              "approval_status": "approved",
+              "intent_refs": [
+                "INT-EV01"
+              ]
             },
             {
               "edit_unit_id": "E9-04",
@@ -563,7 +596,10 @@
                 "poster_pose",
                 "effects_only_motion"
               ],
-              "approval_status": "approved"
+              "approval_status": "approved",
+              "intent_refs": [
+                "INT-EV01"
+              ]
             },
             {
               "edit_unit_id": "E9-05",
@@ -602,7 +638,10 @@
                 "poster_pose",
                 "effects_only_motion"
               ],
-              "approval_status": "approved"
+              "approval_status": "approved",
+              "intent_refs": [
+                "INT-EV02"
+              ]
             },
             {
               "edit_unit_id": "E9-06",
@@ -641,7 +680,10 @@
                 "poster_pose",
                 "effects_only_motion"
               ],
-              "approval_status": "approved"
+              "approval_status": "approved",
+              "intent_refs": [
+                "INT-EV02"
+              ]
             },
             {
               "edit_unit_id": "E9-07",
@@ -680,7 +722,10 @@
                 "poster_pose",
                 "effects_only_motion"
               ],
-              "approval_status": "approved"
+              "approval_status": "approved",
+              "intent_refs": [
+                "INT-EV02"
+              ]
             },
             {
               "edit_unit_id": "E9-08",
@@ -719,7 +764,10 @@
                 "poster_pose",
                 "effects_only_motion"
               ],
-              "approval_status": "approved"
+              "approval_status": "approved",
+              "intent_refs": [
+                "INT-EV02"
+              ]
             }
           ]
         }
@@ -1479,6 +1527,79 @@
       "CONTACT-PPT",
       "PROBE-NO-AUDIO"
     ],
-    "cinematic_ready": true
+    "cinematic_ready": true,
+    "intent_fidelity": {
+      "status": "passed",
+      "intent_ids": [
+        "INT-EV01",
+        "INT-EV02"
+      ],
+      "edit_unit_mappings": [
+        {
+          "intent_id": "INT-EV01",
+          "edit_unit_ids": [
+            "E16-01",
+            "E16-02",
+            "E16-03",
+            "E16-04",
+            "E9-01",
+            "E9-02",
+            "E9-03",
+            "E9-04"
+          ],
+          "evidence_refs": [
+            "INT-MAP-PPT-EV01"
+          ]
+        },
+        {
+          "intent_id": "INT-EV02",
+          "edit_unit_ids": [
+            "E16-05",
+            "E16-06",
+            "E16-07",
+            "E16-08",
+            "E9-05",
+            "E9-06",
+            "E9-07",
+            "E9-08"
+          ],
+          "evidence_refs": [
+            "INT-MAP-PPT-EV02"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "INT-FIDELITY-PPT-REVIEW-01"
+      ]
+    },
+    "director_quality": {
+      "status": "failed",
+      "reviewed_edit_unit_ids": [
+        "E16-01",
+        "E16-02",
+        "E16-03",
+        "E16-04",
+        "E16-05",
+        "E16-06",
+        "E16-07",
+        "E16-08",
+        "E9-01",
+        "E9-02",
+        "E9-03",
+        "E9-04",
+        "E9-05",
+        "E9-06",
+        "E9-07",
+        "E9-08"
+      ],
+      "rejected_pattern_flags": [
+        "image_slide_only",
+        "mechanical_equal_duration_grid",
+        "hard_cut_without_motivated_transition"
+      ],
+      "evidence_refs": [
+        "DIRECTOR-QUALITY-PPT-REVIEW-01"
+      ]
+    }
   }
 }

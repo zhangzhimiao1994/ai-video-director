@@ -342,6 +342,7 @@ class BuildEditBundleTests(unittest.TestCase):
     def test_cinematic_bundle_emits_quality_reports(self):
         audit_fields = (
             "content_consistency",
+            "intent_fidelity",
             "character_identity_integrity",
             "action_reaction_coverage",
             "kinetic_profile_audit",
@@ -350,6 +351,7 @@ class BuildEditBundleTests(unittest.TestCase):
             "audio_presence_and_structure",
             "static_hold_audit",
             "source_motion_review",
+            "director_quality",
         )
         source_plan = load_plan(CINEMATIC_FIXTURE)
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -600,6 +602,7 @@ class BuildEditBundleTests(unittest.TestCase):
         payload["evidence_refs"] = [malicious]
         for field in (
             "content_consistency",
+            "intent_fidelity",
             "character_identity_integrity",
             "action_reaction_coverage",
             "kinetic_profile_audit",
@@ -608,16 +611,17 @@ class BuildEditBundleTests(unittest.TestCase):
             "audio_presence_and_structure",
             "static_hold_audit",
             "source_motion_review",
+            "director_quality",
         ):
             payload[field]["status"] = malicious
 
         markdown = cinematic_report_markdown(payload)
 
-        self.assertEqual(markdown.count("DYNAMIC\\`"), 14)
+        self.assertEqual(markdown.count("DYNAMIC\\`"), 16)
         self.assertNotIn("\n## Forged section", markdown)
         self.assertNotIn("<script>", markdown)
-        self.assertEqual(markdown.count("\\r\\n\\#\\# Forged section"), 14)
-        self.assertEqual(markdown.count("&lt;script&gt;&amp;"), 14)
+        self.assertEqual(markdown.count("\\r\\n\\#\\# Forged section"), 16)
+        self.assertEqual(markdown.count("&lt;script&gt;&amp;"), 16)
         self.assertTrue(markdown.endswith("\n"))
 
     def test_cinematic_report_writer_failure_preserves_version_recovery(self):

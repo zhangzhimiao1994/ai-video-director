@@ -21,6 +21,7 @@ CINEMATIC_FIELDS = (
     "declared_mode",
     "genre",
     "content_consistency",
+    "intent_fidelity",
     "character_identity_integrity",
     "action_reaction_coverage",
     "kinetic_profile_audit",
@@ -29,6 +30,7 @@ CINEMATIC_FIELDS = (
     "audio_presence_and_structure",
     "static_hold_audit",
     "source_motion_review",
+    "director_quality",
     "ppt_risk_flags",
     "evidence_refs",
     "cinematic_ready",
@@ -36,6 +38,7 @@ CINEMATIC_FIELDS = (
 
 AUDIT_FIELDS = (
     "content_consistency",
+    "intent_fidelity",
     "character_identity_integrity",
     "action_reaction_coverage",
     "kinetic_profile_audit",
@@ -44,6 +47,7 @@ AUDIT_FIELDS = (
     "audio_presence_and_structure",
     "static_hold_audit",
     "source_motion_review",
+    "director_quality",
 )
 
 
@@ -236,6 +240,7 @@ class CinematicValidationTests(unittest.TestCase):
     def test_nested_audit_collections_reject_non_array_shapes(self):
         collection_paths = (
             ("action_reaction_coverage", "events"),
+            ("intent_fidelity", "edit_unit_mappings"),
             ("kinetic_profile_audit", "edit_units"),
             ("transition_fulfillment", "boundaries"),
         )
@@ -258,6 +263,7 @@ class CinematicValidationTests(unittest.TestCase):
     def test_nested_audit_collection_items_must_be_objects(self):
         collection_paths = (
             ("action_reaction_coverage", "events"),
+            ("intent_fidelity", "edit_unit_mappings"),
             ("kinetic_profile_audit", "edit_units"),
             ("transition_fulfillment", "boundaries"),
         )
@@ -288,6 +294,30 @@ class CinematicValidationTests(unittest.TestCase):
             (
                 ("content_consistency", "evidence_refs"),
                 "cinematic_validation.content_consistency.evidence_refs",
+            ),
+            (
+                ("intent_fidelity", "intent_ids"),
+                "cinematic_validation.intent_fidelity.intent_ids",
+            ),
+            (
+                (
+                    "intent_fidelity",
+                    "edit_unit_mappings",
+                    0,
+                    "edit_unit_ids",
+                ),
+                "cinematic_validation.intent_fidelity.edit_unit_mappings "
+                "item 1.edit_unit_ids",
+            ),
+            (
+                (
+                    "intent_fidelity",
+                    "edit_unit_mappings",
+                    0,
+                    "evidence_refs",
+                ),
+                "cinematic_validation.intent_fidelity.edit_unit_mappings "
+                "item 1.evidence_refs",
             ),
             (
                 ("character_identity_integrity", "identity_profile_ids"),
@@ -384,6 +414,18 @@ class CinematicValidationTests(unittest.TestCase):
                 ("source_motion_review", "evidence_refs"),
                 "cinematic_validation.source_motion_review.evidence_refs",
             ),
+            (
+                ("director_quality", "reviewed_edit_unit_ids"),
+                "cinematic_validation.director_quality.reviewed_edit_unit_ids",
+            ),
+            (
+                ("director_quality", "rejected_pattern_flags"),
+                "cinematic_validation.director_quality.rejected_pattern_flags",
+            ),
+            (
+                ("director_quality", "evidence_refs"),
+                "cinematic_validation.director_quality.evidence_refs",
+            ),
         )
         for path, label in collection_paths:
             for value in ({}, "items", 7, None):
@@ -402,7 +444,7 @@ class CinematicValidationTests(unittest.TestCase):
                     )
 
     def test_all_cinematic_fields_are_required(self):
-        self.assertEqual(len(CINEMATIC_FIELDS), 14)
+        self.assertEqual(len(CINEMATIC_FIELDS), 16)
         for field in CINEMATIC_FIELDS:
             with self.subTest(field=field):
                 plan = copy.deepcopy(load_plan("cinematic_valid_plan.json"))
@@ -498,6 +540,65 @@ class CinematicValidationTests(unittest.TestCase):
                 plan["cinematic_validation"]["content_consistency"][field] = []
 
                 self.assert_deterministic_errors(plan, (expected,))
+
+    def test_cinematic_edit_requires_intent_and_director_audits(self):
+        for field in ("intent_fidelity", "director_quality"):
+            with self.subTest(field=field):
+                plan = copy.deepcopy(load_plan("cinematic_valid_plan.json"))
+                del plan["cinematic_validation"][field]
+
+                self.assert_deterministic_errors(
+                    plan,
+                    (f"cinematic_validation: missing field {field}",),
+                )
+
+    def test_every_actual_edit_unit_requires_resolving_intent_refs(self):
+        cases = (
+            (
+                "missing",
+                lambda unit: unit.pop("intent_refs", None),
+                "edit unit E16-01.intent_refs: must be a non-empty list of strings",
+            ),
+            (
+                "unknown",
+                lambda unit: unit.update(intent_refs=["INT-MISSING"]),
+                "edit unit E16-01.intent_refs: unknown intent_id INT-MISSING",
+            ),
+        )
+        for case, mutate, expected in cases:
+            with self.subTest(case=case):
+                plan = copy.deepcopy(load_plan("cinematic_valid_plan.json"))
+                mutate(edit_units(plan)[0])
+
+                self.assert_deterministic_errors(plan, (expected,))
+
+    def test_failed_intent_audit_blocks_cinematic_ready(self):
+        plan = rendered_cinematic_plan()
+        plan["cinematic_validation"]["intent_fidelity"]["status"] = "failed"
+
+        self.assert_deterministic_errors(
+            plan,
+            (
+                "cinematic_validation.intent_fidelity: status failed blocks "
+                "cinematic readiness",
+                "cinematic_validation: cinematic_ready cannot be true while "
+                "cinematic blockers remain",
+            ),
+        )
+
+    def test_director_quality_rejects_unresolved_pattern_flags(self):
+        plan = rendered_cinematic_plan()
+        plan["cinematic_validation"]["director_quality"][
+            "rejected_pattern_flags"
+        ] = ["mechanical_shot_reverse_shot"]
+
+        self.assert_deterministic_errors(
+            plan,
+            (
+                "cinematic_validation.director_quality.rejected_pattern_flags: "
+                "must be empty",
+            ),
+        )
 
     def test_character_identity_requires_locks_evidence_and_no_drift(self):
         cases = (
@@ -949,6 +1050,27 @@ class CinematicValidationTests(unittest.TestCase):
             for record in kinetic_records
             if record["edit_unit_id"] in retained_ids
         ]
+        intent_mappings = plan["cinematic_validation"]["intent_fidelity"][
+            "edit_unit_mappings"
+        ]
+        plan["cinematic_validation"]["intent_fidelity"][
+            "edit_unit_mappings"
+        ] = [
+            {
+                **intent_mappings[0],
+                "edit_unit_ids": [
+                    unit_id
+                    for unit_id in intent_mappings[0]["edit_unit_ids"]
+                    if unit_id in retained_ids
+                ],
+            }
+        ]
+        plan["cinematic_validation"]["intent_fidelity"]["intent_ids"] = [
+            "INT-EV01"
+        ]
+        plan["cinematic_validation"]["director_quality"][
+            "reviewed_edit_unit_ids"
+        ] = sorted(retained_ids)
         plan["cinematic_validation"]["transition_fulfillment"][
             "boundaries"
         ] = []
@@ -1196,9 +1318,11 @@ class CinematicValidationTests(unittest.TestCase):
             all(not timeline["audio_track_refs"] for timeline in plan["timelines"])
         )
         self.assertEqual(cinematic["content_consistency"]["status"], "passed")
+        self.assertEqual(cinematic["intent_fidelity"]["status"], "passed")
         self.assertEqual(
             cinematic["character_identity_integrity"]["status"], "passed"
         )
+        self.assertEqual(cinematic["director_quality"]["status"], "failed")
         self.assertTrue(cinematic["cinematic_ready"])
 
     def test_static_silent_hard_cut_plan_cannot_claim_cinematic_ready(self):
@@ -1221,6 +1345,7 @@ class CinematicValidationTests(unittest.TestCase):
             "audio_presence_and_structure",
             "static_hold_audit",
             "source_motion_review",
+            "director_quality",
         ):
             with self.subTest(dimension=dimension):
                 self.assertTrue(
@@ -1253,6 +1378,10 @@ class CinematicValidationTests(unittest.TestCase):
         self.assertEqual(len(holds), 1)
         self.assertTrue(holds[0]["hold_reason"])
         self.assertTrue(holds[0]["evidence_refs"])
+        self.assertSetEqual(
+            set(cinematic["director_quality"]["reviewed_edit_unit_ids"]),
+            all_edit_unit_ids(plan),
+        )
         self.assertEqual(cinematic["ppt_risk_flags"], [])
         self.assertFalse(cinematic["cinematic_ready"])
 
