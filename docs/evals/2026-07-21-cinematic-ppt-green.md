@@ -44,7 +44,7 @@ Each round used fresh, read-only evaluators in isolated contexts. The P11/P12 ev
 
 Round 1 read commit `9d82bbf`. After its genuine failures were recorded, two section-local documentation tests were written and observed failing before production text changed. The minimum Skill response contract was then added and committed as `0b870cd`; a new pair of evaluators, blind to round 1, ran round 2. No-Skill was not rerun because the existing baseline report already preserves a fresh no-Skill control and the available independent contexts were reserved for the two upgraded-Skill rounds.
 
-The supplemental P01–P10 regression used two more fresh read-only evaluators: one received P01–P05 and the other P06–P10. They received only exact prompt text and committed Skill routing instructions, not `expected`, rubrics, prior outputs, or labels. Strict grading against `test-prompts.json` occurred only after raw outputs returned. P04 and P10 failed; those failures were reported before any change. Two section-local tests were then observed RED, the minimum contracts were committed as `3fc6b2d`, and one new blind evaluator reran only P04 and P10 without seeing expected results or prior outputs. The controller transcript preserves the complete P01–P05 response; repository appendices preserve P06–P10 and the repaired P04/P10 response.
+The supplemental P01–P10 regression used two more fresh read-only evaluators: one received P01–P05 and the other P06–P10. They received only exact prompt text and committed Skill routing instructions, not `expected`, rubrics, prior outputs, or labels. Strict grading against `test-prompts.json` occurred only after raw outputs returned. P04 and P10 failed; those failures were reported before any change. Two section-local tests were then observed RED, the minimum contracts were committed as `3fc6b2d`, and one new blind evaluator reran only P04 and P10 without seeing expected results or prior outputs. Repository appendices preserve the complete P01–P05 and P06–P10 initial responses plus the repaired P04/P10 response.
 
 ## Round 1 raw outputs — effect RED at `9d82bbf`
 
@@ -204,7 +204,7 @@ Effect result: **17/17 PASS; D8=10.0/10**. P11, P12, and adversarial verdicts ar
 
 ## Full P01–P10 behavioral regression
 
-The complete P01–P05 evaluator output is preserved in the controller's evaluator transcript. Repository appendices preserve the complete [`P06–P10 initial blind run`](2026-07-21-prompt-regression-raw-p06-p10.md) and the complete [`P04/P10 post-repair blind rerun`](2026-07-21-prompt-regression-raw-repair-p04-p10.md). Grading below applies each record's exact `expected` text from `test-prompts.json`; response length or polish is not used as a substitute for a required behavior.
+Repository appendices preserve the complete [`P01–P05 initial blind run`](2026-07-21-prompt-regression-raw-p01-p05.md), complete [`P06–P10 initial blind run`](2026-07-21-prompt-regression-raw-p06-p10.md), and complete [`P04/P10 post-repair blind rerun`](2026-07-21-prompt-regression-raw-repair-p04-p10.md). The P01–P05 appendix identifies the source revision and records that `expected`, rubrics, prior outputs, tests, reports, results, and history were withheld from the evaluator. Grading below applies each record's exact `expected` text from `test-prompts.json`; response length or polish is not used as a substitute for a required behavior.
 
 | Prompt | Strict result | Decisive evidence against `expected` |
 |---|---|---|
