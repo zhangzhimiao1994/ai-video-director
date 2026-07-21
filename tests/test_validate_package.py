@@ -163,10 +163,68 @@ def cinematic_package():
         "delivery_aspects": ["16:9", "9:16"],
         "style_preset": "dark-fantasy",
     }
+    package["project_brief"]["intent_contract"] = {
+        "core_message": "Protection means choosing to bear the cost.",
+        "audience_takeaway": "The choice, not victory, defines protection.",
+        "emotional_destination": "awe becomes recognition of cost",
+        "must_show_claims": [
+            {
+                "intent_id": "INT-001",
+                "claim": "The lead chooses to absorb the impact.",
+                "required_evidence": (
+                    "choice, impact, and protected person's reaction"
+                ),
+                "source_status": "user_locked",
+            }
+        ],
+        "must_preserve_events": ["EVENT-CHOICE", "EVENT-COST"],
+        "must_not_imply": ["the hit is accidental"],
+        "metaphor_policy": {
+            "mode": "literal_evidence_first",
+            "rule": "Metaphor supports but never replaces direct evidence.",
+        },
+        "source_fidelity": {
+            "mode": "concept_mode",
+            "locked_source_refs": [],
+            "allowed_adaptation": "blocking_coverage_and_local_pacing_only",
+        },
+    }
+    package["story_structure"]["beats"] = [
+        {"beat_id": "beat-01", "intent_refs": ["INT-001"]}
+    ]
+    scene = package["screenplay"]["scenes"][0]
+    scene["intent_refs"] = ["INT-001"]
+    scene["scene_directing_plan"] = {
+        "scene_pov": "the protecting lead",
+        "audience_knowledge_before": "the threat is approaching",
+        "audience_knowledge_after": "the lead chose the cost",
+        "dramatic_turn": "the lead chooses the cost",
+        "character_objectives": ["lead protects", "companion escapes"],
+        "subtext_and_playable_actions": ["hide the shaking hand"],
+        "blocking_map": "lead crosses from rear right to block the path",
+        "reveal_strategy": "show the choice before revealing the wound",
+        "camera_rule": "move only to reveal the protected companion",
+        "coverage_strategy": "choice, impact, reaction, consequence",
+        "visual_motif_progression": "open hand closes around the wound",
+        "editorial_consequence": "the hidden wound motivates the next scene",
+        "rejected_choices": ["unrelated dragon skyline"],
+        "intent_refs": ["INT-001"],
+    }
     shot = package["storyboard"][0]
     shot["duration_seconds"] = 30
     shot.update(
         {
+            "intent_refs": ["INT-001"],
+            "dramatic_question": "Will the lead choose the cost?",
+            "information_delta": "the choice becomes visible",
+            "emotion_delta": "resolve becomes pain",
+            "power_delta": "",
+            "spatial_delta": "the lead takes the exposed position",
+            "blocking_change": "crosses into the threat path",
+            "camera_necessity": "lateral move reveals who is protected",
+            "performance_verb": "intercept",
+            "shot_relation": "answers the prior threat setup",
+            "director_rejection_reason": "",
             "coverage_role": ["action", "reaction", "consequence"],
             "kinetic_profile": {
                 "subject_motion": "lead draws the red book toward their chest",
@@ -195,6 +253,7 @@ def cinematic_package():
     prompt = package["shot_prompts"][0]
     prompt.update(
         {
+            "intent_refs": ["INT-001"],
             "approval_status": "final",
             "global_lock_block": "Lock character-01, prop-01, and look-01.",
             "direction_variants": {
@@ -265,6 +324,16 @@ def cinematic_package():
             "continuity_integrity": {
                 "status": "pass",
                 "unresolved_conflicts": [],
+            },
+            "intent_fidelity": {
+                "status": "pass",
+                "unresolved_conflicts": [],
+                "evidence_refs": ["TRACE-INT-001"],
+            },
+            "director_quality": {
+                "status": "pass",
+                "unresolved_conflicts": [],
+                "evidence_refs": ["DIRECTOR-REVIEW-scene-01"],
             },
             "identity_integrity": {
                 "status": "pass",
@@ -2105,6 +2174,43 @@ class CinematicBriefValidationTests(unittest.TestCase):
                     f"quality_report.checks: missing required field {field}",
                     validate_package(package),
                 )
+
+    def test_cinematic_package_requires_intent_contract(self):
+        package = cinematic_package()
+        del package["project_brief"]["intent_contract"]
+        self.assertIn(
+            "project_brief.intent_contract: required for director delivery",
+            validate_package(package),
+        )
+
+    def test_cinematic_scene_requires_directing_plan_before_storyboard(self):
+        package = cinematic_package()
+        del package["screenplay"]["scenes"][0]["scene_directing_plan"]
+        self.assertIn(
+            "scene scene-01: scene_directing_plan is required",
+            validate_package(package),
+        )
+
+    def test_director_gate_blocks_final_prompt_and_approved_job(self):
+        package = cinematic_package()
+        package["quality_report"]["ready"] = False
+        package["quality_report"]["checks"]["intent_fidelity"]["status"] = (
+            "fail"
+        )
+        errors = validate_package(package)
+        self.assertIn(
+            "shot_prompt shot-01: approval_status must be draft or blocked "
+            "while cinematic hard gates fail",
+            errors,
+        )
+        self.assertIn(
+            "model_job_manifest job-01: approval_status must be blocked or "
+            "non_executable while cinematic hard gates fail",
+            errors,
+        )
+
+    def test_legacy_non_cinematic_package_does_not_require_director_fields(self):
+        self.assertEqual(validate_package(valid_package()), [])
 
     def test_ready_cinematic_package_rejects_failed_narrative_gate(self):
         package = cinematic_package()

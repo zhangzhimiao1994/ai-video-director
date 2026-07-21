@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from cinematic_storyboard_validation import validate_cinematic_storyboard
+from director_validation import validate_director_package
 from identity_validation import validate_identity_locks
 
 
@@ -1451,6 +1452,12 @@ def validate_package(package: Any) -> list[str]:
                     f"missing cinematic aspect job {aspect}"
                 )
 
+    director_errors, director_gate_failed = validate_director_package(
+        package,
+        required=cinematic_mode is not None,
+    )
+    errors.extend(director_errors)
+
     quality_report = package.get("quality_report")
     if not isinstance(quality_report, dict):
         errors.append("quality_report: expected object")
@@ -1494,7 +1501,10 @@ def validate_package(package: Any) -> list[str]:
                 errors,
             )
         if cinematic_mode is not None:
-            gate_failed = _validate_cinematic_quality(quality_report, errors)
+            gate_failed = (
+                _validate_cinematic_quality(quality_report, errors)
+                or director_gate_failed
+            )
             _validate_cinematic_compilation_statuses(
                 quality_report.get("ready") is True,
                 gate_failed,
