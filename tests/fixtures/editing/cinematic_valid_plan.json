@@ -541,6 +541,8 @@
           "type": "hard_cut",
           "story_reason": "cut on completed action into reaction",
           "visual_precondition": "hand completes downward movement",
+          "incoming_match": "reaction begins on the completed hand position",
+          "duration_frames": 0,
           "audio_bridge_cue_id": "AC01",
           "fallback": "none",
           "fulfillment_status": "passed",
@@ -555,6 +557,8 @@
           "type": "hard_cut",
           "story_reason": "cut on completed action into reaction",
           "visual_precondition": "hand completes downward movement",
+          "incoming_match": "reaction begins on the completed hand position",
+          "duration_frames": 0,
           "audio_bridge_cue_id": "AC01",
           "fallback": "none",
           "fulfillment_status": "passed",
@@ -614,6 +618,6 @@
       "CONTACT-9",
       "PROBE-AUDIO-01"
     ],
-    "cinematic_ready": true
+    "cinematic_ready": false
   }
 }

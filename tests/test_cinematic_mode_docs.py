@@ -303,6 +303,35 @@ class CinematicModeDocsTests(unittest.TestCase):
         self.assertIn("editing fulfillment layer", reference)
         self.assertIn("`fulfillment_status` and `evidence_refs`", reference)
 
+    def test_output_contract_places_storyboard_directing_fields_on_storyboard(self):
+        output_contract = self.read("references/output-contract.md")
+        storyboard_start = output_contract.index("## 7. `storyboard`")
+        storyboard_end = output_contract.index("## 8.", storyboard_start)
+        storyboard_section = output_contract[storyboard_start:storyboard_end]
+        for field in ("coverage_role", "kinetic_profile", "transition_contract"):
+            with self.subTest(field=field):
+                self.assertIn(f"`{field}`", storyboard_section)
+        self.assertIn("`acceptance_evidence` is a non-empty string", storyboard_section)
+        self.assertNotIn("`fulfillment_status`", storyboard_section)
+
+    def test_continuity_identity_distinguishes_concept_draft_from_production(self):
+        reference = self.read("references/continuity-storyboard.md")
+        identity_line = self.contract_line(reference, "`identity_profile`")
+        self.assertIn("concept draft", identity_line)
+        self.assertIn("production cinematic package", identity_line)
+        self.assertIn("`validate_package`", identity_line)
+        self.assertIn("`approved`", identity_line)
+        self.assertIn("pending", identity_line)
+        self.assertIn("cannot be `approved`", identity_line)
+
+    def test_cinematic_direction_uses_storyboard_acceptance_evidence(self):
+        reference = self.read("references/cinematic-directing.md")
+        kinetic_line = self.contract_line(reference, "`kinetic_profile`")
+        self.assertIn("`acceptance_evidence`", kinetic_line)
+        self.assertNotIn("`evidence_refs`", kinetic_line)
+        self.assertIn("editing audit", reference)
+        self.assertIn("`evidence_refs`", reference)
+
 
 if __name__ == "__main__":
     unittest.main()

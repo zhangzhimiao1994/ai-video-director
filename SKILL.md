@@ -56,7 +56,7 @@ Compilation and dry-run may materialize `non-executable handoff artifacts` in on
 
 ## Cinematic Finish Hard Gate
 
-When the user asks for a movie, blockbuster, cinematic film, finished film, or final master, cinematic quality is not optional polish: validate the edit plan with `--require-cinematic`. Any non-empty `ppt_risk_flags`, content inconsistency, character identity drift, model-lock drift, failed motion or action coverage, unfulfilled transition, or failed sound gate blocks final delivery and `cinematic_ready`.
+Activate `--require-cinematic` only for declared cinematic intent: an explicit cinematic, movie, blockbuster, 大片, or 电影感 request, or an existing `cinematic_mode`/`cinematic_validation.declared_mode: cinematic`. An explicit movie request defaults to cinematic. An ordinary finished output, render, export, or final-master request without that intent does not activate `--require-cinematic`; it uses the existing finished-film and `--require-final` gates. When cinematic mode is active, any non-empty `ppt_risk_flags`, content inconsistency, character identity drift, model-lock drift, failed motion or action coverage, unfulfilled transition, or failed sound gate blocks final delivery and `cinematic_ready`.
 
 Technical `rendered` status and creative `cinematic_ready` are separate. A valid `rough_cut` remains rough; never copy or rename it to impersonate a fine cut or final master. On failure, return to the earliest responsible object—story → storyboard → prompt/media regeneration → timeline → sound—instead of hiding an upstream defect with final-stage effects.
 
@@ -83,7 +83,7 @@ For a complete production package, follow this sequence. For a partial deliverab
 For an editing or finished-film package, continue from the earliest available upstream object through this resource path:
 
 1. Read `references/editing-finish.md`; create one canonical `edit_master_plan.json` from the locked shots, media bindings, tracks, timelines, delivery specs, software targets, and execution state.
-2. Run `python scripts/validate_edit_plan.py <edit_master_plan.json>` from the Skill directory. Add `--require-final` for a requested final master and `--require-cinematic` whenever the request promises movie, blockbuster, cinematic, finished-film, or final-master quality; repair every reported error before calling the plan ready.
+2. Run `python scripts/validate_edit_plan.py <edit_master_plan.json>` from the Skill directory. Add `--require-final` for a requested final master. Add `--require-cinematic` only for explicit cinematic/movie/blockbuster/大片/电影感 intent or an existing cinematic declaration; repair every reported error before calling the plan ready.
 3. Run `python scripts/build_edit_bundle.py <edit_master_plan.json> --out <new_output_root>` without `--execute` to create a new versioned dry-run/handoff bundle. Report the actual version directory, manifest, blockers, adapter status, and validation result; do not claim an NLE import or render.
 4. External execution remains subject to the operation-authorization boundary above. For an authorized FFmpeg path, first run `python scripts/validate_edit_plan.py <edit_master_plan.json> --for-execution`, then use `scripts/build_edit_bundle.py ... --execute` only when the displayed manifest, exact version directory, inputs, commands, tool evidence, and authorization still match. NLE or AI-editor execution must preserve the same Canon and evidence rules.
 

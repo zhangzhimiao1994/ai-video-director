@@ -33,7 +33,9 @@
 
 每个关键事件必须由逐镜 `coverage_role` 覆盖 `action`、`reaction`、`consequence`；同一镜可以承担多个角色，但审计必须能引用实际镜头或 edit unit。只拍动作、不拍角色或世界如何响应，就不能把事件判为电影化完成。
 
-每镜的 `kinetic_profile` 分别声明 `subject`、`performance`、`camera`、`environment` 运动层及可观察证据。普通运动镜头至少有两个有效运动层；粒子、云、光斑或背景漂移不能替代主体路径、表演变化或作用力反馈。`intentional_hold` 可以通过，但必须同时记录非空 `hold_reason` 与 `evidence_refs`；静止本身、固定秒数或无声本身都不是失败原因。
+每镜的 `kinetic_profile` 分别用 `subject_motion`、`performance_change`、`camera_motion`、`environment_motion` 声明运动层，并用非空字符串 `acceptance_evidence` 声明未来成片的可观察证据。普通运动镜头至少有两个有效运动层；粒子、云、光斑或背景漂移不能替代主体路径、表演变化或作用力反馈。`intentional_hold` 可以通过，但必须同时记录非空 `hold_reason` 与 `acceptance_evidence`；静止本身、固定秒数或无声本身都不是失败原因。
+
+The later editing audit records completed review artifacts in `evidence_refs`; that editing-only array is not a storyboard field.
 
 镜头还必须声明叙事功能、边界状态、状态依赖和平台能力需求。静默、hold 与 hard cut 只要有明确动机、边界前提和验收证据都可通过；不得把某一种转场类型本身判死刑。
 

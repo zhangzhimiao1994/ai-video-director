@@ -77,6 +77,70 @@ def all_boundary_pairs(plan):
     return pairs
 
 
+def rendered_cinematic_plan():
+    plan = load_plan("cinematic_valid_plan.json")
+    plan["plan_status"] = "rendered"
+    plan["execution"].update(
+        {
+            "operation_authorization": "approved",
+            "authorized_manifest_id": "MAN-001",
+            "authorized_version_directory": "edit/v001",
+            "tool_evidence": [],
+            "probe_evidence": [],
+            "rendered_outputs": [],
+        }
+    )
+    delivery_ids = []
+    for delivery in plan["delivery_specs"]:
+        delivery_id = delivery["delivery_id"]
+        delivery_ids.append(delivery_id)
+        tool_id = f"TOOL-{delivery_id}"
+        probe_id = f"PROBE-{delivery_id}"
+        delivery["status"] = "rendered"
+        delivery["ready"] = True
+        plan["execution"]["tool_evidence"].append(
+            {
+                "tool_evidence_id": tool_id,
+                "tool": "ffmpeg 6.1",
+                "status": "verified",
+            }
+        )
+        plan["execution"]["probe_evidence"].append(
+            {
+                "probe_evidence_id": probe_id,
+                "delivery_id": delivery_id,
+                "output_ref": delivery["destination"],
+                "status": "passed",
+            }
+        )
+        plan["execution"]["rendered_outputs"].append(
+            {
+                "delivery_id": delivery_id,
+                "output_ref": delivery["destination"],
+                "status": "rendered",
+                "tool_evidence_ref": tool_id,
+                "tool_status": "passed",
+                "probe_evidence_ref": probe_id,
+                "probe_status": "passed",
+            }
+        )
+    for result in plan["edit_validation"]["per_delivery_results"]:
+        result["status"] = "passed"
+        result["validation_status"] = "passed"
+    plan["edit_validation"]["ready"] = True
+    review = plan["cinematic_validation"]["source_motion_review"]
+    review.update(
+        {
+            "actual_output_review_status": "passed",
+            "reviewed_delivery_ids": delivery_ids,
+            "frame_change_evidence_refs": ["FRAME-CHANGE-D16", "FRAME-CHANGE-D9"],
+            "contact_sheet_evidence_refs": ["CONTACT-16", "CONTACT-9"],
+        }
+    )
+    plan["cinematic_validation"]["cinematic_ready"] = True
+    return plan
+
+
 def run_cli(args):
     stdout = io.StringIO()
     stderr = io.StringIO()
@@ -642,6 +706,8 @@ class CinematicValidationTests(unittest.TestCase):
             "type",
             "story_reason",
             "visual_precondition",
+            "incoming_match",
+            "duration_frames",
             "audio_bridge_cue_id",
             "fallback",
             "fulfillment_status",
@@ -686,6 +752,41 @@ class CinematicValidationTests(unittest.TestCase):
                 ]["boundaries"][0]
                 boundary[field] = value
 
+                self.assert_deterministic_errors(plan, (expected,))
+
+    def test_transition_incoming_match_and_duration_are_typed(self):
+        cases = (
+            (
+                "incoming_match",
+                None,
+                "cinematic_validation.transition_fulfillment.boundaries item "
+                "1.incoming_match: must be a non-empty string",
+            ),
+            (
+                "incoming_match",
+                "",
+                "cinematic_validation.transition_fulfillment.boundaries item "
+                "1.incoming_match: must be a non-empty string",
+            ),
+            (
+                "duration_frames",
+                True,
+                "cinematic_validation.transition_fulfillment.boundaries item "
+                "1.duration_frames: must be a non-negative integer",
+            ),
+            (
+                "duration_frames",
+                -1,
+                "cinematic_validation.transition_fulfillment.boundaries item "
+                "1.duration_frames: must be a non-negative integer",
+            ),
+        )
+        for field, value, expected in cases:
+            with self.subTest(field=field, value=value):
+                plan = load_plan("cinematic_valid_plan.json")
+                plan["cinematic_validation"]["transition_fulfillment"][
+                    "boundaries"
+                ][0][field] = value
                 self.assert_deterministic_errors(plan, (expected,))
 
     def test_transition_contract_values_must_be_non_empty_strings(self):
@@ -933,6 +1034,8 @@ class CinematicValidationTests(unittest.TestCase):
             with self.subTest(value=value):
                 plan = copy.deepcopy(load_plan("cinematic_valid_plan.json"))
                 plan["cinematic_validation"]["ppt_risk_flags"] = value
+                if value == ["poster_pose"]:
+                    plan["cinematic_validation"]["cinematic_ready"] = True
 
                 self.assert_deterministic_errors(plan, (expected,))
 
@@ -941,6 +1044,7 @@ class CinematicValidationTests(unittest.TestCase):
         plan["cinematic_validation"]["static_hold_audit"][
             "status"
         ] = "failed"
+        plan["cinematic_validation"]["cinematic_ready"] = True
 
         self.assert_deterministic_errors(
             plan,
@@ -1130,7 +1234,7 @@ class CinematicValidationTests(unittest.TestCase):
         self.assertTrue(holds[0]["hold_reason"])
         self.assertTrue(holds[0]["evidence_refs"])
         self.assertEqual(cinematic["ppt_risk_flags"], [])
-        self.assertTrue(cinematic["cinematic_ready"])
+        self.assertFalse(cinematic["cinematic_ready"])
 
     def test_complete_cinematic_evidence_passes(self):
         self.assertEqual(
@@ -1140,6 +1244,102 @@ class CinematicValidationTests(unittest.TestCase):
             ),
             [],
         )
+
+    def test_rendered_cinematic_plan_with_actual_output_evidence_is_ready(self):
+        self.assertEqual(
+            validate_edit_plan(rendered_cinematic_plan(), require_cinematic=True),
+            [],
+        )
+
+    def test_non_rendered_plan_states_cannot_claim_cinematic_ready(self):
+        for status in ("dry_run_passed", "authorized", "draft"):
+            with self.subTest(status=status):
+                plan = load_plan("cinematic_valid_plan.json")
+                plan["plan_status"] = status
+                plan["cinematic_validation"]["cinematic_ready"] = True
+                errors = validate_edit_plan(plan, require_cinematic=True)
+                self.assertIn(
+                    "cinematic_validation.cinematic_ready: requires plan_status rendered",
+                    errors,
+                )
+
+    def test_ready_claim_requires_delivery_edit_and_execution_evidence(self):
+        cases = (
+            (
+                "delivery",
+                lambda plan: plan["delivery_specs"][0].update(ready=False),
+                "cinematic_validation.cinematic_ready: every requested delivery "
+                "must be rendered and ready",
+            ),
+            (
+                "edit_validation",
+                lambda plan: plan["edit_validation"].update(ready=False),
+                "cinematic_validation.cinematic_ready: requires "
+                "edit_validation.ready true",
+            ),
+            (
+                "tool_evidence",
+                lambda plan: plan["execution"].update(tool_evidence=[]),
+                "cinematic_validation.cinematic_ready: requires non-empty "
+                "execution.tool_evidence",
+            ),
+            (
+                "probe_evidence",
+                lambda plan: plan["execution"].update(probe_evidence=[]),
+                "cinematic_validation.cinematic_ready: requires non-empty "
+                "execution.probe_evidence",
+            ),
+            (
+                "rendered_outputs",
+                lambda plan: plan["execution"].update(rendered_outputs=[]),
+                "cinematic_validation.cinematic_ready: requires non-empty "
+                "execution.rendered_outputs",
+            ),
+        )
+        for case, mutate, expected in cases:
+            with self.subTest(case=case):
+                plan = rendered_cinematic_plan()
+                mutate(plan)
+                self.assertIn(
+                    expected,
+                    validate_edit_plan(plan, require_cinematic=True),
+                )
+
+    def test_ready_source_motion_review_requires_actual_output_evidence(self):
+        cases = (
+            (
+                "actual_output_review_status",
+                "failed",
+                "cinematic_validation.source_motion_review."
+                "actual_output_review_status: must be passed",
+            ),
+            (
+                "reviewed_delivery_ids",
+                ["D16"],
+                "cinematic_validation.source_motion_review.reviewed_delivery_ids: "
+                "must match requested delivery IDs exactly",
+            ),
+            (
+                "frame_change_evidence_refs",
+                [],
+                "cinematic_validation.source_motion_review."
+                "frame_change_evidence_refs: must be a non-empty list of strings",
+            ),
+            (
+                "contact_sheet_evidence_refs",
+                None,
+                "cinematic_validation.source_motion_review."
+                "contact_sheet_evidence_refs: must be an array",
+            ),
+        )
+        for field, value, expected in cases:
+            with self.subTest(field=field):
+                plan = rendered_cinematic_plan()
+                plan["cinematic_validation"]["source_motion_review"][field] = value
+                self.assertIn(
+                    expected,
+                    validate_edit_plan(plan, require_cinematic=True),
+                )
 
     def test_cli_require_cinematic_rejects_legacy_and_accepts_complete_plan(self):
         legacy_code, legacy_stdout, legacy_stderr = run_cli(

@@ -70,7 +70,7 @@ ID 一经进入下游引用，不因排序、改名或文案润色而变化。
 
 补充角色年龄段、体态、脸部可见特征、发型、左右侧辨识点、动作习惯与授权状态。禁止用族群刻板印象代替可见描述。真人参考必须与 `rights_and_consents` 对齐。
 
-电影化角色在 `identity_profile` 中使用验证器契约：`identity_profile_id`、`approval_status`、`face_anchors`、`body_anchors`、`hair_anchors`、`fixed_accessories`、`signature_effect_anchors`、`reference_asset_ids`、`forbidden_drift`。这些锚点分别锁脸、体型、发型、固定配饰、标志特效和已授权参考图；每个列表必须非空。只有 `approval_status: approved` 的 profile 才能成为下游平台锁。草案身份可用于规划，但 prompt/job 不得标为 final/approved；脸、体型、发型、配饰或标志特效漂移必须阻塞相关镜头、job 与 edit unit。
+电影化角色在 `identity_profile` 中使用验证器契约：`identity_profile_id`、`approval_status`、`face_anchors`、`body_anchors`、`hair_anchors`、`fixed_accessories`、`signature_effect_anchors`、`reference_asset_ids`、`forbidden_drift`。这些锚点分别锁脸、体型、发型、固定配饰、标志特效和已授权参考图；每个列表必须非空。A concept draft may draft identity upstream for reversible planning, but a production cinematic package accepted by `validate_package` requires `approval_status: approved`. An unapproved profile may keep a job binding pending, but that job cannot be `approved`;脸、体型、发型、配饰或标志特效漂移必须阻塞相关镜头、job 与 edit unit。
 
 ### `locations`
 

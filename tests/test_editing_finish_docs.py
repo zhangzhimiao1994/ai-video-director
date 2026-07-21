@@ -1,8 +1,13 @@
 import unittest
+import re
+import sys
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+
+from cinematic_validation import CINEMATIC_FIELDS
 
 
 class EditingFinishDocsTests(unittest.TestCase):
@@ -145,6 +150,19 @@ class EditingFinishDocsTests(unittest.TestCase):
             ),
         )
 
+    def test_output_contract_cinematic_field_set_matches_validator_constant(self):
+        output_contract = self.read_required("references/output-contract.md")
+        extension = self.section(output_contract, "## Optional Finished-Film Extension")
+        field_sentence = next(
+            line for line in extension.splitlines() if "exactly 14 required fields" in line
+        )
+        documented = tuple(
+            token
+            for token in re.findall(r"`([^`]+)`", field_sentence)
+            if token in CINEMATIC_FIELDS
+        )
+        self.assertEqual(documented, CINEMATIC_FIELDS)
+
     def test_cinematic_acceptance_separates_plan_checks_from_actual_film_evidence(self):
         reference = self.read_required("references/editing-finish.md")
         plan_acceptance = self.section(reference, "### Plan acceptance")
@@ -193,6 +211,32 @@ class EditingFinishDocsTests(unittest.TestCase):
         self.assertIn("tooling is unavailable", actual_acceptance)
         self.assertIn("`blocked` or `manual_review_required`", actual_acceptance)
         self.assertIn("never claim actual-film acceptance", actual_acceptance)
+
+    def test_actual_film_acceptance_names_executable_readiness_evidence(self):
+        reference = self.read_required("references/editing-finish.md")
+        plan_acceptance = self.section(reference, "### Plan acceptance")
+        actual_acceptance = self.section(reference, "### Actual-film acceptance")
+        self.assertIn("plan audits passed", plan_acceptance)
+        self.assertIn("does not set `cinematic_ready: true`", plan_acceptance)
+        for field in (
+            "actual_output_review_status",
+            "reviewed_delivery_ids",
+            "frame_change_evidence_refs",
+            "contact_sheet_evidence_refs",
+        ):
+            with self.subTest(field=field):
+                self.assertIn(f"`{field}`", actual_acceptance)
+                self.assertNotIn(f"`{field}`", plan_acceptance)
+        self.assertIn("`plan_status: rendered`", actual_acceptance)
+
+    def test_skill_only_activates_cinematic_gate_for_declared_cinematic_intent(self):
+        skill = self.read_required("SKILL.md")
+        hard_gate = self.section(skill, "## Cinematic Finish Hard Gate")
+        for trigger in ("cinematic", "movie", "blockbuster", "电影感"):
+            self.assertIn(trigger, hard_gate)
+        self.assertIn("existing `cinematic_mode`", hard_gate)
+        self.assertIn("ordinary finished output", hard_gate)
+        self.assertIn("does not activate `--require-cinematic`", hard_gate)
 
 
 if __name__ == "__main__":

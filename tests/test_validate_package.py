@@ -11,6 +11,7 @@ from pathlib import Path
 SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPTS_DIR))
 
+from cinematic_storyboard_validation import validate_cinematic_storyboard
 from validate_package import main, validate_package
 
 
@@ -166,6 +167,18 @@ def cinematic_package():
     shot["duration_seconds"] = 30
     shot.update(
         {
+            "coverage_role": "consequence",
+            "kinetic_profile": {
+                "subject_motion": "lead draws the red book toward their chest",
+                "performance_change": "resolve settles into guarded concern",
+                "camera_motion": "slow push in",
+                "environment_motion": "curtain edge lifts in the draft",
+                "motion_layers_required": 3,
+                "intentional_hold": False,
+                "hold_reason": None,
+                "acceptance_evidence": "subject path, expression change, and push in",
+            },
+            "transition_contract": None,
             "rhythm_role": "performance",
             "state_dependencies": [],
             "state_before": {"story_state": "book open"},
@@ -284,6 +297,19 @@ def cinematic_chain(shot_count=2):
         )
         shot["state_before"] = {"story_state": f"phase-{index - 1}"}
         shot["state_after"] = {"story_state": f"phase-{index}"}
+        shot["transition_contract"] = (
+            {
+                "type": "match_cut",
+                "visual_precondition": f"phase-{index} resolves",
+                "incoming_match": f"phase-{index} carried into next opening state",
+                "duration_frames": 0,
+                "audio_bridge_cue_id": "none",
+                "story_reason": "preserve causal momentum",
+                "fallback": "hard_cut",
+            }
+            if index < shot_count
+            else None
+        )
         package["storyboard"].append(shot)
 
         prompt = copy.deepcopy(base_prompt)
@@ -944,6 +970,153 @@ class ValidatePackageTests(unittest.TestCase):
 class CinematicBriefValidationTests(unittest.TestCase):
     def test_valid_cinematic_package_has_no_errors(self):
         self.assertEqual(validate_package(cinematic_package()), [])
+
+    def test_cinematic_storyboard_requires_legal_coverage_role(self):
+        package = cinematic_package()
+        package["storyboard"][0]["coverage_role"] = "beauty_pose"
+        self.assertIn(
+            "shot shot-01: coverage_role must be setup, anticipation, action, "
+            "impact, reaction, consequence, transition, or aftermath",
+            validate_package(package),
+        )
+
+    def test_cinematic_storyboard_requires_complete_kinetic_profile(self):
+        for field in (
+            "subject_motion",
+            "performance_change",
+            "camera_motion",
+            "environment_motion",
+            "motion_layers_required",
+            "intentional_hold",
+            "hold_reason",
+            "acceptance_evidence",
+        ):
+            with self.subTest(field=field):
+                package = cinematic_package()
+                package["storyboard"][0]["kinetic_profile"].pop(field)
+                self.assertIn(
+                    f"shot shot-01 kinetic_profile: missing required field {field}",
+                    validate_package(package),
+                )
+
+    def test_nonhold_requires_two_described_motion_layers(self):
+        package = cinematic_package()
+        profile = package["storyboard"][0]["kinetic_profile"]
+        profile.update(
+            {
+                "subject_motion": "subject crosses frame",
+                "performance_change": "",
+                "camera_motion": "",
+                "environment_motion": "",
+                "motion_layers_required": 2,
+            }
+        )
+        self.assertIn(
+            "shot shot-01 kinetic_profile: non-hold requires at least "
+            "motion_layers_required non-empty motion descriptions",
+            validate_package(package),
+        )
+
+    def test_intentional_hold_allows_fewer_layers_with_reason_and_evidence(self):
+        package = cinematic_package()
+        profile = package["storyboard"][0]["kinetic_profile"]
+        profile.update(
+            {
+                "subject_motion": "",
+                "performance_change": "micro-expression settles",
+                "camera_motion": "",
+                "environment_motion": "",
+                "motion_layers_required": 1,
+                "intentional_hold": True,
+                "hold_reason": "hold the realization beat",
+                "acceptance_evidence": "story beat SB-04 and frame review FR-04",
+            }
+        )
+        self.assertEqual(validate_package(package), [])
+
+    def test_intentional_hold_requires_reason_and_acceptance_evidence(self):
+        package = cinematic_package()
+        profile = package["storyboard"][0]["kinetic_profile"]
+        profile.update(
+            {
+                "motion_layers_required": 0,
+                "intentional_hold": True,
+                "hold_reason": "",
+                "acceptance_evidence": [],
+            }
+        )
+        errors = validate_package(package)
+        self.assertIn(
+            "shot shot-01 kinetic_profile: intentional hold requires hold_reason",
+            errors,
+        )
+        self.assertIn(
+            "shot shot-01 kinetic_profile: intentional hold requires non-empty "
+            "acceptance_evidence",
+            errors,
+        )
+
+    def test_each_adjacent_cinematic_shot_requires_transition_contract(self):
+        package = cinematic_chain(3)
+        package["storyboard"][1]["transition_contract"] = None
+        self.assertIn(
+            "shot shot-02: transition_contract is required before adjacent "
+            "shot shot-03",
+            validate_package(package),
+        )
+
+    def test_storyboard_transition_contract_requires_exact_directing_fields(self):
+        fields = (
+            "type",
+            "visual_precondition",
+            "incoming_match",
+            "duration_frames",
+            "audio_bridge_cue_id",
+            "story_reason",
+            "fallback",
+        )
+        for field in fields:
+            with self.subTest(field=field):
+                package = cinematic_chain()
+                package["storyboard"][0]["transition_contract"].pop(field)
+                self.assertIn(
+                    f"shot shot-01 transition_contract: missing required field {field}",
+                    validate_package(package),
+                )
+
+    def test_storyboard_transition_contract_rejects_editing_fulfillment_fields(self):
+        package = cinematic_chain()
+        package["storyboard"][0]["transition_contract"][
+            "fulfillment_status"
+        ] = "passed"
+        package["storyboard"][0]["transition_contract"]["evidence_refs"] = [
+            "CUT-01"
+        ]
+        errors = validate_package(package)
+        self.assertIn(
+            "shot shot-01 transition_contract: fulfillment_status belongs to "
+            "editing fulfillment, not storyboard intent",
+            errors,
+        )
+        self.assertIn(
+            "shot shot-01 transition_contract: evidence_refs belongs to editing "
+            "fulfillment, not storyboard intent",
+            errors,
+        )
+
+    def test_storyboard_transition_shape_errors_are_deterministic(self):
+        storyboard = cinematic_chain()["storyboard"]
+        storyboard[0]["transition_contract"] = []
+        first = validate_cinematic_storyboard(storyboard)
+        second = validate_cinematic_storyboard(storyboard)
+        self.assertEqual(first, second)
+        self.assertIn(
+            "shot shot-01: transition_contract must be an object",
+            first,
+        )
+
+    def test_legacy_package_does_not_require_cinematic_storyboard_fields(self):
+        self.assertEqual(validate_package(valid_package()), [])
 
     def test_cinematic_character_requires_approved_identity_profile(self):
         package = cinematic_package()

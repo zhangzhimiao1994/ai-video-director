@@ -342,6 +342,8 @@ def _validate_transition_boundaries(
         "type",
         "story_reason",
         "visual_precondition",
+        "incoming_match",
+        "duration_frames",
         "audio_bridge_cue_id",
         "fallback",
         "fulfillment_status",
@@ -362,12 +364,22 @@ def _validate_transition_boundaries(
             "type",
             "story_reason",
             "visual_precondition",
+            "incoming_match",
             "fallback",
         ):
             if field in boundary and not _nonempty_string(boundary.get(field)):
                 errors.append(
                     f"{item_label}.{field}: must be a non-empty string"
                 )
+        duration_frames = boundary.get("duration_frames")
+        if "duration_frames" in boundary and (
+            not isinstance(duration_frames, int)
+            or isinstance(duration_frames, bool)
+            or duration_frames < 0
+        ):
+            errors.append(
+                f"{item_label}.duration_frames: must be a non-negative integer"
+            )
         boundary_id = boundary.get("boundary_id")
         if _nonempty_string(boundary_id):
             if boundary_id in seen_boundary_ids:
@@ -463,8 +475,92 @@ def _validate_audio(
         )
 
 
+def _requested_delivery_ids(plan: dict[str, object]) -> list[str]:
+    deliveries = plan.get("delivery_specs")
+    if not isinstance(deliveries, list):
+        return []
+    return [
+        delivery_id
+        for delivery in deliveries
+        if isinstance(delivery, dict)
+        and _nonempty_string(delivery_id := delivery.get("delivery_id"))
+    ]
+
+
+def _validate_actual_output_review(
+    source: dict[str, object], plan: dict[str, object], errors: list[str]
+) -> None:
+    label = "cinematic_validation.source_motion_review"
+    if source.get("actual_output_review_status") != "passed":
+        errors.append(f"{label}.actual_output_review_status: must be passed")
+    reviewed_ids = _string_list(
+        source.get("reviewed_delivery_ids"),
+        f"{label}.reviewed_delivery_ids",
+        errors,
+        nonempty=True,
+    )
+    requested_ids = _requested_delivery_ids(plan)
+    if reviewed_ids is not None and (
+        len(reviewed_ids) != len(requested_ids)
+        or set(reviewed_ids) != set(requested_ids)
+    ):
+        errors.append(
+            f"{label}.reviewed_delivery_ids: must match requested delivery "
+            "IDs exactly"
+        )
+    for field in (
+        "frame_change_evidence_refs",
+        "contact_sheet_evidence_refs",
+    ):
+        _string_list(
+            source.get(field),
+            f"{label}.{field}",
+            errors,
+            nonempty=True,
+        )
+
+
+def _validate_ready_execution_claim(
+    plan: dict[str, object], errors: list[str]
+) -> None:
+    if plan.get("plan_status") != "rendered":
+        errors.append(
+            "cinematic_validation.cinematic_ready: requires plan_status rendered"
+        )
+    deliveries = plan.get("delivery_specs")
+    if not isinstance(deliveries, list) or not deliveries or any(
+        not isinstance(delivery, dict)
+        or delivery.get("status") != "rendered"
+        or delivery.get("ready") is not True
+        for delivery in deliveries
+    ):
+        errors.append(
+            "cinematic_validation.cinematic_ready: every requested delivery "
+            "must be rendered and ready"
+        )
+    edit_validation = plan.get("edit_validation")
+    if (
+        not isinstance(edit_validation, dict)
+        or edit_validation.get("ready") is not True
+    ):
+        errors.append(
+            "cinematic_validation.cinematic_ready: requires edit_validation.ready true"
+        )
+    execution = plan.get("execution")
+    for field in ("tool_evidence", "probe_evidence", "rendered_outputs"):
+        evidence = execution.get(field) if isinstance(execution, dict) else None
+        if not isinstance(evidence, list) or not evidence:
+            errors.append(
+                f"cinematic_validation.cinematic_ready: requires non-empty "
+                f"execution.{field}"
+            )
+
+
 def _validate_supporting_audit_arrays(
-    audits: dict[str, dict[str, object]], errors: list[str]
+    audits: dict[str, dict[str, object]],
+    plan: dict[str, object],
+    cinematic_ready: bool,
+    errors: list[str],
 ) -> None:
     static = audits.get("static_hold_audit")
     if static is not None:
@@ -487,6 +583,8 @@ def _validate_supporting_audit_arrays(
             errors,
             nonempty=True,
         )
+        if cinematic_ready:
+            _validate_actual_output_review(source, plan, errors)
         _string_list(
             source.get("evidence_refs"),
             "cinematic_validation.source_motion_review.evidence_refs",
@@ -548,7 +646,10 @@ def validate_cinematic_plan(
     audio = audits.get("audio_presence_and_structure")
     if audio is not None:
         _validate_audio(audio, audits, errors)
-    _validate_supporting_audit_arrays(audits, errors)
+    cinematic_ready = cinematic.get("cinematic_ready") is True
+    _validate_supporting_audit_arrays(
+        audits, plan, cinematic_ready, errors
+    )
 
     ppt_flags = _string_list(
         cinematic.get("ppt_risk_flags"),
@@ -571,7 +672,10 @@ def validate_cinematic_plan(
     ):
         errors.append("cinematic_validation.cinematic_ready: must be a boolean")
 
-    if cinematic.get("cinematic_ready") is True and errors:
+    if cinematic_ready:
+        _validate_ready_execution_claim(plan, errors)
+
+    if cinematic_ready and errors:
         errors.append(
             "cinematic_validation: cinematic_ready cannot be true while "
             "cinematic blockers remain"

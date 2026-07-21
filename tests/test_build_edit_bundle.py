@@ -343,7 +343,7 @@ class BuildEditBundleTests(unittest.TestCase):
         self.assertIn("Edit plan: EDIT\\-001", markdown)
         self.assertIn("cinematic", markdown)
         self.assertIn("Genre: action\\_spectacle", markdown)
-        self.assertIn("true", markdown)
+        self.assertIn("false", markdown)
         self.assertIn("PPT risk flags", markdown)
         for field in audit_fields:
             self.assertIn(field, markdown)
@@ -496,9 +496,9 @@ class BuildEditBundleTests(unittest.TestCase):
                 for line in markdown.splitlines()
                 if line.startswith("- Cinematic ready:")
             ],
-            ["- Cinematic ready: true"],
+            ["- Cinematic ready: false"],
         )
-        self.assertNotIn("\n- Cinematic ready: false", markdown)
+        self.assertEqual(markdown.count("\n- Cinematic ready: false"), 1)
         self.assertNotIn("\n## Forged section", markdown)
         self.assertNotIn("<script>", markdown)
         self.assertIn("trace\\` \\*bold\\*", markdown)

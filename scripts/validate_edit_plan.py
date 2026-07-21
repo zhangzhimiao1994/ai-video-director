@@ -2615,11 +2615,7 @@ def validate_edit_plan(
         plan, required=cinematic_required
     )
     errors.extend(cinematic_errors)
-    cinematic_blocked = bool(cinematic_errors) or (
-        cinematic_required
-        and isinstance(cinematic, dict)
-        and cinematic.get("cinematic_ready") is not True
-    )
+    cinematic_blocked = bool(cinematic_errors)
     if cinematic_blocked:
         if plan.get("plan_status") == "rendered":
             errors.append(

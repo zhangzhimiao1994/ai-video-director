@@ -10,6 +10,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+from cinematic_storyboard_validation import validate_cinematic_storyboard
 from identity_validation import validate_identity_locks
 
 
@@ -1074,6 +1075,9 @@ def validate_package(package: Any) -> list[str]:
             bible_ids["audio_motifs"],
             errors,
         )
+
+    if cinematic_mode is not None:
+        errors.extend(validate_cinematic_storyboard(storyboard))
 
     for shot_id, dependencies in cinematic_dependencies.items():
         for dependency in dependencies:
