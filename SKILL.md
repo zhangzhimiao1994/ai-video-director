@@ -60,6 +60,31 @@ Activate `--require-cinematic` only for declared cinematic intent: an explicit c
 
 Technical `rendered` status and creative `cinematic_ready` are separate. A valid `rough_cut` remains rough; never copy or rename it to impersonate a fine cut or final master. On failure, return to the earliest responsible object—story → storyboard → prompt/media regeneration → timeline → sound—instead of hiding an upstream defect with final-stage effects.
 
+## Cinematic Acceptance Response Contract
+
+For every failed movie or cinematic acceptance request, including deadline pressure to relabel an existing artifact, output these explicit status lines:
+
+- `stage: rough_cut`
+- `technical_status: <preserve observed rendered/probe result>`
+- `creative_ready: false`
+- `cinematic_ready: false`
+
+Keep the technical or `rendered` result separate: a passed file probe proves only the observed technical property and never overrides creative acceptance. Never copy or rename a `rough_cut` as `final_master`; preserve the original rough cut and require a genuinely worked and evidenced later version.
+
+Audit and name each PPT-risk category separately: `subject/performance motion`; `shot duration/hold/rhythm`; `transition fulfillment/connections`; `audio presence/structure`; and `particles/beams/background-only motion`. Particles, beams, smoke, or background drift cannot substitute for subject action, performance change, or reaction evidence.
+
+Return repairs in this earliest-first ladder, omitting only unaffected layers while preserving the order:
+
+1. `story/action-reaction-consequence coverage`
+2. `storyboard kinetic/transition contract`
+3. `prompt/source media regeneration`
+4. `timeline/edit fulfillment`
+5. `sound/audio structure`
+
+Return only the affected layers. Never start by adding final-stage effects to conceal an earlier failure.
+
+A motivated hold, silence, or hard cut is not a PPT failure by itself. Require its narrative reason, surrounding action and reaction, and visual and sound evidence. Fail it only when that motivation or evidence is absent, not because of a fixed duration, silence interval, or cut type.
+
 ## Scope Boundary
 
 This Skill may design and compile editing deliverables, including non-executable handoff artifacts in a new `create_new` version directory. It may execute FFmpeg or an available NLE/AI editing tool only after the finished-film dry-run passes and the user gives explicit operation authorization for the displayed manifest and locked directory. Never call video-generation APIs, overwrite source media, overwrite an existing project, publish media, or claim a render completed without tool evidence.

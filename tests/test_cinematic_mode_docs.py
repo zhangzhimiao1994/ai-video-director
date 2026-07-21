@@ -12,6 +12,13 @@ class CinematicModeDocsTests(unittest.TestCase):
     def contract_line(self, text, field):
         return next((line for line in text.splitlines() if field in line), "")
 
+    def section(self, text, heading, next_heading):
+        self.assertIn(heading, text)
+        self.assertIn(next_heading, text)
+        start = text.index(heading)
+        end = text.index(next_heading, start)
+        return text[start:end]
+
     def test_skill_identity_is_aibiandao(self):
         skill = self.read("SKILL.md")
         agent_metadata = self.read("agents/openai.yaml")
@@ -250,6 +257,59 @@ class CinematicModeDocsTests(unittest.TestCase):
                 row = next((line for line in skill_lines if trigger in line), "")
                 self.assertIn(repair, row)
                 self.assertIn(blocked_outcome, row)
+
+    def test_cinematic_acceptance_response_contract_is_local_and_complete(self):
+        skill = self.read("SKILL.md")
+        contract = self.section(
+            skill,
+            "## Cinematic Acceptance Response Contract",
+            "## Scope Boundary",
+        )
+
+        for status_line in (
+            "`stage: rough_cut`",
+            "`technical_status: <preserve observed rendered/probe result>`",
+            "`creative_ready: false`",
+            "`cinematic_ready: false`",
+        ):
+            with self.subTest(status_line=status_line):
+                self.assertIn(status_line, contract)
+
+        for risk in (
+            "subject/performance motion",
+            "shot duration/hold/rhythm",
+            "transition fulfillment/connections",
+            "audio presence/structure",
+            "particles/beams/background-only motion",
+        ):
+            with self.subTest(risk=risk):
+                self.assertIn(risk, contract)
+
+        self.assertIn("Never copy or rename a `rough_cut` as `final_master`", contract)
+        self.assertIn("motivated hold, silence, or hard cut", contract)
+        self.assertIn("narrative reason", contract)
+        self.assertIn("surrounding action and reaction", contract)
+        self.assertIn("visual and sound evidence", contract)
+
+    def test_cinematic_acceptance_repair_ladder_is_earliest_first(self):
+        skill = self.read("SKILL.md")
+        contract = self.section(
+            skill,
+            "## Cinematic Acceptance Response Contract",
+            "## Scope Boundary",
+        )
+        repair_ladder = (
+            "story/action-reaction-consequence coverage",
+            "storyboard kinetic/transition contract",
+            "prompt/source media regeneration",
+            "timeline/edit fulfillment",
+            "sound/audio structure",
+        )
+        positions = [contract.index(item) for item in repair_ladder]
+        self.assertEqual(positions, sorted(positions))
+        self.assertEqual(len(positions), len(set(positions)))
+        self.assertIn("Return only the affected layers", contract)
+        self.assertIn("Never start by adding final-stage effects", contract)
 
     def test_storyboard_coverage_role_lists_the_complete_directing_vocabulary(self):
         reference = self.read("references/continuity-storyboard.md")
