@@ -369,3 +369,13 @@ Markdown 交付必须至少提供下表列组；JSON 仍以字段契约为准。
 - 每个高风险镜头有同功能低风险替代，且不会重复计入成片；
 - storyboard 获批后才进入提示词编译；
 - 未引入新故事事实或未经核实的模型参数。
+## Director intent addendum
+
+When cinematic mode is active, every active storyboard shot must inherit the screenplay intent rather than inventing a new attraction:
+
+- `intent_refs` is required and must resolve to `project_brief.intent_contract.must_show_claims[].intent_id`.
+- `dramatic_question` names the question this shot answers or advances.
+- At least one of `information_delta`, `emotion_delta`, `power_delta`, or `spatial_delta` must be observable.
+- `blocking_change` states what bodies or forces do in space; `camera_necessity` explains why this camera position or move is needed.
+- `performance_verb` is playable by an actor, and `shot_relation` explains how the shot answers, escalates, or prepares neighboring shots.
+- `director_rejection_reason` records why a tempting but unrelated spectacle, image-slide-only composition, or mechanical coverage pattern was rejected; it may be empty only when no rejected alternative is material.

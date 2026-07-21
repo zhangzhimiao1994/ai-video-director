@@ -48,6 +48,22 @@ Determine the requested delivery stage first. Reuse user-provided `approved` or 
 
 Use Chinese for production decisions, directing notes, screenplay, risk explanations, and approval questions. Use English for `storyboard_frame_prompt`, `universal_prompt_en`, `negative_prompt_en`, and provider-ready prompt text unless the user requests another prompt language.
 
+## Director Intent Spine
+
+Before adding spectacle, lock the meaning of the film. Cinematic work must carry an explicit `intent_contract` in `project_brief`: core message, audience takeaway, emotional destination, must-show claims, preserved events, must-not-imply items, metaphor policy, and source-fidelity rule. Every beat, scene, shot, prompt, edit unit, and quality audit uses `intent_refs`; if a cool image cannot point to an intent, cut it or mark it as rejected.
+
+Every scene that reaches storyboard needs a `scene_directing_plan`: POV, audience knowledge before/after, dramatic turn, character objectives, subtext/playable actions, blocking map, reveal strategy, camera rule, coverage strategy, motif progression, editorial consequence, rejected choices, and `intent_refs`. Every active shot must state its dramatic question, information/emotion/power/spatial delta, blocking change, camera necessity, performance verb, shot relation, and director rejection reason. A shot is not高级 because it is big; it is高级 only when the camera choice reveals information, pressure, power, or irreversible emotional cost.
+
+Finished-film editing must preserve the same spine through `intent_fidelity` and `director_quality`. `intent_fidelity` proves every actual edit unit has resolving `intent_refs` and maps each intent to concrete edit-unit evidence. `director_quality` proves every actual edit unit was reviewed for cinematic purpose and that unresolved patterns such as image-slide-only, mechanical shot/reverse shot, equal-duration tableau grids, unrelated spectacle, or hard cuts without motivation are rejected before `cinematic_ready`.
+
+For serial short drama, use `series_context` only when an external series/project controller has supplied a read snapshot: series project, episode ID, snapshot ID, asset registry version, opening state ref, foreshadow refs, and payoff refs. You may output `series_handoff` as a draft for the next episode, but its `commit_eligibility` must be `external_series_controller_required`; never claim that the Skill has synchronized, committed, or mutated the external series bible.
+
+## Platform Execution Blueprint
+
+Treat video platforms as execution adapters, not directors. Use the same Canon to compile model jobs for Kling, Seedance, HappyHorse, Jianying/CapCut-assisted flows, generic APIs, or future AI editors. A platform profile may describe generation mode, aspect, duration, references, prompt source, documented parameters, required manual configuration, and risk fallback, but it must not add story facts or weaken identity/model locks.
+
+Borrow the workflow shape of mature AI-video systems: project lifecycle, stage status, prompt/model versioning, batch tasks, retry/rollback, and export. For API-style providers, model the operational loop as submit/poll/download with retry/cancel states, task IDs, provider status, result URL or file binding, cost/credit notes when known, and provenance evidence. If an official schema is unreadable or unstable, keep that provider manual-only or non-executable; do not invent request fields, cookies, private APIs, or success evidence.
+
 ## Finished-Film Editing Router
 
 Activate when the user asks to edit, assemble, finish, render, export, deliver a final film, create an NLE timeline, or let an AI editor use generated/local clips. Read `references/editing-finish.md` after the active story/storyboard references and before `references/output-contract.md`. Treat that reference as the editing contract authority; use `scripts/validate_edit_plan.py` to validate its Canon and `scripts/build_edit_bundle.py` to derive the versioned handoff or authorized FFmpeg bundle.
@@ -60,7 +76,7 @@ For a multi-NLE or AI-editor handoff, emit `ai_editor_plan.json` as a separate n
 
 ## Cinematic Finish Hard Gate
 
-Activate `--require-cinematic` only for declared cinematic intent: an explicit cinematic, movie, blockbuster, 大片, or 电影感 request, or an existing `cinematic_mode`/`cinematic_validation.declared_mode: cinematic`. An explicit movie request defaults to cinematic. An ordinary finished output, render, export, or final-master request without that intent does not activate `--require-cinematic`; it uses the existing finished-film and `--require-final` gates. When cinematic mode is active, any non-empty `ppt_risk_flags`, content inconsistency, character identity drift, model-lock drift, failed motion or action coverage, unfulfilled transition, or failed sound gate blocks final delivery and `cinematic_ready`.
+Activate `--require-cinematic` only for declared cinematic intent: an explicit cinematic, movie, blockbuster, 大片, or 电影感 request, or an existing `cinematic_mode`/`cinematic_validation.declared_mode: cinematic`. An explicit movie request defaults to cinematic. An ordinary finished output, render, export, or final-master request without that intent does not activate `--require-cinematic`; it uses the existing finished-film and `--require-final` gates. When cinematic mode is active, any non-empty `ppt_risk_flags`, content inconsistency, missing `intent_fidelity`, failed `director_quality`, character identity drift, model-lock drift, failed motion or action coverage, unfulfilled transition, or failed sound gate blocks final delivery and `cinematic_ready`.
 
 Technical `rendered` status and creative `cinematic_ready` are separate. A valid `rough_cut` remains rough; never copy or rename it to impersonate a fine cut or final master. On failure, return to the earliest responsible object—story → storyboard → prompt/media regeneration → timeline → sound—instead of hiding an upstream defect with final-stage effects.
 
@@ -154,6 +170,8 @@ Before advancing, match any failure to this table. Apply the first repair, then 
 | storyboard transition dropped | Restore the declared transition or declare a tested fallback and run a new dry-run | Do not normalize every boundary to a hard cut; block the affected delivery until fulfillment is evidenced |
 | missing movie audio | Restore a cleared audio structure with source, rights, routing, and evidence | Block unless an explicit `silent_form_authorization` applies |
 | particles/background-only motion | Restore visible subject/performance evidence and a valid multi-layer kinetic profile | Block the cinematic master; particles or background drift do not prove performance motion |
+| intent drift or unrelated spectacle | Return to `intent_contract`, map every beat/shot/edit unit through `intent_refs`, and delete shots that cannot serve a must-show claim | Block prompts, jobs, and edit readiness until `intent_fidelity` passes |
+| mechanical slideshow directing | Rebuild the scene's `scene_directing_plan`, blocking, camera necessity, and edit-unit `director_quality` review | Never pass image-slide-only, equal-duration tableau grids, or unmotivated hard cuts as cinematic |
 | rough cut relabeled final | Preserve the rough version and create a genuine fine cut/final master with its own work and evidence | Never copy or rename a rough cut into a later version role |
 | face/body/hair/accessory drift | Return to the approved identity profile and reference set | Block affected jobs and edit units until identity evidence passes |
 | model version/subject-binding drift | Restore the platform model lock or run an approved migration A/B test | Never mix unverified character model versions or binding methods |
@@ -212,7 +230,7 @@ Read a reference completely when entering its stage. Do not load every provider 
 | `shot_prompts` | Exactly one canonical bilingual record exists per shot, with negatives, anchors, references, audio, and variants |
 | `model_job_manifest` | Every shot has at least one job; documented fields are official and unknowns are manual configuration |
 | `quality_report` | Approval, duration, references, continuity, prompt lint, provider uncertainty, and validator result are audited |
-| `edit_master_plan` | Requested media, timelines, tracks, deliveries, software targets, execution states, and validation evidence derive from one Canon; `scripts/validate_edit_plan.py` passes for the requested stage |
+| `edit_master_plan` | Requested media, timelines, tracks, deliveries, software targets, execution states, `intent_fidelity`, `director_quality`, and validation evidence derive from one Canon; `scripts/validate_edit_plan.py` passes for the requested stage |
 
 ## Baseline Failure Counters
 
@@ -222,6 +240,8 @@ Actively counter these observed failure patterns:
 - **One cosmetic idea three times**: make the three directions use different narrative or visual mechanisms.
 - **Overloaded one-take**: explain concrete risk and present true one-take, hidden-cut, and explicit-split choices; never silently split a hard constraint.
 - **Pretty but causally empty shots**: require `story_function`, `beat_change`, opening state, closing state, and a deletion test.
+- **Unrelated cinematic spectacle**: require `intent_contract`, `scene_directing_plan`, `intent_refs`, and camera necessity before accepting the shot.
+- **PPT-like finished film**: require edit-unit `intent_refs`, transition fulfillment, `intent_fidelity`, and `director_quality`; a technical render cannot pass creative readiness.
 - **Character and prop drift**: require bible IDs, state snapshots, exact boundary handoffs, and continuity anchors.
 - **Unmapped assets**: in a complete package or a request reaching prompt/job stages, require every shot to have exactly one canonical prompt and at least one linked job.
 - **Guessed provider parameters**: use official evidence only; mark unavailable evidence `unsupported_or_unverified` and manual.
@@ -255,5 +275,6 @@ Apply only items relevant to the requested delivery stage. For partial deliverab
 - [ ] If dual-format or complete-package delivery is requested, Markdown and JSON express the same approved facts and shot order.
 - [ ] For a complete ten-object package, `scripts/validate_package.py` reports `Production package is valid.`; partial delivery names the omitted objects and applicable checks instead.
 - [ ] If editing is requested, `scripts/validate_edit_plan.py` passes for the requested rough-cut, fine-cut, final-master, or execution gate; every unresolved error remains visibly `blocked`.
+- [ ] If cinematic editing is requested, every actual edit unit has `intent_refs`, `intent_fidelity` maps every intent and edit unit, and `director_quality` has no unresolved rejected pattern flags.
 - [ ] If an editing handoff is requested, `scripts/build_edit_bundle.py` creates a new versioned dry-run bundle from the same Canon; `--execute` is absent until the exact manifest and version directory receive valid operation authorization and tool evidence.
 - [ ] `quality_report` names remaining uncertainty instead of implying certainty.

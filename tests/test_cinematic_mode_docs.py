@@ -62,6 +62,29 @@ class CinematicModeDocsTests(unittest.TestCase):
         self.assertGreaterEqual(direction_position, 0)
         self.assertGreater(downstream_position, direction_position)
 
+    def test_skill_declares_director_intent_series_and_platform_blueprint(self):
+        skill = self.read("SKILL.md")
+        for token in (
+            "## Director Intent Spine",
+            "`intent_contract`",
+            "`scene_directing_plan`",
+            "`intent_refs`",
+            "`intent_fidelity`",
+            "`director_quality`",
+            "`series_context`",
+            "`series_handoff`",
+            "external_series_controller_required",
+            "## Platform Execution Blueprint",
+            "submit/poll/download",
+            "retry/cancel",
+            "Kling",
+            "Seedance",
+            "HappyHorse",
+            "Jianying/CapCut",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, skill)
+
     def test_cinematic_reference_contains_approved_contract(self):
         reference = self.read("references/cinematic-directing.md")
         required_tokens = (

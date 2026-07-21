@@ -298,6 +298,15 @@
 
 交给分镜前，标准流程至少已有明确 direction；`one-pass draft` 则必须保留 `draft` 状态与全部可逆假设。无论状态如何，scene 与 beat 都须精确合计 30 秒，所有 cue 引用可解析。只有通过最终共同审批后，`selected_treatment.treatment_status` 与 `screenplay.screenplay_status` 才为 `approved` 并允许进入执行编译。
 
+## Director intent addendum
+
+When cinematic mode is active, story direction also creates the trace that later prevents prompt and edit drift:
+
+- `project_brief.intent_contract` is the source of truth for core message, audience takeaway, emotional destination, must-show claims, preserved events, must-not-imply items, metaphor policy, and source fidelity.
+- Every `story_structure.beats[]` item carries non-empty `intent_refs` resolving to that contract.
+- Every `screenplay.scenes[]` item carries non-empty `intent_refs` and a full `scene_directing_plan` with POV, audience knowledge before/after, dramatic turn, objectives, subtext/playable actions, blocking map, reveal strategy, camera rule, coverage strategy, motif progression, editorial consequence, rejected choices, and `intent_refs`.
+- A scene cannot be handed to storyboard if it only names mood or spectacle. It must state the playable conflict, the information change, and what a camera move or hold would reveal.
+
 禁止在这三个顶层对象中提前编译厂商专用提示词、镜头 API 参数、随机种子、采样参数、运动强度数值或队列配置。`continuity-storyboard` 不得反向改写已批准故事决定；共同批准门通过后，再交执行层编译。
 
 ## 快速参考

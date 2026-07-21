@@ -19,6 +19,18 @@
 
 任一硬门失败时，`quality_report.ready` 必须为 `false`，prompt 的 `approval_status` 只能是 `draft`/`blocked`，job 的 `approval_status` 只能是 `blocked`/`non_executable`。即使硬门通过，只要 `ready: false` 也不得进入最终状态。只有两道硬门通过且 `ready: true` 时，prompt 才能是 `final`、job 才能是 `approved`。镜头震撼度是建议项，不得覆盖硬门。
 
+## Director intent contract
+
+电影化不是把画面做大，而是让每个镜头承担意义。`project_brief.intent_contract` 必须声明 core message、audience takeaway、emotional destination、must-show claims、must-preserve events、must-not-imply、metaphor policy 和 source fidelity。`story_structure.beats`、`screenplay.scenes`、`storyboard`、`shot_prompts` 与后续 edit units 都必须通过 `intent_refs` 回指这些 claims。
+
+每个 scene 必须有 `scene_directing_plan`：POV、观众前后信息差、dramatic turn、人物目标、潜台词与可表演动作、blocking map、reveal strategy、camera rule、coverage strategy、motif progression、editorial consequence、rejected choices 和 `intent_refs`。每个 active shot 必须声明 dramatic question、information/emotion/power/spatial delta、blocking change、camera necessity、performance verb、shot relation 和 director rejection reason。没有 camera necessity 的奇观镜头应当删除、降级或标记为 rejected。
+
+`quality_report.checks.intent_fidelity` 与 `quality_report.checks.director_quality` 是 director hard gates。前者证明没有用无关奇观替代用户想表达的内容；后者证明场面调度不是机械正反打、等长卡片、图片滑动或背景粒子凑运动。
+
+## Series continuity handoff
+
+短剧/连续剧只在读到外部剧集控制器快照时启用 `series_context`。它必须包含 `series_project_id`、`episode_id`、`series_snapshot_id`、`asset_registry_version`、`episode_opening_state_ref`、`foreshadow_refs` 和 `payoff_refs`。本 Skill 可以输出 `quality_report.series_handoff` 作为下一集草稿，包括 closing state delta、continuity evidence、foreshadow/payoff status changes、`commit_eligibility` 和 `handoff_status`，但 `commit_eligibility` 必须是 `external_series_controller_required`，`handoff_status` 只能是 `draft` 或 `unresolved`。不得声称已写入或同步外部剧集总账。
+
 ## Rhythm presets
 
 - `A narrative-first cinematic`：默认。远景建立尺度，近景、双人、反应和插入镜头讲清关系，只保留 1–2 个英雄镜头。
