@@ -17,9 +17,16 @@ FIXTURE = ROOT / "tests" / "fixtures" / "editing" / "valid_plan.json"
 JIANYING_FIXTURE = (
     ROOT / "tests" / "fixtures" / "editing" / "jianying_plan.json"
 )
+CINEMATIC_FIXTURE = (
+    ROOT / "tests" / "fixtures" / "editing" / "cinematic_valid_plan.json"
+)
+CINEMATIC_PPT_FIXTURE = (
+    ROOT / "tests" / "fixtures" / "editing" / "cinematic_ppt_plan.json"
+)
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 from build_edit_bundle import BuildError, build_edit_bundle, main, next_version_dir
+from cinematic_report import cinematic_report_markdown, cinematic_report_payload
 from validate_edit_plan import validate_edit_plan
 
 
@@ -249,7 +256,7 @@ class BuildEditBundleTests(unittest.TestCase):
                 (created / "bundle_manifest.json").read_text(encoding="utf-8")
             )
 
-        self.assertTrue(expected.issubset(present), expected - present)
+        self.assertEqual(present, expected)
         self.assertEqual(canon, load_plan())
         self.assertEqual({item["timeline_id"] for item in commands["deliveries"]}, {"TL-16", "TL-9"})
         self.assertEqual(reports["ffmpeg"]["status"], "planned")
@@ -257,6 +264,233 @@ class BuildEditBundleTests(unittest.TestCase):
         self.assertEqual(reports["fcpxml"]["status"], "generated")
         self.assertEqual(manifest["status"], "dry_run_passed")
         self.assertEqual(set(manifest["artifacts"]), present - {"bundle_manifest.json"})
+
+    def test_cinematic_bundle_emits_quality_reports(self):
+        audit_fields = (
+            "content_consistency",
+            "character_identity_integrity",
+            "action_reaction_coverage",
+            "kinetic_profile_audit",
+            "shot_scale_and_composition_variety",
+            "transition_fulfillment",
+            "audio_presence_and_structure",
+            "static_hold_audit",
+            "source_motion_review",
+        )
+        source_plan = load_plan(CINEMATIC_FIXTURE)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_root = Path(temp_dir) / "edit"
+            previous = output_root / "v001"
+            previous.mkdir(parents=True)
+            sentinel = previous / "keep.txt"
+            sentinel.write_text("previous", encoding="utf-8")
+
+            with mock.patch(
+                "build_edit_bundle.validate_edit_plan",
+                wraps=validate_edit_plan,
+            ) as validator:
+                created = build_edit_bundle(CINEMATIC_FIXTURE, output_root)
+
+            expected_reports = {
+                "cinematic_quality_report.json",
+                "cinematic_quality_report.md",
+            }
+            self.assertTrue(
+                expected_reports.issubset({path.name for path in created.iterdir()})
+            )
+            report = json.loads(
+                (created / "cinematic_quality_report.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            markdown = (created / "cinematic_quality_report.md").read_text(
+                encoding="utf-8"
+            )
+            manifest = json.loads(
+                (created / "bundle_manifest.json").read_text(encoding="utf-8")
+            )
+
+            self.assertEqual(created, output_root.resolve() / "v002")
+            self.assertEqual(sentinel.read_text(encoding="utf-8"), "previous")
+            self.assertFalse((previous / "cinematic_quality_report.json").exists())
+            self.assertFalse((output_root / "cinematic_quality_report.json").exists())
+
+        cinematic = source_plan["cinematic_validation"]
+        self.assertEqual(
+            set(report),
+            {
+                "edit_plan_id",
+                "declared_mode",
+                "genre",
+                "cinematic_ready",
+                "ppt_risk_flags",
+                *audit_fields,
+                "evidence_refs",
+            },
+        )
+        self.assertEqual(report["edit_plan_id"], source_plan["edit_plan_id"])
+        for field in (
+            "declared_mode",
+            "genre",
+            "cinematic_ready",
+            "ppt_risk_flags",
+            *audit_fields,
+            "evidence_refs",
+        ):
+            self.assertEqual(report[field], cinematic[field], field)
+        self.assertIn("cinematic_quality_report.json", manifest["artifacts"])
+        self.assertIn("cinematic_quality_report.md", manifest["artifacts"])
+        self.assertIn(source_plan["edit_plan_id"], markdown)
+        self.assertIn("cinematic", markdown)
+        self.assertIn(cinematic["genre"], markdown)
+        self.assertIn("true", markdown)
+        self.assertIn("PPT risk flags", markdown)
+        for field in audit_fields:
+            self.assertIn(field, markdown)
+            self.assertIn(cinematic[field]["status"], markdown)
+        for evidence_ref in cinematic["evidence_refs"]:
+            self.assertIn(evidence_ref, markdown)
+        self.assertTrue(markdown.endswith("\n"))
+        self.assertTrue(
+            validator.call_args_list[0].kwargs.get("require_cinematic", False)
+        )
+
+    def test_cinematic_ppt_plan_blocks_before_runner(self):
+        runner_calls = []
+        with tempfile.TemporaryDirectory() as temp_dir, mock.patch(
+            "build_edit_bundle.validate_edit_plan",
+            wraps=validate_edit_plan,
+        ) as validator:
+            output_root = Path(temp_dir) / "edit"
+            with self.assertRaisesRegex(
+                BuildError, "PPT risk flags must be empty before ready"
+            ):
+                build_edit_bundle(
+                    CINEMATIC_PPT_FIXTURE,
+                    output_root,
+                    execute=True,
+                    ffmpeg_path="ffmpeg-test",
+                    runner=lambda *args, **kwargs: runner_calls.append(args),
+                )
+
+            successful_versions = [
+                path
+                for path in output_root.glob("v*")
+                if (path / "bundle_manifest.json").exists()
+                and json.loads(
+                    (path / "bundle_manifest.json").read_text(encoding="utf-8")
+                ).get("status")
+                == "dry_run_passed"
+            ]
+
+        self.assertEqual(runner_calls, [])
+        self.assertEqual(successful_versions, [])
+        self.assertTrue(
+            validator.call_args_list[0].kwargs.get("require_cinematic", False)
+        )
+
+    def test_cinematic_execution_preflight_requires_cinematic_before_runner(self):
+        runner_calls = []
+        validation_calls = []
+
+        def blocking_execution_validator(plan, **kwargs):
+            validation_calls.append(kwargs)
+            if kwargs.get("for_execution") is True:
+                return ["synthetic execution preflight blocker"]
+            return []
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            plan = authorize_plan(load_plan(CINEMATIC_FIXTURE))
+            plan_path = write_plan(temp_dir, plan)
+            output_root = Path(temp_dir) / "edit"
+            with mock.patch(
+                "build_edit_bundle.validate_edit_plan",
+                side_effect=blocking_execution_validator,
+            ), self.assertRaisesRegex(BuildError, "synthetic execution preflight blocker"):
+                build_edit_bundle(
+                    plan_path,
+                    output_root,
+                    execute=True,
+                    ffmpeg_path="ffmpeg-test",
+                    runner=lambda *args, **kwargs: runner_calls.append(args),
+                )
+            self.assertFalse(output_root.exists())
+
+        self.assertEqual(runner_calls, [])
+        self.assertEqual(len(validation_calls), 2)
+        self.assertTrue(validation_calls[0].get("require_cinematic", False))
+        self.assertTrue(validation_calls[1].get("require_cinematic", False))
+        self.assertTrue(validation_calls[1]["for_execution"])
+
+    def test_cinematic_missing_audit_block_fails_before_runner_or_version(self):
+        plan = load_plan(CINEMATIC_FIXTURE)
+        del plan["cinematic_validation"]["source_motion_review"]
+        runner_calls = []
+        with tempfile.TemporaryDirectory() as temp_dir:
+            plan_path = write_plan(temp_dir, plan)
+            output_root = Path(temp_dir) / "edit"
+            with self.assertRaisesRegex(
+                BuildError, "missing field source_motion_review"
+            ):
+                build_edit_bundle(
+                    plan_path,
+                    output_root,
+                    execute=True,
+                    ffmpeg_path="ffmpeg-test",
+                    runner=lambda *args, **kwargs: runner_calls.append(args),
+                )
+            self.assertFalse(output_root.exists())
+
+        self.assertEqual(runner_calls, [])
+
+    def test_cinematic_report_payload_rejects_non_object_validation(self):
+        for value in (None, [], "cinematic"):
+            with self.subTest(value=value), self.assertRaisesRegex(
+                ValueError, "cinematic_validation is required"
+            ):
+                cinematic_report_payload({"cinematic_validation": value})
+
+        payload = cinematic_report_payload(load_plan(CINEMATIC_FIXTURE))
+        payload["cinematic_ready"] = False
+        payload["ppt_risk_flags"] = ["poster_pose"]
+        markdown = cinematic_report_markdown(payload)
+        self.assertIn("PPT risk flags: `1`", markdown)
+        self.assertIn("poster_pose", markdown)
+
+    def test_cinematic_report_writer_failure_preserves_version_recovery(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_root = Path(temp_dir) / "edit"
+            previous = output_root / "v001"
+            previous.mkdir(parents=True)
+            sentinel = previous / "keep.txt"
+            sentinel.write_text("previous", encoding="utf-8")
+
+            with mock.patch(
+                "build_edit_bundle.cinematic_report_markdown",
+                side_effect=OSError("synthetic cinematic report failure"),
+            ), self.assertRaisesRegex(BuildError, "synthetic cinematic report failure"):
+                build_edit_bundle(CINEMATIC_FIXTURE, output_root)
+
+            failed = output_root / "v002"
+            failed_manifest = json.loads(
+                (failed / "bundle_manifest.json").read_text(encoding="utf-8")
+            )
+            retry = build_edit_bundle(CINEMATIC_FIXTURE, output_root)
+            retry_has_report = (
+                retry / "cinematic_quality_report.json"
+            ).is_file()
+
+            self.assertEqual(sentinel.read_text(encoding="utf-8"), "previous")
+            self.assertFalse((previous / "cinematic_quality_report.json").exists())
+            self.assertFalse((output_root / "cinematic_quality_report.json").exists())
+
+        self.assertEqual(failed_manifest["status"], "blocked")
+        self.assertIn(
+            "synthetic cinematic report failure",
+            failed_manifest["error"]["message"],
+        )
+        self.assertEqual(retry.name, "v003")
+        self.assertTrue(retry_has_report)
 
     def test_jianying_target_gets_manual_instructions_and_no_private_json(self):
         with tempfile.TemporaryDirectory() as temp_dir:

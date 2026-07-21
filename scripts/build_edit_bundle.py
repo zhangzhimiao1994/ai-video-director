@@ -17,6 +17,7 @@ from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
+from cinematic_report import cinematic_report_markdown, cinematic_report_payload
 from timeline_adapters import (
     AdapterError,
     ffmpeg_command_plan,
@@ -405,6 +406,16 @@ def _record_blocked_manifest(
     _atomic_replace_json(version_dir / "bundle_manifest.json", manifest)
 
 
+def _declares_cinematic(plan: object) -> bool:
+    if not isinstance(plan, dict):
+        return False
+    cinematic = plan.get("cinematic_validation")
+    return (
+        isinstance(cinematic, dict)
+        and cinematic.get("declared_mode") == "cinematic"
+    )
+
+
 def _build_handoffs(
     plan: dict[str, Any],
     version_dir: Path,
@@ -415,6 +426,16 @@ def _build_handoffs(
     command_deliveries: list[dict[str, Any]] = []
     exchange_blockers: dict[str, list[str]] = {"otio": [], "fcpxml": []}
     try:
+        if _declares_cinematic(plan):
+            cinematic_report = cinematic_report_payload(plan)
+            _write_json_exclusive(
+                version_dir / "cinematic_quality_report.json",
+                cinematic_report,
+            )
+            _write_exclusive_bytes(
+                version_dir / "cinematic_quality_report.md",
+                cinematic_report_markdown(cinematic_report).encode("utf-8"),
+            )
         for timeline in plan["timelines"]:
             slug = _timeline_slug(timeline)
             write_construction_markdown(
@@ -1466,7 +1487,8 @@ def _build_loaded_bundle(
     ffprobe_path: str | None = None,
     runner: Callable[..., subprocess.CompletedProcess] = subprocess.run,
 ) -> Path:
-    errors = validate_edit_plan(plan)
+    require_cinematic = _declares_cinematic(plan)
+    errors = validate_edit_plan(plan, require_cinematic=require_cinematic)
     if errors:
         raise BuildError("\n".join(errors))
     if not isinstance(plan, dict):  # Kept explicit for type narrowing and callers.
@@ -1478,7 +1500,11 @@ def _build_loaded_bundle(
     ):
         raise BuildError("operation authorization is required")
     if execute:
-        execution_errors = validate_edit_plan(plan, for_execution=True)
+        execution_errors = validate_edit_plan(
+            plan,
+            for_execution=True,
+            require_cinematic=require_cinematic,
+        )
         if execution_errors:
             raise BuildError("\n".join(execution_errors))
         if plan_path is None:
