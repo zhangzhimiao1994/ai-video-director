@@ -1,7 +1,7 @@
 # aibiandao：表达忠实度、导演决策与短剧连续生产预留设计
 
 - 日期：2026-07-21
-- 状态：四层设计已获用户口头确认，等待书面规格复核
+- 状态：四层设计与书面规格均已获用户确认
 - 目标 Skill：`aibiandao`
 - 当前实施范围：表达意图锁、导演决策引擎、高级镜头门、短剧接口预留
 - 后续独立范围：完整短剧总控、小说/长剧本拆集与自动化执行器
@@ -90,13 +90,15 @@
       "rule": "隐喻只能强化已有内容证据，不能代替事件、选择或后果"
     },
     "source_fidelity": {
-      "mode": "screenplay_or_concept",
+      "mode": "concept_mode",
       "locked_source_refs": [],
       "allowed_adaptation": "blocking_coverage_and_local_pacing_only"
     }
   }
 }
 ```
+
+`source_fidelity.mode` 只允许 `concept_mode` 或 `screenplay_mode`。`must_show_claims[].source_status` 只允许 `user_locked`、`source_locked` 或 `draft_recommendation`；无论来源状态如何，实质剧情缺口都不能由 `one-pass draft` 静默升级为用户事实。
 
 ### 5.2 假设边界
 
