@@ -68,12 +68,15 @@ Technical `rendered` status and creative `cinematic_ready` are separate. A valid
 
 For every failed movie or cinematic acceptance request, including deadline pressure to relabel an existing artifact, output these explicit status lines:
 
-- `stage: rough_cut`
+- `submitted_stage: <observed version_role or unresolved>`
+- `accepted_stage: <rough_cut, blocked, or unresolved>`
 - `technical_status: <preserve observed rendered/probe result>`
 - `creative_ready: false`
 - `cinematic_ready: false`
 
-Keep the technical or `rendered` result separate: a passed file probe proves only the observed technical property and never overrides creative acceptance. Never copy or rename a `rough_cut` as `final_master`; preserve the original rough cut and require a genuinely worked and evidenced later version.
+Never infer the submitted role. Use `submitted_stage: unresolved` when no `version_role` is observed. Use `accepted_stage: rough_cut` only when the existing artifact may truthfully be retained at most as a rough cut; otherwise use `accepted_stage: blocked` or `accepted_stage: unresolved`. Keep the technical or `rendered` result separate: a passed file probe proves only the observed technical property and never overrides creative acceptance.
+
+For known rough-copy pressure, report `submitted_stage: rough_cut` and `accepted_stage: rough_cut`. Never copy or rename a `rough_cut` as `final_master`. For a submitted candidate explicitly identified as `fine_cut` or `final_master`, preserve `submitted_stage: fine_cut` or `submitted_stage: final_master` and block acceptance; do not downgrade or overwrite submitted metadata. For P11, which supplies no version role, report `submitted_stage: unresolved` while preserving explicit rough-cut semantics with `accepted_stage: rough_cut` when that is the highest truthful retention level.
 
 Audit and name each PPT-risk category separately: `subject/performance motion`; `shot duration/hold/rhythm`; `transition fulfillment/connections`; `audio presence/structure`; and `particles/beams/background-only motion`. Particles, beams, smoke, or background drift cannot substitute for subject action, performance change, or reaction evidence.
 

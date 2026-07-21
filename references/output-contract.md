@@ -517,6 +517,8 @@ Anatomy: extra fingers, fused hands, distorted face. Duplication: duplicate woma
 
 The legacy ten-object package remains valid without editing objects; this is the explicit `legacy compatibility` rule. When finished-film delivery is requested, Markdown and JSON add one optional `edit_master_plan`; every construction sheet, CSV, SRT, OTIO, FCPXML, FFmpeg plan, and NLE handoff is derived from the same edit Canon.
 
+When `software_targets` includes `ai_editor`, the bundle also emits `ai_editor_plan.json`. An AI editor consumes this read-only derivative; `edit_master_plan.json` remains the sole edit Canon, and the derivative must return proposed changes to that Canon rather than becoming a parallel source of truth.
+
 `edit_master_plan` contains `edit_plan_id`, `plan_status`, `source_package_id`, `target_duration_seconds`, `locked_event_ids`, `media_bindings`, `timelines`, `audio_tracks`, `text_tracks`, `look_plan`, `delivery_specs`, `software_targets`, `execution`, and `edit_validation`.
 
 For cinematic finished-film delivery, `edit_master_plan` adds one optional `cinematic_validation`. It has exactly 14 required fields aligned with `scripts/cinematic_validation.py`: `declared_mode`, `genre`, `content_consistency`, `character_identity_integrity`, `action_reaction_coverage`, `kinetic_profile_audit`, `shot_scale_and_composition_variety`, `transition_fulfillment`, `audio_presence_and_structure`, `static_hold_audit`, `source_motion_review`, `ppt_risk_flags`, `evidence_refs`, and `cinematic_ready`.

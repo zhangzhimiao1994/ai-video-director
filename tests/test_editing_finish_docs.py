@@ -88,6 +88,9 @@ class EditingFinishDocsTests(unittest.TestCase):
                 "final_master",
                 "jianying_capcut",
                 "manual_or_unverified",
+                "`ai_editor_plan.json`",
+                "derived AI-editor handoff",
+                "sole edit Canon",
             ),
         )
 
@@ -99,6 +102,9 @@ class EditingFinishDocsTests(unittest.TestCase):
                 "optional `edit_master_plan`",
                 "legacy ten-object package",
                 "derived from the same edit Canon",
+                "`ai_editor_plan.json`",
+                "AI editor consumes",
+                "sole edit Canon",
             ),
         )
 

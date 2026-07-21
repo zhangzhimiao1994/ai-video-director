@@ -234,6 +234,7 @@ class BuildEditBundleTests(unittest.TestCase):
             "timeline_9x16.fcpxml",
             "ffmpeg_commands.json",
             "adapter_reports.json",
+            "ai_editor_plan.json",
             "bundle_manifest.json",
         }
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -252,6 +253,13 @@ class BuildEditBundleTests(unittest.TestCase):
             reports = json.loads(
                 (created / "adapter_reports.json").read_text(encoding="utf-8")
             )
+            self.assertTrue(
+                (created / "ai_editor_plan.json").is_file(),
+                "AI target must emit an independent ai_editor_plan.json",
+            )
+            ai_plan = json.loads(
+                (created / "ai_editor_plan.json").read_text(encoding="utf-8")
+            )
             manifest = json.loads(
                 (created / "bundle_manifest.json").read_text(encoding="utf-8")
             )
@@ -262,8 +270,74 @@ class BuildEditBundleTests(unittest.TestCase):
         self.assertEqual(reports["ffmpeg"]["status"], "planned")
         self.assertEqual(reports["otio"]["status"], "generated")
         self.assertEqual(reports["fcpxml"]["status"], "generated")
+        self.assertEqual(reports["ai_editor"]["artifact"], "ai_editor_plan.json")
+        self.assertEqual(ai_plan["artifact_role"], "derived_ai_editor_handoff")
+        self.assertEqual(ai_plan["source_canon_artifact"], "edit_master_plan.json")
+        self.assertEqual(ai_plan["source_edit_plan_id"], canon["edit_plan_id"])
+        self.assertTrue(ai_plan["read_only"])
+        self.assertTrue(ai_plan["return_changes_to_canon"])
+        for field in (
+            "media_bindings",
+            "timelines",
+            "audio_tracks",
+            "text_tracks",
+            "look_plan",
+            "delivery_specs",
+        ):
+            with self.subTest(ai_field=field):
+                self.assertEqual(ai_plan[field], canon[field])
+        self.assertEqual(
+            ai_plan["execution"]["step_order"],
+            ["probe", "bind", "timelines", "text", "audio", "look", "export", "validate"],
+        )
+        self.assertEqual(
+            ai_plan["execution"]["authorization_refs"]["dry_run_manifest_id"],
+            canon["execution"]["dry_run_manifest_id"],
+        )
+        self.assertEqual(ai_plan["export"]["delivery_specs"], canon["delivery_specs"])
+        self.assertEqual(ai_plan["evidence_refs"]["edit"], ["VAL-D16", "VAL-D9"])
+        self.assertEqual(ai_plan["evidence_refs"]["probe"], ["A01", "A02"])
+        for evidence_kind in ("edit", "cinematic", "tool", "probe", "review"):
+            self.assertIn(evidence_kind, ai_plan["evidence_refs"])
         self.assertEqual(manifest["status"], "dry_run_passed")
         self.assertEqual(set(manifest["artifacts"]), present - {"bundle_manifest.json"})
+
+    def test_ai_editor_handoff_is_target_gated_and_stable(self):
+        ai_plan_source = load_plan()
+        no_ai_source = copy.deepcopy(ai_plan_source)
+        no_ai_source["software_targets"] = [
+            target
+            for target in no_ai_source["software_targets"]
+            if target["target"] != "ai_editor"
+        ]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            ai_source_path = write_plan(temp_dir, ai_plan_source, "ai-plan.json")
+            no_ai_source_path = write_plan(temp_dir, no_ai_source, "no-ai-plan.json")
+            first = build_edit_bundle(ai_source_path, Path(temp_dir) / "first")
+            second = build_edit_bundle(ai_source_path, Path(temp_dir) / "second")
+            without_ai = build_edit_bundle(
+                no_ai_source_path, Path(temp_dir) / "without-ai"
+            )
+            self.assertTrue(
+                (first / "ai_editor_plan.json").is_file(),
+                "AI target must emit an independent ai_editor_plan.json",
+            )
+            first_payload = json.loads(
+                (first / "ai_editor_plan.json").read_text(encoding="utf-8")
+            )
+            second_payload = json.loads(
+                (second / "ai_editor_plan.json").read_text(encoding="utf-8")
+            )
+            no_ai_reports = json.loads(
+                (without_ai / "adapter_reports.json").read_text(encoding="utf-8")
+            )
+
+        self.assertEqual(first_payload, second_payload)
+        self.assertFalse((without_ai / "ai_editor_plan.json").exists())
+        self.assertNotIn("ai_editor", no_ai_reports)
+        self.assertEqual(first.name, "v001")
+        self.assertEqual(second.name, "v001")
+        self.assertEqual(without_ai.name, "v001")
 
     def test_cinematic_bundle_emits_quality_reports(self):
         audit_fields = (
@@ -306,6 +380,10 @@ class BuildEditBundleTests(unittest.TestCase):
             markdown = (created / "cinematic_quality_report.md").read_text(
                 encoding="utf-8"
             )
+            self.assertTrue((created / "ai_editor_plan.json").is_file())
+            ai_plan = json.loads(
+                (created / "ai_editor_plan.json").read_text(encoding="utf-8")
+            )
             manifest = json.loads(
                 (created / "bundle_manifest.json").read_text(encoding="utf-8")
             )
@@ -340,6 +418,11 @@ class BuildEditBundleTests(unittest.TestCase):
             self.assertEqual(report[field], cinematic[field], field)
         self.assertIn("cinematic_quality_report.json", manifest["artifacts"])
         self.assertIn("cinematic_quality_report.md", manifest["artifacts"])
+        self.assertEqual(
+            ai_plan["evidence_refs"]["cinematic"],
+            ["CONTACT-16", "CONTACT-9", "PROBE-AUDIO-01"],
+        )
+        self.assertIn("MIX-REVIEW-01", ai_plan["evidence_refs"]["review"])
         self.assertIn("Edit plan: EDIT\\-001", markdown)
         self.assertIn("cinematic", markdown)
         self.assertIn("Genre: action\\_spectacle", markdown)

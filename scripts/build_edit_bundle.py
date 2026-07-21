@@ -17,6 +17,7 @@ from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
+from ai_editor_plan import ai_editor_plan_payload
 from cinematic_report import cinematic_report_markdown, cinematic_report_payload
 from timeline_adapters import (
     AdapterError,
@@ -506,9 +507,13 @@ def _build_handoffs(
                 "artifact": "jianying_capcut_instructions.md",
             }
         if "ai_editor" in targets:
+            _write_json_exclusive(
+                version_dir / "ai_editor_plan.json",
+                ai_editor_plan_payload(plan),
+            )
             reports["ai_editor"] = {
                 "status": "strict_json_handoff",
-                "artifact": "edit_master_plan.json",
+                "artifact": "ai_editor_plan.json",
             }
         _write_json_exclusive(
             version_dir / "ffmpeg_commands.json",

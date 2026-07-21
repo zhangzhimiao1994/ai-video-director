@@ -296,7 +296,10 @@ class CinematicModeDocsTests(unittest.TestCase):
         )
 
         for status_line in (
-            "`stage: rough_cut`",
+            "`submitted_stage: <observed version_role or unresolved>`",
+            "`accepted_stage: rough_cut`",
+            "`accepted_stage: blocked`",
+            "`accepted_stage: unresolved`",
             "`technical_status: <preserve observed rendered/probe result>`",
             "`creative_ready: false`",
             "`cinematic_ready: false`",
@@ -315,6 +318,12 @@ class CinematicModeDocsTests(unittest.TestCase):
                 self.assertIn(risk, contract)
 
         self.assertIn("Never copy or rename a `rough_cut` as `final_master`", contract)
+        self.assertNotIn("`stage: rough_cut`", contract)
+        self.assertIn("`submitted_stage: rough_cut`", contract)
+        self.assertIn("`submitted_stage: fine_cut`", contract)
+        self.assertIn("`submitted_stage: final_master`", contract)
+        self.assertIn("do not downgrade or overwrite submitted metadata", contract)
+        self.assertIn("P11", contract)
         self.assertIn("motivated hold, silence, or hard cut", contract)
         self.assertIn("narrative reason", contract)
         self.assertIn("surrounding action and reaction", contract)
