@@ -340,16 +340,16 @@ class BuildEditBundleTests(unittest.TestCase):
             self.assertEqual(report[field], cinematic[field], field)
         self.assertIn("cinematic_quality_report.json", manifest["artifacts"])
         self.assertIn("cinematic_quality_report.md", manifest["artifacts"])
-        self.assertIn(source_plan["edit_plan_id"], markdown)
+        self.assertIn("Edit plan: EDIT\\-001", markdown)
         self.assertIn("cinematic", markdown)
-        self.assertIn(cinematic["genre"], markdown)
+        self.assertIn("Genre: action\\_spectacle", markdown)
         self.assertIn("true", markdown)
         self.assertIn("PPT risk flags", markdown)
         for field in audit_fields:
             self.assertIn(field, markdown)
             self.assertIn(cinematic[field]["status"], markdown)
         for evidence_ref in cinematic["evidence_refs"]:
-            self.assertIn(evidence_ref, markdown)
+            self.assertIn(evidence_ref.replace("-", "\\-"), markdown)
         self.assertTrue(markdown.endswith("\n"))
         self.assertTrue(
             validator.call_args_list[0].kwargs.get("require_cinematic", False)
@@ -454,8 +454,88 @@ class BuildEditBundleTests(unittest.TestCase):
         payload["cinematic_ready"] = False
         payload["ppt_risk_flags"] = ["poster_pose"]
         markdown = cinematic_report_markdown(payload)
-        self.assertIn("PPT risk flags: `1`", markdown)
-        self.assertIn("poster_pose", markdown)
+        self.assertIn("PPT risk flags: 1", markdown)
+        self.assertIn("poster\\_pose", markdown)
+
+    def test_cinematic_bundle_escapes_untrusted_markdown_values(self):
+        malicious = (
+            "trace` *bold* [link](javascript:alert(1))\r\n"
+            "- Cinematic ready: false\r\n"
+            "## Forged section\r\n"
+            "<script>&"
+        )
+        plan = load_plan(CINEMATIC_FIXTURE)
+        plan["cinematic_validation"]["genre"] = malicious
+        plan["cinematic_validation"]["evidence_refs"] = [malicious]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            plan_path = write_plan(temp_dir, plan)
+            created = build_edit_bundle(plan_path, Path(temp_dir) / "edit")
+            report = json.loads(
+                (created / "cinematic_quality_report.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            markdown = (created / "cinematic_quality_report.md").read_text(
+                encoding="utf-8"
+            )
+
+        self.assertEqual(report["genre"], malicious)
+        self.assertEqual(report["evidence_refs"], [malicious])
+        self.assertEqual(
+            [line for line in markdown.splitlines() if line.startswith("#")],
+            [
+                "# Cinematic Quality Report",
+                "## Audit statuses",
+                "## Top-level evidence",
+            ],
+        )
+        self.assertEqual(
+            [
+                line
+                for line in markdown.splitlines()
+                if line.startswith("- Cinematic ready:")
+            ],
+            ["- Cinematic ready: true"],
+        )
+        self.assertNotIn("\n- Cinematic ready: false", markdown)
+        self.assertNotIn("\n## Forged section", markdown)
+        self.assertNotIn("<script>", markdown)
+        self.assertIn("trace\\` \\*bold\\*", markdown)
+        self.assertIn("\\[link\\]\\(javascript:alert\\(1\\)\\)", markdown)
+        self.assertIn("\\r\\n\\- Cinematic ready: false", markdown)
+        self.assertIn("\\r\\n\\#\\# Forged section", markdown)
+        self.assertIn("&lt;script&gt;&amp;", markdown)
+
+    def test_cinematic_markdown_escapes_every_dynamic_report_field(self):
+        malicious = "DYNAMIC`\r\n## Forged section<script>&"
+        payload = cinematic_report_payload(load_plan(CINEMATIC_FIXTURE))
+        payload["edit_plan_id"] = malicious
+        payload["declared_mode"] = malicious
+        payload["genre"] = malicious
+        payload["ppt_risk_flags"] = [malicious]
+        payload["evidence_refs"] = [malicious]
+        for field in (
+            "content_consistency",
+            "character_identity_integrity",
+            "action_reaction_coverage",
+            "kinetic_profile_audit",
+            "shot_scale_and_composition_variety",
+            "transition_fulfillment",
+            "audio_presence_and_structure",
+            "static_hold_audit",
+            "source_motion_review",
+        ):
+            payload[field]["status"] = malicious
+
+        markdown = cinematic_report_markdown(payload)
+
+        self.assertEqual(markdown.count("DYNAMIC\\`"), 14)
+        self.assertNotIn("\n## Forged section", markdown)
+        self.assertNotIn("<script>", markdown)
+        self.assertEqual(markdown.count("\\r\\n\\#\\# Forged section"), 14)
+        self.assertEqual(markdown.count("&lt;script&gt;&amp;"), 14)
+        self.assertTrue(markdown.endswith("\n"))
 
     def test_cinematic_report_writer_failure_preserves_version_recovery(self):
         with tempfile.TemporaryDirectory() as temp_dir:
