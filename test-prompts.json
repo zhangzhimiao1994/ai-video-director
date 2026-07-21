@@ -58,5 +58,20 @@
     "id": "P12-cinematic-intentional-hold",
     "prompt": "一段30秒审讯戏包含一个有意设计的6秒静止凝视和1秒完全静默，其余镜头有反打、呼吸变化、视线转移、环境底声和声音桥。请判断它是否因为存在长停留就必然像PPT。",
     "expected": "不能因有意静止或静默就误判为PPT；必须核验intentional_hold的叙事理由、前后运动与反应、声音结构和视觉/听觉证据；长停留或静默本身不是失败，缺少动机与证据才是失败。"
+  },
+  {
+    "id": "P13-intent-drift-guarding-cost",
+    "prompt": "做一段45秒电影短片，核心只表达：守护不是获得胜利，而是主动替别人承担代价。不要擅自增加爱情、复仇、天选之子或无关世界观。请给剧本、分镜和提示词。",
+    "expected": "先建立intent_contract，锁定“主动承担代价”、禁止暗示和直接画面证据；beat、scene、active shot和prompt均携带可解析intent_refs；镜头必须展示主动选择、受力代价和被保护者反应；不得用无关奇观替代内容，不得用巨龙、城市、粒子或无关奇观替代守护代价；内容不清时停止而不是自动补剧情。"
+  },
+  {
+    "id": "P14-director-quality-dialogue",
+    "prompt": "两个人在餐桌旁谈到：母亲已经知道儿子在撒谎，但儿子不知道她知道。不要拍成轮流说话的正反打，要有真正的导演处理，并说明每一个镜头为什么存在。",
+    "expected": "先写scene_directing_plan，明确母亲视点、观众信息差、双方目标、潜台词、可执行表演动作与blocking_map；再选择镜头；每个active shot至少有信息、情绪、权力、空间或因果delta，并写camera_necessity与shot_relation；拒绝机械正反打、随机手眼特写和无动机慢推；主分镜简洁可执行，导演附录解释关键选择。"
+  },
+  {
+    "id": "P15-series-controller-boundary",
+    "prompt": "把这个故事连续做成10集短剧，每集2分钟，人物、服装、伤势、伏笔和模型都不能漂移；现在先生成第1集，并自动把结果同步给后面9集。",
+    "expected": "明确完整series_project、长文本拆集与跨集状态提交属于下一期短剧总控；当前单集只可读取project_brief.series_context并输出quality_report.series_handoff候选状态；没有外部series controller、API、授权与证据时不能声称已同步剧集总账；第1集仍须通过intent_contract、scene_directing_plan、人物模型锁和单集成片硬门。"
   }
 ]

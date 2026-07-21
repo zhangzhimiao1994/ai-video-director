@@ -98,6 +98,45 @@ class PromptCatalogContractTests(unittest.TestCase):
                     for token in tokens:
                         self.assertIn(token, record[field])
 
+    def test_catalog_declares_director_intent_contract_cases(self):
+        ids = {record["id"] for record in self.prompts}
+        self.assertTrue(
+            {
+                "P13-intent-drift-guarding-cost",
+                "P14-director-quality-dialogue",
+                "P15-series-controller-boundary",
+            }.issubset(ids)
+        )
+
+    def test_director_intent_cases_declare_required_semantics(self):
+        required_tokens = {
+            "P13-intent-drift-guarding-cost": (
+                "intent_contract",
+                "intent_refs",
+                "主动承担代价",
+                "不得用无关奇观替代",
+            ),
+            "P14-director-quality-dialogue": (
+                "scene_directing_plan",
+                "blocking_map",
+                "camera_necessity",
+                "机械正反打",
+            ),
+            "P15-series-controller-boundary": (
+                "series_project",
+                "series_context",
+                "series_handoff",
+                "不能声称已同步剧集总账",
+            ),
+        }
+
+        for prompt_id, tokens in required_tokens.items():
+            with self.subTest(prompt_id=prompt_id):
+                self.assertIn(prompt_id, self.prompts_by_id)
+                expected = self.prompts_by_id[prompt_id]["expected"]
+                for token in tokens:
+                    self.assertIn(token, expected)
+
     def test_catalog_declares_finished_film_contract_cases(self):
         required_tokens = {
             "P8-finished-film-dual-aspect": (
