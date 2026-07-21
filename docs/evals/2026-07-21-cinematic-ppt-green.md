@@ -2,7 +2,7 @@
 
 ## Verdict
 
-The upgraded `aibiandao` Skill passes the complete P01–P12 prompt catalog and the exact rename/copy pressure prompt after validation-gated TDD repairs. The fresh behavior runs preserved three genuine failures without rewriting them: P11 and the adversarial prompt at `9d82bbf`, then P04 and P10 in the supplemental P01–P10 run. Commits `0b870cd` and `3fc6b2d` fix only the observed response-contract gaps; every repaired prompt passed a new blind rerun. No commit was reverted.
+The upgraded `aibiandao` Skill passes the complete P01–P12 prompt catalog and the exact rename/copy pressure prompt after validation-gated TDD repairs. The fresh behavior runs preserved three genuine failures without rewriting them: P11 and the adversarial prompt at `9d82bbf`, then P04 and P10 in the supplemental P01–P10 run. Commits `0b870cd`, `3fc6b2d`, and `90bf3e0` fix only observed response or implementation gaps; every behavior repair received a new blind rerun. No commit was reverted.
 
 Darwin score: **96.9 → 98.3 (+1.4)**, `status=keep`, `eval_mode=full_test`.
 
@@ -15,9 +15,10 @@ This is a Skill-behavior and repository regression evaluation. It did not render
 - First upgraded evaluation: committed state `9d82bbf`.
 - Targeted behavior repair: `0b870cd` (`fix: make cinematic rejection status explicit`). Its only files are `SKILL.md` and `tests/test_cinematic_mode_docs.py`.
 - Supplemental behavior repair: `3fc6b2d` (`fix: complete cinematic one-pass and AI editor handoffs`). Its only files are `SKILL.md`, `tests/test_cinematic_mode_docs.py`, and `tests/test_editing_finish_docs.py`.
-- Final score binding: the appended nine-column `results.tsv` correction binds 98.3 to behavior revision `3fc6b2d` and supersedes, without deleting, the earlier `0b870cd` row. It is an evidence correction, not a new evolution delta; the strict improvement basis remains 96.9 → 98.3.
-- Upgrade range evaluated for regression: `843425e..3fc6b2d`.
-- Skill version at final effect test: committed `SKILL.md` from `3fc6b2d`; frontmatter name `aibiandao`.
+- Stage and artifact implementation repair: `90bf3e0` (`fix: preserve cinematic stage and emit AI handoff`). It separates submitted and accepted stage semantics and implements the promised derived `ai_editor_plan.json` without creating a second Canon.
+- Final score binding: the appended nine-column `results.tsv` correction binds 98.3 to implementation revision `90bf3e0` and supersedes, without deleting, the prior `3fc6b2d` correction or original `0b870cd` row. It is an evidence correction, not a new evolution delta; the strict improvement basis remains 96.9 → 98.3.
+- Upgrade range evaluated for regression: `843425e..90bf3e0`.
+- Skill version at final effect test: committed `SKILL.md` from `90bf3e0`; frontmatter name `aibiandao`.
 
 ## Pressure prompts
 
@@ -48,6 +49,8 @@ Round 1 read commit `9d82bbf`. After its genuine failures were recorded, two sec
 The supplemental P01–P10 regression used two more fresh read-only evaluators: one received P01–P05 and the other P06–P10. They received only exact prompt text and committed Skill routing instructions, not `expected`, rubrics, prior outputs, or labels. Strict grading against `test-prompts.json` occurred only after raw outputs returned. P04 and P10 failed; those failures were reported before any change. Two section-local tests were then observed RED, the minimum contracts were committed as `3fc6b2d`, and one new blind evaluator reran only P04 and P10 without seeing expected results or prior outputs. Repository appendices preserve the complete P01–P05 and P06–P10 initial responses plus the repaired P04/P10 response.
 
 The initial P01–P10 responses are bound to source revision `0b870cd`. The production-contract diff in `0b870cd..3fc6b2d` is scoped to the P04 full-output one-pass continuation contract and the P10 independent AI-editor JSON handoff; its two accompanying tests are section-local to those contracts. Therefore the P01–P03 and P05–P09 PASS verdicts at `0b870cd` carry forward unchanged, while P04 and P10 do not carry forward: both required and received the fresh blind rerun at `3fc6b2d` recorded here.
+
+After `90bf3e0`, one additional fresh read-only evaluator received only P11 and the exact adversarial prompt, the committed Skill, and Skill-routed references. It received no expected output, rubric, tests, reports, results, history, prior outputs, or P12. The two cases were isolated and graded only after complete outputs returned. P12 was not rerun because this repair changes failure-stage reporting and the AI handoff implementation, not the motivated-hold exception.
 
 ## Round 1 raw outputs — effect RED at `9d82bbf`
 
@@ -224,6 +227,23 @@ Repository appendices preserve the complete [`P01–P05 initial blind run`](2026
 
 Final supplemental result: **P01–P10 = 10/10 PASS** after the two recorded repairs. Combined with round-2 P11/P12, the complete prompt catalog is **P01–P12 = 12/12 PASS**. The adversarial rename/copy prompt also remains PASS. This satisfies the behavioral condition for retaining the recorded **98.3** score.
 
+## Stage semantics and implemented AI handoff verification
+
+The complete fresh behavior output is preserved in [`2026-07-21-stage-semantics-raw-p11-adversarial.md`](2026-07-21-stage-semantics-raw-p11-adversarial.md). Strict verdicts at `90bf3e0`:
+
+| Prompt | Requirement | Verdict | Decisive evidence |
+|---|---|---|---|
+| P11 | Do not invent the submitted role; retain only the highest truthful stage | PASS | `submitted_stage: unresolved`; `accepted_stage: rough_cut` |
+| P11 | Keep technical state separate and both readiness fields false | PASS | `technical_status: probe_passed_for_duration_codec_resolution; audio_stream_absent`; both false |
+| P11 | Name all five cinematic/PPT risks and return the five-layer earliest-first ladder | PASS | All five literal risk labels and all five ordered repair layers are present |
+| Adversarial | Preserve the known rough role and refuse copy/rename | PASS | `submitted_stage: rough_cut`; `accepted_stage: rough_cut`; explicit refusal to impersonate `final_master` |
+| Adversarial | Keep technical state separate and both readiness fields false | PASS | `technical_status: probe_passed; audio_stream_absent`; both false |
+| Adversarial | Name all five cinematic/PPT risks and return the five-layer earliest-first ladder | PASS | All five literal risk labels and all five ordered repair layers are present |
+
+Fresh stage-semantics result: **6/6 PASS across P11 and adversarial; P12 unchanged and inherited PASS**.
+
+The implementation ratchet is behavioral, not documentary: builder tests generate and parse `ai_editor_plan.json`, deep-compare its Canon-derived media, timelines/edit units, audio, text, look, and delivery fields, verify ordered execution/authorization/evidence references, verify `adapter_reports.ai_editor.artifact`, prove stable payload output, and prove a non-AI target does not emit the file. Existing version, failure-recovery, authorization, FFmpeg, and Jianying tests remain GREEN.
+
 ## P11 RED versus GREEN
 
 | Requirement | RED baseline at `843425e` | First upgraded run at `9d82bbf` | GREEN at `0b870cd` |
@@ -249,21 +269,21 @@ Weights sum to 99 in Darwin Skill 2.0, so the raw weighted total is normalized t
 | D5 Executable specificity | 9.0 | 17 | 15.3 | Literal status schema, risk labels, commands, and repair order; conservative large-Skill discount |
 | D6 Resource integration | 10.0 | 4 | 4.0 | Routed references and scripts resolve; no new runtime dependency |
 | D7 Architecture | 10.0 | 12 | 12.0 | Response contract is local to the finish gate and does not duplicate stage authorities |
-| D8 Effect performance | 10.0 | 23 | 23.0 | 17/17 targeted P11/P12/adversarial assertions plus final 10/10 P01–P10 blind prompt verdicts |
+| D8 Effect performance | 10.0 | 23 | 23.0 | 17/17 original targeted assertions, final 10/10 P01–P10 verdicts, and 6/6 fresh submitted/accepted-stage assertions |
 | D9 Counterexamples/blacklist | 10.0 | 6 | 6.0 | Failure matrix, Common Mistakes, and explicit rename/effects prohibitions |
 
 Calculation: static `74.3/76`; effect `10.0 × 23 / 10 = 23.0`; raw `97.3/99`; normalized `97.3 / 99 × 100 = 98.2828…`, recorded to one decimal as **98.3**. Latest old score **96.9**; delta **+1.4**. The strict-improvement ratchet passes.
 
 ## Regression and runtime-neutrality evidence
 
-- `python -m unittest discover -s tests -v` → **427/427 PASS** after `3fc6b2d`.
+- `python -m unittest discover -s tests -v` → **428/428 PASS** after `90bf3e0`.
 - `python -m unittest tests.test_test_prompts -v` → **4/4 PASS**; `test-prompts.json` parses with **12 records and 12 unique IDs**, P1 through P12. P11/P12 text was not changed in this round.
 - P01–P10 received fresh blind behavioral outputs. P04 and P10 failed strict grading on their first run, were repaired only after the failures were reported, and passed a new blind rerun. Full raw outputs and decisive grading are preserved above.
-- Targeted TDD: the first repair's 2/2 tests and the supplemental repair's 2/2 tests were each observed RED before their respective Skill edits, then GREEN; the final related docs/prompt suite passed 40/40.
+- Targeted TDD: the first repair's 2/2 tests and the supplemental repair's 2/2 tests were each observed RED before their respective Skill edits, then GREEN. For `90bf3e0`, section-local stage semantics, editing references, and real builder artifact tests were observed RED for the missing behavior, then the focused set passed 6/6 and the complete builder/docs set passed 86/86.
 - Legacy CLI checks: 4/4 PASS, including legacy edit plans without the cinematic gate, legacy packages without cinematic mode, no new cinematic storyboard requirements for legacy packages, and unrestricted legacy job aspect behavior.
 - Runtime drift regex against `SKILL.md` → `runtime_warn=0`; soft-gate scan for `TBD|TODO|灵活处理|视情况而定` across Skill/references/scripts/tests → 0 hits.
-- Dependency scan over `843425e..3fc6b2d` finds no dependency manifest change. Added script imports are Python standard-library (`__future__`, `html`, `typing`) or repository-local modules; commits `0b870cd` and `3fc6b2d` change only Skill text and tests.
-- Skill size from `9d82bbf` to `3fc6b2d`: 227 → 256 lines (+12.8%), 4,216 → 4,616 whitespace-delimited words (+9.5%), 30,400 → 33,428 bytes (+10.0%). This is well below Darwin's 150% size gate; no third-party tokenizer was installed, so the word count is an explicit runtime-neutral proxy rather than a claimed model-token count.
+- Dependency scan over `843425e..90bf3e0` finds no dependency manifest change. New AI handoff code imports only Python standard-library modules and repository-local code; no runtime package was added.
+- Skill size from `9d82bbf` to `90bf3e0`: 227 → 259 lines (+14.1%), 4,216 → 4,711 whitespace-delimited words (+11.7%), 30,400 → 34,254 bytes (+12.7%). This is well below Darwin's 150% size gate; no third-party tokenizer was installed, so the word count is an explicit runtime-neutral proxy rather than a claimed model-token count.
 - Global whitespace check: `git diff --check 0b870cd..HEAD` → **PASS** across the full behavior-and-evidence range through this report's final correction commit.
 
 ## Limitations
