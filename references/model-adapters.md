@@ -370,6 +370,7 @@
 
 - 保留 canonical prompt 和已批准镜头；`documented_parameters` 使用空对象，并把所有 provider 配置列入手动数组。
 - 只有能从当前官方页面逐字段读取 schema 后，才创建 Seedance/Volcano 专用 job；不得用二手文章或旧记忆回填。
+- 第三方 Playwright/Cookie wrapper 只能作为运行风险参考：可借鉴 submit/poll/download、retry/cancel、credits 与 credential-risk 这些 `operation_state` 概念；不得把 cookie、session、private/internal endpoint 或非官方字段写入 `documented_parameters`。
 
 **cinematic_adapter_status**：`manual_only_until_official_request_schema_is_readable`。
 

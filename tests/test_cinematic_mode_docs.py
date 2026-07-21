@@ -75,6 +75,7 @@ class CinematicModeDocsTests(unittest.TestCase):
             "`series_handoff`",
             "external_series_controller_required",
             "## Platform Execution Blueprint",
+            "`operation_state`",
             "submit/poll/download",
             "retry/cancel",
             "Kling",
@@ -134,6 +135,11 @@ class CinematicModeDocsTests(unittest.TestCase):
                 "continuity_integrity",
                 "direction_variants",
                 "non_executable",
+                "`operation_state`",
+                "`provider_evidence_refs`",
+                "`cost_credit_notes`",
+                "`credential_risk`",
+                "`cookie`",
             ),
         }
         for path, tokens in expected_tokens.items():

@@ -117,6 +117,61 @@ JOB_REQUIRED_FIELDS = (
     "resolution",
     "documented_parameters",
     "requires_manual_configuration",
+    "operation_state",
+)
+
+JOB_OPERATION_STATE_REQUIRED_FIELDS = (
+    "execution_mode",
+    "submit_status",
+    "poll_status",
+    "download_status",
+    "task_id",
+    "provider_status",
+    "result_url_or_file_ref",
+    "retry_policy",
+    "retry_count",
+    "cancel_status",
+    "cost_credit_notes",
+    "credential_risk",
+    "provider_evidence_refs",
+)
+
+JOB_EXECUTION_MODES = {
+    "non_executable",
+    "manual_only",
+    "dry_run_only",
+    "submit_poll_download",
+    "executed_external",
+}
+
+JOB_OPERATION_STATE_STRING_FIELDS = (
+    "execution_mode",
+    "submit_status",
+    "poll_status",
+    "download_status",
+    "retry_policy",
+    "cancel_status",
+    "cost_credit_notes",
+    "credential_risk",
+)
+
+JOB_OPERATION_STATE_OPTIONAL_STRING_FIELDS = (
+    "task_id",
+    "provider_status",
+    "result_url_or_file_ref",
+)
+
+UNVERIFIED_DOCUMENTED_PARAMETER_TOKENS = (
+    "cookie",
+    "cookies",
+    "session",
+    "private_api",
+    "private-api",
+    "internal_api",
+    "internal-api",
+    "internal_endpoint",
+    "internal-endpoint",
+    "playwright",
 )
 
 QUALITY_REPORT_REQUIRED_FIELDS = (
@@ -656,6 +711,107 @@ def _validate_nonempty_string_list(
             errors.append(
                 f"{owner}: {field} item {index} must be a non-empty string"
             )
+
+
+def _validate_documented_parameters(
+    job_id: str, value: Any, errors: list[str]
+) -> None:
+    label = f"model_job_manifest {job_id}.documented_parameters"
+    if not isinstance(value, dict):
+        errors.append(
+            f"model_job_manifest {job_id}: "
+            "documented_parameters must be an object"
+        )
+        return
+
+    def visit(current: Any, path: str) -> None:
+        if isinstance(current, dict):
+            for raw_key, child in current.items():
+                key = str(raw_key)
+                key_label = f"{path}.{key}" if path else key
+                normalized = key.lower()
+                if any(
+                    token in normalized
+                    for token in UNVERIFIED_DOCUMENTED_PARAMETER_TOKENS
+                ):
+                    errors.append(
+                        f"{label}.{key_label}: unverified private API or "
+                        "credential field must move to requires_manual_configuration"
+                    )
+                visit(child, key_label)
+        elif isinstance(current, list):
+            for index, child in enumerate(current, start=1):
+                visit(child, f"{path}[{index}]")
+
+    visit(value, "")
+
+
+def _validate_job_operation_state(
+    job_id: str, value: Any, errors: list[str]
+) -> None:
+    label = f"model_job_manifest {job_id}.operation_state"
+    if not isinstance(value, dict):
+        errors.append(f"{label}: expected object")
+        return
+
+    _require_fields(value, JOB_OPERATION_STATE_REQUIRED_FIELDS, label, errors)
+
+    for field in JOB_OPERATION_STATE_STRING_FIELDS:
+        if field in value and (
+            not isinstance(value[field], str) or not value[field].strip()
+        ):
+            errors.append(f"{label}.{field}: must be a non-empty string")
+
+    execution_mode = value.get("execution_mode")
+    if isinstance(execution_mode, str) and execution_mode.strip():
+        if execution_mode not in JOB_EXECUTION_MODES:
+            errors.append(
+                f"{label}.execution_mode: must be one of "
+                f"{', '.join(sorted(JOB_EXECUTION_MODES))}"
+            )
+
+    for field in JOB_OPERATION_STATE_OPTIONAL_STRING_FIELDS:
+        if field in value and value[field] is not None and not isinstance(
+            value[field], str
+        ):
+            errors.append(f"{label}.{field}: must be null or a string")
+
+    retry_count = value.get("retry_count")
+    if (
+        "retry_count" in value
+        and (
+            not isinstance(retry_count, int)
+            or isinstance(retry_count, bool)
+            or retry_count < 0
+        )
+    ):
+        errors.append(f"{label}.retry_count: must be a non-negative integer")
+
+    if "provider_evidence_refs" in value:
+        _validate_nonempty_string_list(
+            label, value["provider_evidence_refs"], "provider_evidence_refs", errors
+        )
+
+    if value.get("submit_status") == "submitted" and not (
+        isinstance(value.get("task_id"), str) and value["task_id"].strip()
+    ):
+        errors.append(
+            f"{label}.task_id: must be a non-empty string when submit_status is submitted"
+        )
+    if value.get("poll_status") == "completed" and not (
+        isinstance(value.get("provider_status"), str)
+        and value["provider_status"].strip()
+    ):
+        errors.append(
+            f"{label}.provider_status: must be a non-empty string when poll_status is completed"
+        )
+    if value.get("download_status") == "downloaded" and not (
+        isinstance(value.get("result_url_or_file_ref"), str)
+        and value["result_url_or_file_ref"].strip()
+    ):
+        errors.append(
+            f"{label}.result_url_or_file_ref: must be a non-empty string when download_status is downloaded"
+        )
 
 
 def _validate_cinematic_quality(
@@ -1415,12 +1571,9 @@ def validate_package(package: Any) -> list[str]:
                 "reference_inputs",
                 errors,
             )
-        if "documented_parameters" in job and not isinstance(
-            job["documented_parameters"], dict
-        ):
-            errors.append(
-                f"model_job_manifest {job_id}: "
-                "documented_parameters must be an object"
+        if "documented_parameters" in job:
+            _validate_documented_parameters(
+                job_id, job["documented_parameters"], errors
             )
         if "requires_manual_configuration" in job:
             _validate_nonempty_string_list(
@@ -1428,6 +1581,10 @@ def validate_package(package: Any) -> list[str]:
                 job["requires_manual_configuration"],
                 "requires_manual_configuration",
                 errors,
+            )
+        if "operation_state" in job:
+            _validate_job_operation_state(
+                job_id, job["operation_state"], errors
             )
 
     for shot_id in sorted(known_shot_ids):

@@ -124,6 +124,21 @@ def valid_package():
                 "resolution": "1920x1080",
                 "documented_parameters": {"seed": 42},
                 "requires_manual_configuration": [],
+                "operation_state": {
+                    "execution_mode": "non_executable",
+                    "submit_status": "blocked_until_authorized",
+                    "poll_status": "not_started",
+                    "download_status": "not_started",
+                    "task_id": None,
+                    "provider_status": None,
+                    "result_url_or_file_ref": None,
+                    "retry_policy": "retry only after reviewed failure evidence",
+                    "retry_count": 0,
+                    "cancel_status": "not_requested",
+                    "cost_credit_notes": "not executed; no credits consumed",
+                    "credential_risk": "no credentials supplied",
+                    "provider_evidence_refs": [],
+                },
             }
         ],
         "quality_report": {
@@ -603,6 +618,71 @@ class ValidatePackageTests(unittest.TestCase):
                     "must be a non-empty string",
                     validate_package(package),
                 )
+
+    def test_job_requires_operation_state(self):
+        package = valid_package()
+        package["model_job_manifest"][0].pop("operation_state")
+
+        self.assertEqual(
+            validate_package(package),
+            ["model_job_manifest job-01: missing required field operation_state"],
+        )
+
+    def test_job_operation_state_requires_lifecycle_fields(self):
+        package = valid_package()
+        package["model_job_manifest"][0]["operation_state"] = {}
+
+        errors = validate_package(package)
+
+        self.assertIn(
+            "model_job_manifest job-01.operation_state: missing required field execution_mode",
+            errors,
+        )
+        self.assertIn(
+            "model_job_manifest job-01.operation_state: missing required field provider_evidence_refs",
+            errors,
+        )
+
+    def test_job_operation_state_requires_consistent_task_and_download_refs(self):
+        package = valid_package()
+        state = package["model_job_manifest"][0]["operation_state"]
+        state["execution_mode"] = "submit_poll_download"
+        state["submit_status"] = "submitted"
+        state["task_id"] = None
+        state["poll_status"] = "completed"
+        state["provider_status"] = ""
+        state["download_status"] = "downloaded"
+        state["result_url_or_file_ref"] = None
+        state["retry_count"] = -1
+        state["provider_evidence_refs"] = [None]
+
+        errors = validate_package(package)
+
+        for expected in (
+            "model_job_manifest job-01.operation_state.task_id: must be a non-empty string when submit_status is submitted",
+            "model_job_manifest job-01.operation_state.provider_status: must be a non-empty string when poll_status is completed",
+            "model_job_manifest job-01.operation_state.result_url_or_file_ref: must be a non-empty string when download_status is downloaded",
+            "model_job_manifest job-01.operation_state.retry_count: must be a non-negative integer",
+            "model_job_manifest job-01.operation_state: provider_evidence_refs item 1 must be a non-empty string",
+        ):
+            self.assertIn(expected, errors)
+
+    def test_documented_parameters_reject_unverified_private_api_fields(self):
+        package = valid_package()
+        package["model_job_manifest"][0]["documented_parameters"] = {
+            "cookie": "session secret",
+            "nested": {
+                "private_api_endpoint": "https://xyq.jianying.com/internal"
+            },
+        }
+
+        self.assertEqual(
+            validate_package(package),
+            [
+                "model_job_manifest job-01.documented_parameters.cookie: unverified private API or credential field must move to requires_manual_configuration",
+                "model_job_manifest job-01.documented_parameters.nested.private_api_endpoint: unverified private API or credential field must move to requires_manual_configuration",
+            ],
+        )
 
     def test_quality_report_requires_ready_fallback_and_unresolved_audits(self):
         package = valid_package()

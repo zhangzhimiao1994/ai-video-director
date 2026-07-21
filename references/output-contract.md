@@ -25,8 +25,9 @@ Markdown 标题与 JSON 顶层键必须严格按以下顺序出现：
 - 每个镜头至少对应一个 `model_job_manifest` 记录；需要参考图准备、主生成、扩展或变体时可对应多个 job。
 - 每个 job 必须引用已存在的 `shot_id`，且不得引入已批准 storyboard 中不存在的人物、地点、道具、动作、台词、产品事实或结局。
 - legacy-only 包的 `prompt_source` 必须指向该镜唯一的 `universal_prompt_en`，模型差异只能进入 `model_variants` 和 job 的正式映射；电影化包使用下方同时绑定共享锁与画幅方向的对象契约。
-- `documented_parameters` 必须是对象，只能包含在当前官方一手文档中核实过的请求字段和值；没有可核实字段时使用空对象。
+- `documented_parameters` 必须是对象，只能包含在当前官方一手文档中核实过的请求字段和值；没有可核实字段时使用空对象。不得放入 `cookie`、`session`、`private_api`、`internal_endpoint`、`Playwright` 等第三方私有执行字段。
 - `requires_manual_configuration` 必须是数组，逐项列出尚未解析的 provider 字段、项目配置或能力选择；没有未决项时使用空数组。
+- `operation_state` 必须是对象，记录 `execution_mode`、`submit_status`、`poll_status`、`download_status`、`task_id`、`provider_status`、`result_url_or_file_ref`、`retry_policy`、`retry_count`、`cancel_status`、`cost_credit_notes`、`credential_risk`、`provider_evidence_refs`。未执行或 manual-only 的 job 仍必须写清楚这些字段，并用 `null` 或 `blocked_until_authorized` 表示尚无平台凭据。
 - `runtime_role` 可为 `active` 或 `fallback`，缺省视为 `active`。只有 active 镜头计入目标时长；fallback 仍须有独立 canonical prompt 和至少一个 job。
 - `risk_level: "high"` 必须具有非空 `fallback_shot`。该 ID 必须引用一个风险更低、`runtime_role: "fallback"` 的完整镜头，并逐项保持相同 `sequence`、`duration_seconds`、`scene_id`、`story_function`、`beat_change`、`opening_state`、`closing_state`、`character_ids`、`location_id`、`wardrobe_ids`、`prop_ids`、`look_id`。
 
@@ -108,7 +109,9 @@ Markdown 写“逐镜中文导演意图与英文生成提示”；JSON 使用 `s
 
 Markdown 写“模型任务清单”；JSON 使用 `model_job_manifest` 数组。每个 job 必须包含：
 
-`job_id`、`shot_id`、`job_purpose`、`model_family`、`generation_mode`、`prompt_source`、`reference_inputs`、`duration_seconds`、`aspect`、`resolution`、`documented_parameters`、`requires_manual_configuration`。
+`job_id`、`shot_id`、`job_purpose`、`model_family`、`generation_mode`、`prompt_source`、`reference_inputs`、`duration_seconds`、`aspect`、`resolution`、`documented_parameters`、`requires_manual_configuration`、`operation_state`。
+
+`operation_state` 是借鉴成熟视频生成流水线后的任务生命周期合同。它不授权调用 API；它只要求每个 job 说明当前是否可提交、是否已轮询、是否已下载、是否可重试/取消、是否消耗积分、凭据风险是什么、证据在哪里。
 
 最终键名是 `aspect`，不是 `aspect_ratio`。job 只负责路由与正式参数映射，不负责创作。
 
@@ -483,7 +486,22 @@ Anatomy: extra fingers, fused hands, distorted face. Duplication: duplicate woma
         "aspectRatio": "9:16",
         "sampleCount": 1
       },
-      "requires_manual_configuration": ["project_id", "authentication", "storageUri", "resolution"]
+      "requires_manual_configuration": ["project_id", "authentication", "storageUri", "resolution"],
+      "operation_state": {
+        "execution_mode": "non_executable",
+        "submit_status": "blocked_until_authorized",
+        "poll_status": "not_started",
+        "download_status": "not_started",
+        "task_id": null,
+        "provider_status": null,
+        "result_url_or_file_ref": null,
+        "retry_policy": "retry only after reviewed failure evidence",
+        "retry_count": 0,
+        "cancel_status": "not_requested",
+        "cost_credit_notes": "not executed; no credits consumed",
+        "credential_risk": "no credentials supplied",
+        "provider_evidence_refs": []
+      }
     }
   ],
   "quality_report": {

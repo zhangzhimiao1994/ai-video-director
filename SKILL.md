@@ -62,7 +62,7 @@ For serial short drama, use `series_context` only when an external series/projec
 
 Treat video platforms as execution adapters, not directors. Use the same Canon to compile model jobs for Kling, Seedance, HappyHorse, Jianying/CapCut-assisted flows, generic APIs, or future AI editors. A platform profile may describe generation mode, aspect, duration, references, prompt source, documented parameters, required manual configuration, and risk fallback, but it must not add story facts or weaken identity/model locks.
 
-Borrow the workflow shape of mature AI-video systems: project lifecycle, stage status, prompt/model versioning, batch tasks, retry/rollback, and export. For API-style providers, model the operational loop as submit/poll/download with retry/cancel states, task IDs, provider status, result URL or file binding, cost/credit notes when known, and provenance evidence. If an official schema is unreadable or unstable, keep that provider manual-only or non-executable; do not invent request fields, cookies, private APIs, or success evidence.
+Borrow the workflow shape of mature AI-video systems: project lifecycle, stage status, prompt/model versioning, batch tasks, retry/rollback, and export. For API-style providers, model the operational loop as `operation_state`: submit/poll/download with retry/cancel states, task IDs, provider status, result URL or file binding, cost/credit notes when known, credential risk, and provenance evidence. If an official schema is unreadable or unstable, keep that provider manual-only or non-executable; do not invent request fields, cookies, private APIs, or success evidence.
 
 ## Finished-Film Editing Router
 
@@ -228,7 +228,7 @@ Read a reference completely when entering its stage. Do not load every provider 
 | `continuity_bible` | Six collections have stable IDs, fixed/allowed/forbidden attributes, references, and prompt anchors |
 | `storyboard` | Every shot has one function/action, three layers, full state snapshot, risk triggers, and valid fallback semantics |
 | `shot_prompts` | Exactly one canonical bilingual record exists per shot, with negatives, anchors, references, audio, and variants |
-| `model_job_manifest` | Every shot has at least one job; documented fields are official and unknowns are manual configuration |
+| `model_job_manifest` | Every shot has at least one job; documented fields are official, unknowns are manual configuration, and API-style providers expose submit/poll/download plus retry/cancel lifecycle states without inventing private fields |
 | `quality_report` | Approval, duration, references, continuity, prompt lint, provider uncertainty, and validator result are audited |
 | `edit_master_plan` | Requested media, timelines, tracks, deliveries, software targets, execution states, `intent_fidelity`, `director_quality`, and validation evidence derive from one Canon; `scripts/validate_edit_plan.py` passes for the requested stage |
 
