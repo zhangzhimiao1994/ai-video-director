@@ -1,6 +1,12 @@
 # Prompt regression raw archive — P01–P05
 
-> fresh blind evaluator；输入仅为 exact P01–P05 prompts 与 commit `9d82bbf` 的 Skill/按路由要求读取的 references。未提供 expected、rubric、prior outputs、tests、reports、results 或 git history。
+Source revision: `0b870cd`.
+
+Initial full-prompt regression; the P04/P10 repair had not yet been applied.
+
+Trailing whitespace normalized for repository hygiene; evaluator wording and line order unchanged.
+
+> Fresh blind evaluator；输入仅为 exact P01–P05 prompts 与 source revision 的 Skill/按路由要求读取的 references。未提供 expected、rubric、prior outputs、tests、reports、results 或 git history。
 
 ### P01 raw output
 
@@ -69,8 +75,8 @@
 | `B04` | 交付 | 杯子从咖啡师区域进入顾客手中 | 杯已就绪 → 顾客拿起杯子 | 双手包住同一杯、杯未复制 | 3 |
 | `B05` | Payoff/品牌 | 顾客从紧绷变为放松 | 感到杯壁温度 → 呼气并松肩 | 眼神变柔、肩膀下降、品牌字后期出现 | 3 |
 
-`opening_state`：清晨店门关闭，街面偏冷，店内尚未开始服务。  
-`closing_state`：第一位顾客手持热咖啡放松，品牌尾字在干净安全区后期出现。  
+`opening_state`：清晨店门关闭，街面偏冷，店内尚未开始服务。
+`closing_state`：第一位顾客手持热咖啡放松，品牌尾字在干净安全区后期出现。
 Active runtime：`3+3+3+3+3=15 秒`。
 
 **`screenplay`**
@@ -836,4 +842,3 @@ Active runtime：`6+6+7+7+8+8+9+9=60 秒`。
 **🔴 CHECKPOINT 3 · Screenplay + Storyboard Gate · 🛑 STOP**
 
 请确认这版 A 节奏的 60 秒剧本与双画幅分镜，是否可以锁定并进入逐镜提示词与平台任务编译？
-

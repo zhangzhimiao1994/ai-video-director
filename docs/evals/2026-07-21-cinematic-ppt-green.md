@@ -15,6 +15,7 @@ This is a Skill-behavior and repository regression evaluation. It did not render
 - First upgraded evaluation: committed state `9d82bbf`.
 - Targeted behavior repair: `0b870cd` (`fix: make cinematic rejection status explicit`). Its only files are `SKILL.md` and `tests/test_cinematic_mode_docs.py`.
 - Supplemental behavior repair: `3fc6b2d` (`fix: complete cinematic one-pass and AI editor handoffs`). Its only files are `SKILL.md`, `tests/test_cinematic_mode_docs.py`, and `tests/test_editing_finish_docs.py`.
+- Final score binding: the appended nine-column `results.tsv` correction binds 98.3 to behavior revision `3fc6b2d` and supersedes, without deleting, the earlier `0b870cd` row. It is an evidence correction, not a new evolution delta; the strict improvement basis remains 96.9 → 98.3.
 - Upgrade range evaluated for regression: `843425e..3fc6b2d`.
 - Skill version at final effect test: committed `SKILL.md` from `3fc6b2d`; frontmatter name `aibiandao`.
 
@@ -45,6 +46,8 @@ Each round used fresh, read-only evaluators in isolated contexts. The P11/P12 ev
 Round 1 read commit `9d82bbf`. After its genuine failures were recorded, two section-local documentation tests were written and observed failing before production text changed. The minimum Skill response contract was then added and committed as `0b870cd`; a new pair of evaluators, blind to round 1, ran round 2. No-Skill was not rerun because the existing baseline report already preserves a fresh no-Skill control and the available independent contexts were reserved for the two upgraded-Skill rounds.
 
 The supplemental P01–P10 regression used two more fresh read-only evaluators: one received P01–P05 and the other P06–P10. They received only exact prompt text and committed Skill routing instructions, not `expected`, rubrics, prior outputs, or labels. Strict grading against `test-prompts.json` occurred only after raw outputs returned. P04 and P10 failed; those failures were reported before any change. Two section-local tests were then observed RED, the minimum contracts were committed as `3fc6b2d`, and one new blind evaluator reran only P04 and P10 without seeing expected results or prior outputs. Repository appendices preserve the complete P01–P05 and P06–P10 initial responses plus the repaired P04/P10 response.
+
+The initial P01–P10 responses are bound to source revision `0b870cd`. The production-contract diff in `0b870cd..3fc6b2d` is scoped to the P04 full-output one-pass continuation contract and the P10 independent AI-editor JSON handoff; its two accompanying tests are section-local to those contracts. Therefore the P01–P03 and P05–P09 PASS verdicts at `0b870cd` carry forward unchanged, while P04 and P10 do not carry forward: both required and received the fresh blind rerun at `3fc6b2d` recorded here.
 
 ## Round 1 raw outputs — effect RED at `9d82bbf`
 
@@ -261,7 +264,7 @@ Calculation: static `74.3/76`; effect `10.0 × 23 / 10 = 23.0`; raw `97.3/99`; n
 - Runtime drift regex against `SKILL.md` → `runtime_warn=0`; soft-gate scan for `TBD|TODO|灵活处理|视情况而定` across Skill/references/scripts/tests → 0 hits.
 - Dependency scan over `843425e..3fc6b2d` finds no dependency manifest change. Added script imports are Python standard-library (`__future__`, `html`, `typing`) or repository-local modules; commits `0b870cd` and `3fc6b2d` change only Skill text and tests.
 - Skill size from `9d82bbf` to `3fc6b2d`: 227 → 256 lines (+12.8%), 4,216 → 4,616 whitespace-delimited words (+9.5%), 30,400 → 33,428 bytes (+10.0%). This is well below Darwin's 150% size gate; no third-party tokenizer was installed, so the word count is an explicit runtime-neutral proxy rather than a claimed model-token count.
-- `git diff --check` passed before the behavior commit and is rerun before the evidence commit.
+- Global whitespace check: `git diff --check 0b870cd..HEAD` → **PASS** across the full behavior-and-evidence range through this report's final correction commit.
 
 ## Limitations
 

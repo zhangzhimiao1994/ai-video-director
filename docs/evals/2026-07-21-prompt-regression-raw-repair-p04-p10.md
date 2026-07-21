@@ -1,3 +1,9 @@
+# P04/P10 blind repair behavior regression raw output
+
+Source revision: `3fc6b2d`.
+
+Trailing whitespace normalized for repository hygiene; evaluator wording and line order unchanged.
+
 Blind repair rerun at `3fc6b2d`; rubric, expected output, and previous outputs were withheld.
 
 ### P04 raw output
@@ -93,7 +99,7 @@ Blind repair rerun at `3fc6b2d`; rubric, expected output, and previous outputs w
 
 **6. `continuity_bible`｜六类连续性圣经**
 
-- `C01`：原创虚构成年守门人；瘦高、苍白窄脸、深眼窝、短黑发向后梳、右眉有断痕。固定右手操作钥匙、左太阳穴三道银色记忆刻痕按事件逐一减少。允许呼吸、视线、握力变化；禁止换脸、年龄漂移、发色变化、刻痕无因恢复。  
+- `C01`：原创虚构成年守门人；瘦高、苍白窄脸、深眼窝、短黑发向后梳、右眉有断痕。固定右手操作钥匙、左太阳穴三道银色记忆刻痕按事件逐一减少。允许呼吸、视线、握力变化；禁止换脸、年龄漂移、发色变化、刻痕无因恢复。
   `identity_profile: {identity_profile_id: IP-C01, approval_status: draft, face_anchors: [narrow pale face, broken right eyebrow], body_anchors: [tall lean adult body, slightly stooped guard posture], hair_anchors: [short swept-back black hair], fixed_accessories: [single dull iron ear cuff on left ear], signature_effect_anchors: [three thin silver memory marks at the left temple at opening; one mark extinguishes only after each passage], reference_asset_ids: [REF-C01-DRAFT], forbidden_drift: [face replacement, body-width drift, hair-length drift, ear-cuff loss, incorrect memory-mark count]}`。
 - `L01`：长条石质门厅，生者侧在画面南端，亡者等待区在北端，阈门位于西墙；固定门、石台和壁像方位。允许门光随 P01 激活；禁止门换边、空间镜像或新增出口。
 - `W01`：深灰粗织长袍、窄皮腰带、右肩单片旧铁甲；允许衣摆受门风摆动；禁止颜色、肩甲侧别和腰带变化。
@@ -121,231 +127,231 @@ Active runtime：`9 × 5 = 45 秒`，追踪结果全部通过。
 
 所有镜头均为 `runtime_role: active`、`risk_level: medium`、`fallback_shot: null`；没有 high-risk 镜头，因此当前不强制备用镜。每个 medium 风险均有明确触发器。
 
-- `SH001`｜`S01`｜sequence 1｜5 秒  
-  `story_function`：Hook，揭示“无名”；`beat_change`：从机械履职到第一次自我疑问。  
-  画面：C01 用拇指擦过 P02，氧化层下仍无名字。ECU/平视；固定机位；主动作仅为擦拭。  
-  `opening_state`：门关闭，P02 覆尘，三道记忆刻痕发亮。  
-  `closing_state`：P02 已擦净但仍空白，C01 停住拇指。  
-  `continuity_ids: [C01,L01,W01,P02,LOOK01,AM01]`。  
-  `state_dependencies: []`；`state_before: {gate: closed, passed: 0, memory_marks: 3, causal_knowledge: unknown, choice: none, red_thread: with_final_soul}`；`state_after` 同前，仅 `causal_knowledge: questioned`。  
-  `state_snapshot`：朝向西侧门；视线落在胸前 P02；站于石台南侧；无手持道具；W01 干燥无损；永恒夜；冷青光由西向东；无污损；首尾状态同上。  
-  `composition_16x9`：“Extreme close-up on the blank brass plate at the left third, C01's eye and three temple marks soft in the right background.”  
-  `recomposition_9x16: {strategy: independent_generation, composition: "Vertical close-up stacking C01's eye, three temple marks, and the blank brass plate along the center axis.", safe_areas: [top 12% clear, bottom 18% clear]}`。  
-  `coverage_role: [setup, anticipation]`；`kinetic_profile`：拇指横向擦过；眼神由熟练变停滞；camera locked；铜屑落下；需 subject+performance 两层；非 hold；验收为擦拭结束后拇指和眼神同时停住。  
-  `transition_contract`：动作完成硬切；P02 必须已空白；下一镜用同一右手接住 P01；0 帧；CUE01 声音桥；理由是疑问立即触发履职；fallback 为 4 帧短叠化。  
+- `SH001`｜`S01`｜sequence 1｜5 秒
+  `story_function`：Hook，揭示“无名”；`beat_change`：从机械履职到第一次自我疑问。
+  画面：C01 用拇指擦过 P02，氧化层下仍无名字。ECU/平视；固定机位；主动作仅为擦拭。
+  `opening_state`：门关闭，P02 覆尘，三道记忆刻痕发亮。
+  `closing_state`：P02 已擦净但仍空白，C01 停住拇指。
+  `continuity_ids: [C01,L01,W01,P02,LOOK01,AM01]`。
+  `state_dependencies: []`；`state_before: {gate: closed, passed: 0, memory_marks: 3, causal_knowledge: unknown, choice: none, red_thread: with_final_soul}`；`state_after` 同前，仅 `causal_knowledge: questioned`。
+  `state_snapshot`：朝向西侧门；视线落在胸前 P02；站于石台南侧；无手持道具；W01 干燥无损；永恒夜；冷青光由西向东；无污损；首尾状态同上。
+  `composition_16x9`：“Extreme close-up on the blank brass plate at the left third, C01's eye and three temple marks soft in the right background.”
+  `recomposition_9x16: {strategy: independent_generation, composition: "Vertical close-up stacking C01's eye, three temple marks, and the blank brass plate along the center axis.", safe_areas: [top 12% clear, bottom 18% clear]}`。
+  `coverage_role: [setup, anticipation]`；`kinetic_profile`：拇指横向擦过；眼神由熟练变停滞；camera locked；铜屑落下；需 subject+performance 两层；非 hold；验收为擦拭结束后拇指和眼神同时停住。
+  `transition_contract`：动作完成硬切；P02 必须已空白；下一镜用同一右手接住 P01；0 帧；CUE01 声音桥；理由是疑问立即触发履职；fallback 为 4 帧短叠化。
   `risk_triggers`：P02 出现乱码或刻痕数量错误；验收为无可读字、恰有三道刻痕；任一失败即重做本镜。
 
-- `SH002`｜`S01`｜sequence 2｜5 秒  
-  `story_function`：第一次放行动作；`beat_change`：亡魂从等待变为穿过阈门。  
-  中远景，C01 右手把 P01 转过四分之一圈，第一亡魂沿横向路径进入冷光；轻微横移跟随亡魂。  
-  `opening_state`：门关闭，第一亡魂在北侧等待，三道刻痕，C01 已疑问。  
-  `closing_state`：门光激活，第一亡魂越过阈线，P01 仍在右手。  
-  `continuity_ids: [C01,L01,W01,P01,LOOK01,AM01]`。  
-  `state_dependencies: [SH001]`；`state_before: {gate: closed, passed: 0, memory_marks: 3, causal_knowledge: questioned, choice: none, red_thread: with_final_soul}`；`state_after: {gate: active, passed: 1, memory_marks: 3, causal_knowledge: questioned, choice: none, red_thread: with_final_soul}`。  
-  状态快照：C01 面向西；视线看 P01；右手持 P01；W01 无损；夜；西侧冷光增强；无污损；首尾状态同上。  
-  `composition_16x9`：“Wide lateral composition with C01 on the right, the soul crossing center, and the gate occupying the left third.”  
-  9:16：`recompose`；“Vertical depth composition with C01 low foreground, the soul centered, and the luminous gate rising above.”；安全区顶 10%、底 16%。  
-  `coverage_role: [action, impact]`；运动层：亡魂跨越、C01 重心压向右手、镜头短横移、衣摆被门风推开；验收为主体路径和门风均可见。  
-  转场：声音桥动作匹配；下一镜用 P01 停止转动接 C01 的反应；6 帧；CUE02；fallback 硬切。  
+- `SH002`｜`S01`｜sequence 2｜5 秒
+  `story_function`：第一次放行动作；`beat_change`：亡魂从等待变为穿过阈门。
+  中远景，C01 右手把 P01 转过四分之一圈，第一亡魂沿横向路径进入冷光；轻微横移跟随亡魂。
+  `opening_state`：门关闭，第一亡魂在北侧等待，三道刻痕，C01 已疑问。
+  `closing_state`：门光激活，第一亡魂越过阈线，P01 仍在右手。
+  `continuity_ids: [C01,L01,W01,P01,LOOK01,AM01]`。
+  `state_dependencies: [SH001]`；`state_before: {gate: closed, passed: 0, memory_marks: 3, causal_knowledge: questioned, choice: none, red_thread: with_final_soul}`；`state_after: {gate: active, passed: 1, memory_marks: 3, causal_knowledge: questioned, choice: none, red_thread: with_final_soul}`。
+  状态快照：C01 面向西；视线看 P01；右手持 P01；W01 无损；夜；西侧冷光增强；无污损；首尾状态同上。
+  `composition_16x9`：“Wide lateral composition with C01 on the right, the soul crossing center, and the gate occupying the left third.”
+  9:16：`recompose`；“Vertical depth composition with C01 low foreground, the soul centered, and the luminous gate rising above.”；安全区顶 10%、底 16%。
+  `coverage_role: [action, impact]`；运动层：亡魂跨越、C01 重心压向右手、镜头短横移、衣摆被门风推开；验收为主体路径和门风均可见。
+  转场：声音桥动作匹配；下一镜用 P01 停止转动接 C01 的反应；6 帧；CUE02；fallback 硬切。
   风险：亡魂只变成粒子；验收必须看到完整主体先跨线，再由门光包裹。
 
-- `SH003`｜`S01`｜sequence 3｜5 秒  
-  `story_function`：第一次反应与后果；`beat_change`：完整记忆母题变为缺失一音。  
-  CU，C01 本能地哼到第三音时失声，左太阳穴一条刻痕熄灭；极慢推近。  
-  `opening_state`：门仍亮，第一亡魂已越线，三道刻痕。  
-  `closing_state`：门暗下，只剩两道刻痕，C01 无法完成旋律。  
-  `continuity_ids: [C01,L01,W01,LOOK01,AM01]`。  
-  `state_dependencies: [SH002]`；`state_before: {gate: active, passed: 1, memory_marks: 3, causal_knowledge: questioned, choice: none, red_thread: with_final_soul}`；`state_after: {gate: closed, passed: 1, memory_marks: 2, causal_knowledge: suspected, choice: none, red_thread: with_final_soul}`。  
-  快照：身体留在石台南侧；视线由门转向虚空；无手持道具；W01 无损；冷光由西侧消退；首尾状态同上。  
-  `composition_16x9`：“Close-up with C01 on the right third and the dimming gate retained as causal evidence in the left background.”  
-  9:16：“Vertical close-up prioritizing mouth, eyes, and the extinguishing temple mark, with the gate glow behind the shoulder.”；独立生成；上下安全区。  
-  `coverage_role: [reaction, consequence]`；表演从惯性哼唱变成呼吸中断；推近；门光退去；需要 performance+camera+environment；验收为声音缺口、眼神停顿、刻痕熄灭同一落点。  
-  转场：银光匹配切到 SH004 的钥匙冷光；4 帧；CUE04 后 CUE01 回入；fallback 硬切。  
+- `SH003`｜`S01`｜sequence 3｜5 秒
+  `story_function`：第一次反应与后果；`beat_change`：完整记忆母题变为缺失一音。
+  CU，C01 本能地哼到第三音时失声，左太阳穴一条刻痕熄灭；极慢推近。
+  `opening_state`：门仍亮，第一亡魂已越线，三道刻痕。
+  `closing_state`：门暗下，只剩两道刻痕，C01 无法完成旋律。
+  `continuity_ids: [C01,L01,W01,LOOK01,AM01]`。
+  `state_dependencies: [SH002]`；`state_before: {gate: active, passed: 1, memory_marks: 3, causal_knowledge: questioned, choice: none, red_thread: with_final_soul}`；`state_after: {gate: closed, passed: 1, memory_marks: 2, causal_knowledge: suspected, choice: none, red_thread: with_final_soul}`。
+  快照：身体留在石台南侧；视线由门转向虚空；无手持道具；W01 无损；冷光由西侧消退；首尾状态同上。
+  `composition_16x9`：“Close-up with C01 on the right third and the dimming gate retained as causal evidence in the left background.”
+  9:16：“Vertical close-up prioritizing mouth, eyes, and the extinguishing temple mark, with the gate glow behind the shoulder.”；独立生成；上下安全区。
+  `coverage_role: [reaction, consequence]`；表演从惯性哼唱变成呼吸中断；推近；门光退去；需要 performance+camera+environment；验收为声音缺口、眼神停顿、刻痕熄灭同一落点。
+  转场：银光匹配切到 SH004 的钥匙冷光；4 帧；CUE04 后 CUE01 回入；fallback 硬切。
   风险：刻痕同时全灭；验收为只减少一条。
 
-- `SH004`｜`S02`｜sequence 4｜5 秒  
-  `story_function`：重复实验；`beat_change`：C01 从怀疑转为主动验证。  
-  MS，C01 盯住太阳穴倒影后再次转动 P01，第二亡魂越线；locked-off。  
-  `opening_state`：门关闭，已通过一魂，两道刻痕，因果仅被怀疑。  
-  `closing_state`：门再次激活，第二亡魂越线。  
-  `continuity_ids: [C01,L01,W01,P01,LOOK01,AM01]`。  
-  `state_dependencies: [SH003]`；`state_before: {gate: closed, passed: 1, memory_marks: 2, causal_knowledge: suspected, choice: none, red_thread: with_final_soul}`；`state_after: {gate: active, passed: 2, memory_marks: 2, causal_knowledge: suspected, choice: testing, red_thread: with_final_soul}`。  
-  快照：C01 面西、右手持钥匙、视线在刻痕倒影和门之间；W01 无损；夜；门光西向东；首尾同上。  
-  `composition_16x9`：“Medium two-plane composition: C01 and key in sharp right foreground, second soul and gate aligned in the left background.”  
-  9:16：“Vertical split-depth composition placing C01's temple marks above the right-hand key and the second soul below the gate.”；独立生成；字幕安全区上下留空。  
-  `coverage_role: [anticipation, action]`；主体转钥匙、握力变紧；camera locked；衣袖和门雾响应；验收可见测试性的目光检查。  
-  转场：门光闪白切至脸部；2 帧；CUE02；fallback 硬切。  
+- `SH004`｜`S02`｜sequence 4｜5 秒
+  `story_function`：重复实验；`beat_change`：C01 从怀疑转为主动验证。
+  MS，C01 盯住太阳穴倒影后再次转动 P01，第二亡魂越线；locked-off。
+  `opening_state`：门关闭，已通过一魂，两道刻痕，因果仅被怀疑。
+  `closing_state`：门再次激活，第二亡魂越线。
+  `continuity_ids: [C01,L01,W01,P01,LOOK01,AM01]`。
+  `state_dependencies: [SH003]`；`state_before: {gate: closed, passed: 1, memory_marks: 2, causal_knowledge: suspected, choice: none, red_thread: with_final_soul}`；`state_after: {gate: active, passed: 2, memory_marks: 2, causal_knowledge: suspected, choice: testing, red_thread: with_final_soul}`。
+  快照：C01 面西、右手持钥匙、视线在刻痕倒影和门之间；W01 无损；夜；门光西向东；首尾同上。
+  `composition_16x9`：“Medium two-plane composition: C01 and key in sharp right foreground, second soul and gate aligned in the left background.”
+  9:16：“Vertical split-depth composition placing C01's temple marks above the right-hand key and the second soul below the gate.”；独立生成；字幕安全区上下留空。
+  `coverage_role: [anticipation, action]`；主体转钥匙、握力变紧；camera locked；衣袖和门雾响应；验收可见测试性的目光检查。
+  转场：门光闪白切至脸部；2 帧；CUE02；fallback 硬切。
   风险：变成无动机重复；验收必须看到他先检查刻痕再转钥匙。
 
-- `SH005`｜`S02`｜sequence 5｜5 秒  
-  `story_function`：反转，确认代价；`beat_change`：怀疑变为确定。  
-  CU，第二道刻痕熄灭，C01 看向壁像却认不出其中的人。稳定机位。  
-  `opening_state`：门亮、两魂已过、两道刻痕。  
-  `closing_state`：门暗、只剩一道刻痕、因果已确认。  
-  `continuity_ids: [C01,L01,W01,LOOK01,AM01]`。  
-  `state_dependencies: [SH004]`；`state_before: {gate: active, passed: 2, memory_marks: 2, causal_knowledge: suspected, choice: testing, red_thread: with_final_soul}`；`state_after: {gate: closed, passed: 2, memory_marks: 1, causal_knowledge: confirmed, choice: self_preservation, red_thread: with_final_soul}`。  
-  快照：C01 转向北墙壁像；视线停在一张面孔；双手离开 P01；W01 无损；西侧冷光消退；首尾同上。  
-  `composition_16x9`：“Close-up of C01 at frame right facing an out-of-focus carved family face at frame left, with one surviving temple mark.”  
-  9:16：“Vertical reaction close-up with the unfamiliar carved face above C01 and the single surviving memory mark centered.”；recompose；底部字幕安全。  
-  `coverage_role: [reaction, consequence]`；头部路径极短、眼神从搜寻变陌生；camera locked；石厅回声骤空；验收为认知变化而非静态凝视。  
-  转场：视线匹配切到 SH006 的红线；0 帧；CUE04；fallback 6 帧叠化。  
+- `SH005`｜`S02`｜sequence 5｜5 秒
+  `story_function`：反转，确认代价；`beat_change`：怀疑变为确定。
+  CU，第二道刻痕熄灭，C01 看向壁像却认不出其中的人。稳定机位。
+  `opening_state`：门亮、两魂已过、两道刻痕。
+  `closing_state`：门暗、只剩一道刻痕、因果已确认。
+  `continuity_ids: [C01,L01,W01,LOOK01,AM01]`。
+  `state_dependencies: [SH004]`；`state_before: {gate: active, passed: 2, memory_marks: 2, causal_knowledge: suspected, choice: testing, red_thread: with_final_soul}`；`state_after: {gate: closed, passed: 2, memory_marks: 1, causal_knowledge: confirmed, choice: self_preservation, red_thread: with_final_soul}`。
+  快照：C01 转向北墙壁像；视线停在一张面孔；双手离开 P01；W01 无损；西侧冷光消退；首尾同上。
+  `composition_16x9`：“Close-up of C01 at frame right facing an out-of-focus carved family face at frame left, with one surviving temple mark.”
+  9:16：“Vertical reaction close-up with the unfamiliar carved face above C01 and the single surviving memory mark centered.”；recompose；底部字幕安全。
+  `coverage_role: [reaction, consequence]`；头部路径极短、眼神从搜寻变陌生；camera locked；石厅回声骤空；验收为认知变化而非静态凝视。
+  转场：视线匹配切到 SH006 的红线；0 帧；CUE04；fallback 6 帧叠化。
   风险：壁像承担无法读懂的新故事；验收仅需“曾熟悉、现在陌生”的表演，不要求识别具体关系。
 
-- `SH006`｜`S02`｜sequence 6｜5 秒  
-  `story_function`：把最终选择具体化；`beat_change`：抽象职责变成面前的最后一个请求。  
-  MS，最后亡魂从胸前举起 P03，停在阈线外；轻微向前推。  
-  `opening_state`：门关闭、两魂已过、C01 仅余一道刻痕并选择自保。  
-  `closing_state`：P03 被举到 C01 视线高度，最后亡魂仍未过门。  
-  `continuity_ids: [C01,L01,W01,P03,LOOK01,AM01]`。  
-  `state_dependencies: [SH005]`；`state_before: {gate: closed, passed: 2, memory_marks: 1, causal_knowledge: confirmed, choice: self_preservation, red_thread: with_final_soul}`；`state_after` 同前，仅 `choice: confronted`。  
-  快照：亡魂在北侧、C01 在南侧；两者隔阈线对视；P03 在亡魂双手；W01 无损；门关闭；首尾同上。  
-  `composition_16x9`：“Balanced two-shot across the threshold, C01 on the right and the final soul on the left, the red thread bridging the negative space.”  
-  9:16：“Vertical two-level composition with the final soul above, C01 below, and the red thread forming the central connective line.”；独立生成；上下人物脸均避开字幕区。  
-  `coverage_role: [setup, anticipation]`；亡魂只举起红线；C01 呼吸变化；缓推；红线受门风轻摆；验收为红线连接两人而非装饰粒子。  
-  转场：红线形状匹配到 C01 握钥匙的指缝；8 帧；CUE03 单音；fallback 硬切。  
+- `SH006`｜`S02`｜sequence 6｜5 秒
+  `story_function`：把最终选择具体化；`beat_change`：抽象职责变成面前的最后一个请求。
+  MS，最后亡魂从胸前举起 P03，停在阈线外；轻微向前推。
+  `opening_state`：门关闭、两魂已过、C01 仅余一道刻痕并选择自保。
+  `closing_state`：P03 被举到 C01 视线高度，最后亡魂仍未过门。
+  `continuity_ids: [C01,L01,W01,P03,LOOK01,AM01]`。
+  `state_dependencies: [SH005]`；`state_before: {gate: closed, passed: 2, memory_marks: 1, causal_knowledge: confirmed, choice: self_preservation, red_thread: with_final_soul}`；`state_after` 同前，仅 `choice: confronted`。
+  快照：亡魂在北侧、C01 在南侧；两者隔阈线对视；P03 在亡魂双手；W01 无损；门关闭；首尾同上。
+  `composition_16x9`：“Balanced two-shot across the threshold, C01 on the right and the final soul on the left, the red thread bridging the negative space.”
+  9:16：“Vertical two-level composition with the final soul above, C01 below, and the red thread forming the central connective line.”；独立生成；上下人物脸均避开字幕区。
+  `coverage_role: [setup, anticipation]`；亡魂只举起红线；C01 呼吸变化；缓推；红线受门风轻摆；验收为红线连接两人而非装饰粒子。
+  转场：红线形状匹配到 C01 握钥匙的指缝；8 帧；CUE03 单音；fallback 硬切。
   风险：P03 提前换到 C01 手中；验收为全镜保持亡魂持有。
 
-- `SH007`｜`S03`｜sequence 7｜5 秒  
-  `story_function`：高潮前决定停顿；`beat_change`：从本能自保到准备承担代价。  
-  ECU，C01 右手紧握 P01，随后拇指松开锁止片，但尚未旋转。locked-off，有动机 hold。  
-  `opening_state`：门关闭，P03 在亡魂手中，选择未决。  
-  `closing_state`：P01 锁止片已松开，C01 决定放行。  
-  `continuity_ids: [C01,L01,W01,P01,P03,LOOK01,AM01]`。  
-  `state_dependencies: [SH006]`；`state_before: {gate: closed, passed: 2, memory_marks: 1, causal_knowledge: confirmed, choice: confronted, red_thread: with_final_soul}`；`state_after` 同前，仅 `choice: release_chosen`。  
-  快照：右手持 P01；左手空；视线先看 P03 再看钥匙；W01 袖口干燥；首尾同上。  
-  `composition_16x9`：“Extreme close-up of the right hand and iron key at frame right, with the red thread and final soul blurred across the left depth.”  
-  9:16：“Vertical macro composition stacking C01's eye, right hand on the key, and the red thread in one central column.”；独立生成；顶部留眼神安全区。  
-  `coverage_role: [reaction, anticipation]`；主体运动只有拇指松开；表演由握紧到稳定；camera locked；红线微摆；`intentional_hold: true`，原因是让代价已知后的选择可读；验收为握力变化和眼神决定均清楚。  
-  转场：动作连续切入钥匙旋转；0 帧；CUE01 风声持续；fallback 为 4 帧动作叠化。  
+- `SH007`｜`S03`｜sequence 7｜5 秒
+  `story_function`：高潮前决定停顿；`beat_change`：从本能自保到准备承担代价。
+  ECU，C01 右手紧握 P01，随后拇指松开锁止片，但尚未旋转。locked-off，有动机 hold。
+  `opening_state`：门关闭，P03 在亡魂手中，选择未决。
+  `closing_state`：P01 锁止片已松开，C01 决定放行。
+  `continuity_ids: [C01,L01,W01,P01,P03,LOOK01,AM01]`。
+  `state_dependencies: [SH006]`；`state_before: {gate: closed, passed: 2, memory_marks: 1, causal_knowledge: confirmed, choice: confronted, red_thread: with_final_soul}`；`state_after` 同前，仅 `choice: release_chosen`。
+  快照：右手持 P01；左手空；视线先看 P03 再看钥匙；W01 袖口干燥；首尾同上。
+  `composition_16x9`：“Extreme close-up of the right hand and iron key at frame right, with the red thread and final soul blurred across the left depth.”
+  9:16：“Vertical macro composition stacking C01's eye, right hand on the key, and the red thread in one central column.”；独立生成；顶部留眼神安全区。
+  `coverage_role: [reaction, anticipation]`；主体运动只有拇指松开；表演由握紧到稳定；camera locked；红线微摆；`intentional_hold: true`，原因是让代价已知后的选择可读；验收为握力变化和眼神决定均清楚。
+  转场：动作连续切入钥匙旋转；0 帧；CUE01 风声持续；fallback 为 4 帧动作叠化。
   风险：被误判成海报静止；验收必须看到握力、拇指、呼吸和眼神的顺序变化。
 
-- `SH008`｜`S03`｜sequence 8｜5 秒  
-  `story_function`：高潮动作与最终代价；`beat_change`：最后亡魂从被阻隔到获准通过，C01 记忆归零。  
-  WS，C01 转动 P01；最后亡魂沿明确路径穿门，P03 落在阈线内；缓慢后移揭示尺度。  
-  `opening_state`：门关闭，最后亡魂持 P03，一道刻痕，放行决定已作出。  
-  `closing_state`：门再次关闭，三魂均已通过，刻痕为零，P03 留在地面。  
-  `continuity_ids: [C01,L01,W01,P01,P03,LOOK01,AM01]`。  
-  `state_dependencies: [SH007]`；`state_before: {gate: closed, passed: 2, memory_marks: 1, causal_knowledge: confirmed, choice: release_chosen, red_thread: with_final_soul}`；`state_after: {gate: closed, passed: 3, memory_marks: 0, causal_knowledge: lost, choice: completed, red_thread: on_threshold_floor}`。  
-  快照：C01 南侧右手持钥匙；亡魂北侧朝西门；P03 先在亡魂手中、后落地；W01 被门风向东推；夜；阈光西向东；首尾同上。  
-  `composition_16x9`：“Hero wide shot using the full horizontal hall: C01 anchored on the right, the final soul crossing center-left, and the gate opening into deep negative space.”  
-  9:16：“Independent vertical hero composition with C01 at the bottom, the ascending gate above, and the final soul crossing through the center while the red thread falls toward camera.”；独立生成；主体避开上下文字区。  
-  `coverage_role: [action, impact, consequence]`；主体路径、C01 反作用力、后移摄影、衣摆和红线落地四层；验收必须看到亡魂穿越、C01 被门风压回、P03 落地和刻痕归零。  
-  转场：门鸣尾音桥接到红线落地特写；6 帧；CUE05；fallback 为门光遮挡切。  
+- `SH008`｜`S03`｜sequence 8｜5 秒
+  `story_function`：高潮动作与最终代价；`beat_change`：最后亡魂从被阻隔到获准通过，C01 记忆归零。
+  WS，C01 转动 P01；最后亡魂沿明确路径穿门，P03 落在阈线内；缓慢后移揭示尺度。
+  `opening_state`：门关闭，最后亡魂持 P03，一道刻痕，放行决定已作出。
+  `closing_state`：门再次关闭，三魂均已通过，刻痕为零，P03 留在地面。
+  `continuity_ids: [C01,L01,W01,P01,P03,LOOK01,AM01]`。
+  `state_dependencies: [SH007]`；`state_before: {gate: closed, passed: 2, memory_marks: 1, causal_knowledge: confirmed, choice: release_chosen, red_thread: with_final_soul}`；`state_after: {gate: closed, passed: 3, memory_marks: 0, causal_knowledge: lost, choice: completed, red_thread: on_threshold_floor}`。
+  快照：C01 南侧右手持钥匙；亡魂北侧朝西门；P03 先在亡魂手中、后落地；W01 被门风向东推；夜；阈光西向东；首尾同上。
+  `composition_16x9`：“Hero wide shot using the full horizontal hall: C01 anchored on the right, the final soul crossing center-left, and the gate opening into deep negative space.”
+  9:16：“Independent vertical hero composition with C01 at the bottom, the ascending gate above, and the final soul crossing through the center while the red thread falls toward camera.”；独立生成；主体避开上下文字区。
+  `coverage_role: [action, impact, consequence]`；主体路径、C01 反作用力、后移摄影、衣摆和红线落地四层；验收必须看到亡魂穿越、C01 被门风压回、P03 落地和刻痕归零。
+  转场：门鸣尾音桥接到红线落地特写；6 帧；CUE05；fallback 为门光遮挡切。
   风险：多主体与道具状态漂移；验收为一个 C01、一个亡魂、一个 P01、一个 P03，且红线只在亡魂过门后落地。
 
-- `SH009`｜`S03`｜sequence 9｜5 秒  
-  `story_function`：后果与余味；`beat_change`：失去旧身份后留下主动选择的新痕迹。  
-  CU，神情陌生而平静的 C01 拾起 P03，将它系在空白 P02 上；慢推至红结。  
-  `opening_state`：门关闭、记忆归零、P03 在地面、P02 空白。  
-  `closing_state`：P03 系在 P02 上，C01 无名但仍站在门前。  
-  `continuity_ids: [C01,L01,W01,P02,P03,LOOK01,AM01]`。  
-  `state_dependencies: [SH008]`；`state_before: {gate: closed, passed: 3, memory_marks: 0, causal_knowledge: lost, choice: completed, red_thread: on_threshold_floor}`；`state_after` 同前，仅 `red_thread: tied_to_blank_nameplate`。  
-  快照：C01 面向空白名牌；右手完成系结；W01 无损；永恒夜；冷光平稳；首尾同上。  
-  `composition_16x9`：“Close-up with the red knot and blank brass plate on the left third, C01's now-unmarked face held in the right background, and the closed gate beyond.”  
-  9:16：“Vertical closing composition stacking C01's unmarked face, the blank brass plate, and the red knot along the center axis.”；recompose；上方片名和下方字幕区保持干净。  
-  `coverage_role: [aftermath, consequence]`；主体拾线系结、表演从陌生到安定；慢推；红线随结收紧；验收为完整系结动作和空白名牌同时可读。  
-  最后一镜无出转场。  
+- `SH009`｜`S03`｜sequence 9｜5 秒
+  `story_function`：后果与余味；`beat_change`：失去旧身份后留下主动选择的新痕迹。
+  CU，神情陌生而平静的 C01 拾起 P03，将它系在空白 P02 上；慢推至红结。
+  `opening_state`：门关闭、记忆归零、P03 在地面、P02 空白。
+  `closing_state`：P03 系在 P02 上，C01 无名但仍站在门前。
+  `continuity_ids: [C01,L01,W01,P02,P03,LOOK01,AM01]`。
+  `state_dependencies: [SH008]`；`state_before: {gate: closed, passed: 3, memory_marks: 0, causal_knowledge: lost, choice: completed, red_thread: on_threshold_floor}`；`state_after` 同前，仅 `red_thread: tied_to_blank_nameplate`。
+  快照：C01 面向空白名牌；右手完成系结；W01 无损；永恒夜；冷光平稳；首尾同上。
+  `composition_16x9`：“Close-up with the red knot and blank brass plate on the left third, C01's now-unmarked face held in the right background, and the closed gate beyond.”
+  9:16：“Vertical closing composition stacking C01's unmarked face, the blank brass plate, and the red knot along the center axis.”；recompose；上方片名和下方字幕区保持干净。
+  `coverage_role: [aftermath, consequence]`；主体拾线系结、表演从陌生到安定；慢推；红线随结收紧；验收为完整系结动作和空白名牌同时可读。
+  最后一镜无出转场。
   风险：生成错误文字或红线形状跳变；验收为 P02 无可读字、P03 连续且只形成一个结。
 
-`narrative_clarity: pass`：主角、目标、阻碍、因果和结尾变化均可由镜头读取。  
+`narrative_clarity: pass`：主角、目标、阻碍、因果和结尾变化均可由镜头读取。
 `continuity_integrity: pass_for_draft`：上述 Canon 内没有状态交接冲突；实际身份参考尚未制作，因此不能进入最终锁定。
 
 **8. `shot_prompts`｜逐镜规范提示词**
 
 以下每条都是唯一 canonical prompt record，状态均为 `approval_status: draft`。
 
-- `SH001`  
-  `director_intent_zh`：让空白名牌成为第一问号，同时把三道记忆刻痕建立为后续计数器。  
-  `global_lock_block`：`C01/IP-C01, L01, W01, P02, LOOK01; blank plate, exactly three silver temple marks, no readable text, no identity drift.`  
-  `universal_prompt_en`：`A tall lean fictional adult gatekeeper with a narrow pale face, broken right eyebrow, short swept-back black hair and exactly three silver memory marks at his left temple wears a coarse charcoal robe and touches a worn blank brass nameplate inside a long cold stone threshold hall. His right thumb wipes the plate once, then stops when no name appears. Extreme close-up, locked camera, cold cyan gate light from camera left, brass dust falling. Start with dust covering the plate and end with the plate clean but blank, his eye motionless. No readable text.`  
-  `direction_variants.16:9`：`Extreme close-up on the blank brass plate at the left third, C01's eye and three temple marks soft in the right background. Locked camera; one wipe; end on the stopped thumb.`  
-  `direction_variants.9:16`：`Vertical close-up stacking C01's eye, three temple marks, and the blank brass plate along the center axis. Locked camera; one wipe; preserve top and bottom safe areas.`  
-  `negative_prompt_en`：`readable letters, random symbols, changed face, wrong mark count, extra fingers, duplicate plate, camera shake, decorative particles only.`  
-  `continuity_anchors`：C01/IP-C01、W01、P02、L01、LOOK01、AM01；三道刻痕；P02 空白。  
-  `reference_requirements`：REF-C01-DRAFT 身份参考、REF-P02-DRAFT 道具参考、KF-SH001-A 首帧，均待制作并审批。  
-  `audio_guidance`：CUE01、CUE03；无对白、无口型，后期制作。  
+- `SH001`
+  `director_intent_zh`：让空白名牌成为第一问号，同时把三道记忆刻痕建立为后续计数器。
+  `global_lock_block`：`C01/IP-C01, L01, W01, P02, LOOK01; blank plate, exactly three silver temple marks, no readable text, no identity drift.`
+  `universal_prompt_en`：`A tall lean fictional adult gatekeeper with a narrow pale face, broken right eyebrow, short swept-back black hair and exactly three silver memory marks at his left temple wears a coarse charcoal robe and touches a worn blank brass nameplate inside a long cold stone threshold hall. His right thumb wipes the plate once, then stops when no name appears. Extreme close-up, locked camera, cold cyan gate light from camera left, brass dust falling. Start with dust covering the plate and end with the plate clean but blank, his eye motionless. No readable text.`
+  `direction_variants.16:9`：`Extreme close-up on the blank brass plate at the left third, C01's eye and three temple marks soft in the right background. Locked camera; one wipe; end on the stopped thumb.`
+  `direction_variants.9:16`：`Vertical close-up stacking C01's eye, three temple marks, and the blank brass plate along the center axis. Locked camera; one wipe; preserve top and bottom safe areas.`
+  `negative_prompt_en`：`readable letters, random symbols, changed face, wrong mark count, extra fingers, duplicate plate, camera shake, decorative particles only.`
+  `continuity_anchors`：C01/IP-C01、W01、P02、L01、LOOK01、AM01；三道刻痕；P02 空白。
+  `reference_requirements`：REF-C01-DRAFT 身份参考、REF-P02-DRAFT 道具参考、KF-SH001-A 首帧，均待制作并审批。
+  `audio_guidance`：CUE01、CUE03；无对白、无口型，后期制作。
   `model_variants`：Kling=`manual_only`；Seedance=`manual_only`；HappyHorse=`happyhorse-1.1-t2v`，仅使用已核实 t2v 字段。
 
-- `SH002`  
-  `director_intent_zh`：第一次明确展示“守门人的动作使亡魂通过”。  
-  `global_lock_block`：`C01/IP-C01, L01, W01, P01, LOOK01; right-hand key, three memory marks, one coherent soul silhouette.`  
-  `universal_prompt_en`：`The same fictional gatekeeper turns one black iron ring key in his right hand as one coherent human-shaped soul crosses the threshold from right to left. His weight presses into the key and his robe pulls back under the gate wind. Wide lateral composition, one short tracking move, cold cyan light opening from the left. Start with the gate closed and the soul waiting; end with the soul beyond the threshold and the key still in his right hand.`  
-  `direction_variants.16:9`：`Wide lateral composition with C01 on the right, the soul crossing center, and the gate occupying the left third. Track only the soul's single crossing path.`  
-  `direction_variants.9:16`：`Vertical depth composition with C01 low foreground, the soul centered, and the luminous gate rising above. Keep the crossing path readable without center-cropping.`  
-  `negative_prompt_en`：`duplicate soul, smoke-only subject, key in left hand, extra key, static poster, orbit camera, reversed gate geography, random text.`  
+- `SH002`
+  `director_intent_zh`：第一次明确展示“守门人的动作使亡魂通过”。
+  `global_lock_block`：`C01/IP-C01, L01, W01, P01, LOOK01; right-hand key, three memory marks, one coherent soul silhouette.`
+  `universal_prompt_en`：`The same fictional gatekeeper turns one black iron ring key in his right hand as one coherent human-shaped soul crosses the threshold from right to left. His weight presses into the key and his robe pulls back under the gate wind. Wide lateral composition, one short tracking move, cold cyan light opening from the left. Start with the gate closed and the soul waiting; end with the soul beyond the threshold and the key still in his right hand.`
+  `direction_variants.16:9`：`Wide lateral composition with C01 on the right, the soul crossing center, and the gate occupying the left third. Track only the soul's single crossing path.`
+  `direction_variants.9:16`：`Vertical depth composition with C01 low foreground, the soul centered, and the luminous gate rising above. Keep the crossing path readable without center-cropping.`
+  `negative_prompt_en`：`duplicate soul, smoke-only subject, key in left hand, extra key, static poster, orbit camera, reversed gate geography, random text.`
   锚点：C01、W01、P01/right、L01、LOOK01、三道刻痕。参考：REF-C01-DRAFT、REF-P01-DRAFT、REF-L01-DRAFT、首帧与尾帧。声音：CUE01、CUE02，后期。模型变体同 SH001。
 
-- `SH003`  
-  `director_intent_zh`：用声音缺口、呼吸中断和刻痕减少共同证明第一次失忆。  
-  `global_lock_block`：`C01/IP-C01, L01, W01, LOOK01; exactly three marks at opening and two at closing.`  
-  `universal_prompt_en`：`The same gatekeeper tries to hum a three-note memory phrase, loses the final note, and stops breathing for a beat as one of three silver temple marks goes dark. Close-up with the dimming gate visible behind him, an extremely slow push toward his eyes. Start with three marks and active gate light; end with exactly two marks, closed gate and an interrupted breath.`  
-  16:9：`Close-up with C01 on the right third and the dimming gate retained as causal evidence in the left background.`  
-  9:16：`Vertical close-up prioritizing mouth, eyes, and the extinguishing temple mark, with the gate glow behind the shoulder.`  
-  负向：`all marks disappearing, unchanged performance, moving lips forming dialogue, face drift, decorative glow without reaction, focus pumping.`  
+- `SH003`
+  `director_intent_zh`：用声音缺口、呼吸中断和刻痕减少共同证明第一次失忆。
+  `global_lock_block`：`C01/IP-C01, L01, W01, LOOK01; exactly three marks at opening and two at closing.`
+  `universal_prompt_en`：`The same gatekeeper tries to hum a three-note memory phrase, loses the final note, and stops breathing for a beat as one of three silver temple marks goes dark. Close-up with the dimming gate visible behind him, an extremely slow push toward his eyes. Start with three marks and active gate light; end with exactly two marks, closed gate and an interrupted breath.`
+  16:9：`Close-up with C01 on the right third and the dimming gate retained as causal evidence in the left background.`
+  9:16：`Vertical close-up prioritizing mouth, eyes, and the extinguishing temple mark, with the gate glow behind the shoulder.`
+  负向：`all marks disappearing, unchanged performance, moving lips forming dialogue, face drift, decorative glow without reaction, focus pumping.`
   锚点：C01、W01、L01、LOOK01、AM01；3→2 刻痕。参考：身份、起止关键帧。声音：CUE03 第三音缺失、CUE04 静默。模型变体同 SH001。
 
-- `SH004`  
-  `director_intent_zh`：让第二次放行成为 C01 主动进行的因果测试。  
-  `global_lock_block`：`C01/IP-C01, L01, W01, P01, LOOK01; two memory marks, right-hand key.`  
-  `universal_prompt_en`：`The same gatekeeper checks the two silver marks in a dark metal reflection, then deliberately turns the black iron ring key once with his right hand so a second coherent soul crosses. Medium shot, locked camera, key sharp in the right foreground and the soul aligned with the gate behind. Start with a closed gate and two marks; end with the second soul beyond the active threshold.`  
-  16:9：`Medium two-plane composition: C01 and key in sharp right foreground, second soul and gate aligned in the left background.`  
-  9:16：`Vertical split-depth composition placing C01's temple marks above the right-hand key and the second soul below the gate.`  
-  负向：`missing reflection check, key hand swap, duplicate subjects, wrong mark count, unmotivated camera motion, smoke-only soul.`  
+- `SH004`
+  `director_intent_zh`：让第二次放行成为 C01 主动进行的因果测试。
+  `global_lock_block`：`C01/IP-C01, L01, W01, P01, LOOK01; two memory marks, right-hand key.`
+  `universal_prompt_en`：`The same gatekeeper checks the two silver marks in a dark metal reflection, then deliberately turns the black iron ring key once with his right hand so a second coherent soul crosses. Medium shot, locked camera, key sharp in the right foreground and the soul aligned with the gate behind. Start with a closed gate and two marks; end with the second soul beyond the active threshold.`
+  16:9：`Medium two-plane composition: C01 and key in sharp right foreground, second soul and gate aligned in the left background.`
+  9:16：`Vertical split-depth composition placing C01's temple marks above the right-hand key and the second soul below the gate.`
+  负向：`missing reflection check, key hand swap, duplicate subjects, wrong mark count, unmotivated camera motion, smoke-only soul.`
   锚点：C01、W01、P01/right、L01、LOOK01；两道刻痕。参考与声音：身份、钥匙、地点、CUE02。模型变体同 SH001。
 
-- `SH005`  
-  `director_intent_zh`：用第二次相同后果让 C01 确认规律。  
-  `global_lock_block`：`C01/IP-C01, L01, W01, LOOK01; two marks at opening, one at closing, carved face remains fixed.`  
-  `universal_prompt_en`：`The same gatekeeper watches a second silver memory mark extinguish, then looks toward one fixed carved face on the stone wall with searching eyes that become blank recognition failure. Close-up, locked camera, the carved face soft on the left and his reaction sharp on the right. Start with two marks and active gate light; end with exactly one mark and the gate dark.`  
-  16:9：`Close-up of C01 at frame right facing an out-of-focus carved family face at frame left, with one surviving temple mark.`  
-  9:16：`Vertical reaction close-up with the unfamiliar carved face above C01 and the single surviving memory mark centered.`  
-  负向：`changed carving, melodramatic scream, static blank pose, all marks gone, face change, particle-only motion.`  
+- `SH005`
+  `director_intent_zh`：用第二次相同后果让 C01 确认规律。
+  `global_lock_block`：`C01/IP-C01, L01, W01, LOOK01; two marks at opening, one at closing, carved face remains fixed.`
+  `universal_prompt_en`：`The same gatekeeper watches a second silver memory mark extinguish, then looks toward one fixed carved face on the stone wall with searching eyes that become blank recognition failure. Close-up, locked camera, the carved face soft on the left and his reaction sharp on the right. Start with two marks and active gate light; end with exactly one mark and the gate dark.`
+  16:9：`Close-up of C01 at frame right facing an out-of-focus carved family face at frame left, with one surviving temple mark.`
+  9:16：`Vertical reaction close-up with the unfamiliar carved face above C01 and the single surviving memory mark centered.`
+  负向：`changed carving, melodramatic scream, static blank pose, all marks gone, face change, particle-only motion.`
   锚点：C01、W01、L01、LOOK01、AM01；2→1。参考：身份、壁像位置、首尾帧。声音：CUE03 仅余一音、CUE04。模型变体同 SH001。
 
-- `SH006`  
-  `director_intent_zh`：把最后亡魂与红线建立为不可回避的选择对象。  
-  `global_lock_block`：`C01/IP-C01, L01, W01, P03, LOOK01; one memory mark; red thread stays with final soul.`  
-  `universal_prompt_en`：`A final coherent soul standing across the threshold raises one dark red cotton thread from chest level to the gatekeeper's eye line. The gatekeeper does not move, but his breath tightens and his eyes fix on the thread. Medium two-shot, one gentle push forward, closed gate, cold side light. Start with the thread at the soul's chest and end with it held between them at eye level.`  
-  16:9：`Balanced two-shot across the threshold, C01 on the right and the final soul on the left, the red thread bridging the negative space.`  
-  9:16：`Vertical two-level composition with the final soul above, C01 below, and the red thread forming the central connective line.`  
-  负向：`thread already in gatekeeper hand, duplicate thread, smoke-only soul, identity drift, orbit camera, random glowing symbols.`  
+- `SH006`
+  `director_intent_zh`：把最后亡魂与红线建立为不可回避的选择对象。
+  `global_lock_block`：`C01/IP-C01, L01, W01, P03, LOOK01; one memory mark; red thread stays with final soul.`
+  `universal_prompt_en`：`A final coherent soul standing across the threshold raises one dark red cotton thread from chest level to the gatekeeper's eye line. The gatekeeper does not move, but his breath tightens and his eyes fix on the thread. Medium two-shot, one gentle push forward, closed gate, cold side light. Start with the thread at the soul's chest and end with it held between them at eye level.`
+  16:9：`Balanced two-shot across the threshold, C01 on the right and the final soul on the left, the red thread bridging the negative space.`
+  9:16：`Vertical two-level composition with the final soul above, C01 below, and the red thread forming the central connective line.`
+  负向：`thread already in gatekeeper hand, duplicate thread, smoke-only soul, identity drift, orbit camera, random glowing symbols.`
   锚点：C01、W01、P03/with soul、L01、LOOK01；一道刻痕。参考：身份、红线、地点、起止帧。声音：CUE01、CUE03 单音。模型变体同 SH001。
 
-- `SH007`  
-  `director_intent_zh`：用有动机的停顿展示“明知会失去仍决定放行”。  
-  `global_lock_block`：`C01/IP-C01, L01, W01, P01 right hand, P03 with soul, LOOK01; one memory mark.`  
-  `universal_prompt_en`：`The same gatekeeper grips the black iron ring key in his right hand, holds still long enough to look from the red thread to the key, then releases the locking tab with his thumb without turning the key yet. Extreme close-up, locked camera, controlled breath and visible change from tension to steadiness. Start with the lock engaged; end with the tab released and his decision settled.`  
-  16:9：`Extreme close-up of the right hand and iron key at frame right, with the red thread and final soul blurred across the left depth.`  
-  9:16：`Vertical macro composition stacking C01's eye, right hand on the key, and the red thread in one central column.`  
-  负向：`fully static poster, key turning early, key in left hand, duplicate thread, camera shake, wrong mark count.`  
+- `SH007`
+  `director_intent_zh`：用有动机的停顿展示“明知会失去仍决定放行”。
+  `global_lock_block`：`C01/IP-C01, L01, W01, P01 right hand, P03 with soul, LOOK01; one memory mark.`
+  `universal_prompt_en`：`The same gatekeeper grips the black iron ring key in his right hand, holds still long enough to look from the red thread to the key, then releases the locking tab with his thumb without turning the key yet. Extreme close-up, locked camera, controlled breath and visible change from tension to steadiness. Start with the lock engaged; end with the tab released and his decision settled.`
+  16:9：`Extreme close-up of the right hand and iron key at frame right, with the red thread and final soul blurred across the left depth.`
+  9:16：`Vertical macro composition stacking C01's eye, right hand on the key, and the red thread in one central column.`
+  负向：`fully static poster, key turning early, key in left hand, duplicate thread, camera shake, wrong mark count.`
   锚点：C01、W01、P01/right、P03/with soul、L01、LOOK01。参考：身份、钥匙、手部首尾帧。声音：CUE01；无声停顿有明确戏剧动机。模型变体同 SH001。
 
-- `SH008`  
-  `director_intent_zh`：完成最后一次放行，并同时给出动作、反应与不可逆后果。  
-  `global_lock_block`：`C01/IP-C01, L01, W01, P01, P03, LOOK01; one mark at opening, zero at closing.`  
-  `universal_prompt_en`：`The same gatekeeper turns the iron ring key once with his right hand. The final coherent soul crosses the gate on one readable path while the gate wind pushes the gatekeeper's weight backward and the dark red thread falls onto the threshold floor. Hero wide shot with one slow dolly back. Start with one temple mark and the thread held by the soul; end with the closed gate, no temple marks and the thread alone on the floor.`  
-  16:9：`Hero wide shot using the full horizontal hall: C01 anchored on the right, the final soul crossing center-left, and the gate opening into deep negative space.`  
-  9:16：`Independent vertical hero composition with C01 at the bottom, the ascending gate above, and the final soul crossing through the center while the red thread falls toward camera.`  
-  负向：`duplicate gatekeeper, duplicate soul, smoke-only subject, thread falling before crossing, wrong key hand, surviving memory mark, background motion without body reaction.`  
+- `SH008`
+  `director_intent_zh`：完成最后一次放行，并同时给出动作、反应与不可逆后果。
+  `global_lock_block`：`C01/IP-C01, L01, W01, P01, P03, LOOK01; one mark at opening, zero at closing.`
+  `universal_prompt_en`：`The same gatekeeper turns the iron ring key once with his right hand. The final coherent soul crosses the gate on one readable path while the gate wind pushes the gatekeeper's weight backward and the dark red thread falls onto the threshold floor. Hero wide shot with one slow dolly back. Start with one temple mark and the thread held by the soul; end with the closed gate, no temple marks and the thread alone on the floor.`
+  16:9：`Hero wide shot using the full horizontal hall: C01 anchored on the right, the final soul crossing center-left, and the gate opening into deep negative space.`
+  9:16：`Independent vertical hero composition with C01 at the bottom, the ascending gate above, and the final soul crossing through the center while the red thread falls toward camera.`
+  负向：`duplicate gatekeeper, duplicate soul, smoke-only subject, thread falling before crossing, wrong key hand, surviving memory mark, background motion without body reaction.`
   锚点：C01、W01、P01/right、P03/soul→floor、L01、LOOK01、AM01；1→0。参考：全部身份、道具、场景和首尾帧。声音：CUE02、CUE05。模型变体同 SH001。
 
-- `SH009`  
-  `director_intent_zh`：用一个可触摸的新痕迹收束“记忆消失但选择留下”。  
-  `global_lock_block`：`C01/IP-C01, L01, W01, P02 blank, P03 on floor then tied, LOOK01; zero temple marks.`  
-  `universal_prompt_en`：`The same now-unmarked gatekeeper picks up the dark red cotton thread and ties one simple knot around the worn blank brass nameplate. His unfamiliar expression settles into calm as the knot tightens. Close-up with one slow push toward the knot, closed gate behind. Start with the thread on the floor and the plate blank; end with one red knot on the still-blank plate and no readable text.`  
-  16:9：`Close-up with the red knot and blank brass plate on the left third, C01's now-unmarked face held in the right background, and the closed gate beyond.`  
-  9:16：`Vertical closing composition stacking C01's unmarked face, the blank brass plate, and the red knot along the center axis.`  
-  负向：`readable name, random letters, duplicate thread, multiple knots, returning memory marks, changed face, static hand pose, camera orbit.`  
+- `SH009`
+  `director_intent_zh`：用一个可触摸的新痕迹收束“记忆消失但选择留下”。
+  `global_lock_block`：`C01/IP-C01, L01, W01, P02 blank, P03 on floor then tied, LOOK01; zero temple marks.`
+  `universal_prompt_en`：`The same now-unmarked gatekeeper picks up the dark red cotton thread and ties one simple knot around the worn blank brass nameplate. His unfamiliar expression settles into calm as the knot tightens. Close-up with one slow push toward the knot, closed gate behind. Start with the thread on the floor and the plate blank; end with one red knot on the still-blank plate and no readable text.`
+  16:9：`Close-up with the red knot and blank brass plate on the left third, C01's now-unmarked face held in the right background, and the closed gate beyond.`
+  9:16：`Vertical closing composition stacking C01's unmarked face, the blank brass plate, and the red knot along the center axis.`
+  负向：`readable name, random letters, duplicate thread, multiple knots, returning memory marks, changed face, static hand pose, camera orbit.`
   锚点：C01、W01、P02/blank、P03/floor→plate、L01、LOOK01；零刻痕。参考：身份、名牌、红线和首尾帧。声音：CUE06。模型变体同 SH001。
 
 **9. `model_job_manifest`｜三平台、双画幅逐镜任务**
 
 公共定义：
 
-- `PS(SHxxx,aspect)` 精确展开为  
+- `PS(SHxxx,aspect)` 精确展开为
   `{"global_lock_source":"shot_prompts[shot_id=SHxxx].global_lock_block","direction_source":"shot_prompts[shot_id=SHxxx].direction_variants[aspect]"}`
 - 所有任务：`duration_seconds: 5`；`job_purpose: generate draft shot without changing Canon`；`approval_status: non_executable`。
-- 所有 `character_model_bindings` 均包含  
+- 所有 `character_model_bindings` 均包含
   `{character_id:C01, identity_profile_id:IP-C01, reference_input_ids:[REF-C01-DRAFT], lock_status:pending}`；原因是身份参考尚未制作和批准。
 - 16:9 交付：`resolution: 1920x1080`；9:16 交付：`resolution: 1080x1920`。
 - Kling 模板：`model_family: Kling Open Platform`；`generation_mode: manual_unverified`；`documented_parameters:{}`；手工项为 `official_schema_access, model_id, endpoint, authentication, generation_mode, prompt_field, reference_inputs, first_last_frame_support, audio_support, duration, aspect, resolution, all_request_parameters`。

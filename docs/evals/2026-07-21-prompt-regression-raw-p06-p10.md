@@ -1,5 +1,9 @@
 # P06–P10 blind behavior regression raw output
 
+Source revision: `0b870cd`.
+
+Initial full-prompt regression; the P04/P10 repair had not yet been applied.
+
 Evaluator input was limited to P06–P10, committed `SKILL.md`, and Skill-routed references. The evaluator was forbidden to read expected results, tests, reports, `results.tsv`, or git history. The following is its complete output.
 
 ## P06 raw output
