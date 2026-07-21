@@ -136,6 +136,25 @@ def valid_package():
 
 def cinematic_package():
     package = valid_package()
+    package["continuity_bible"]["characters"][0]["identity_profile"] = {
+        "identity_profile_id": "IDP-character-01",
+        "approval_status": "approved",
+        "face_anchors": ["oval face", "small mole above left eyebrow"],
+        "body_anchors": ["adult medium build", "consistent shoulder width"],
+        "hair_anchors": ["short black hair"],
+        "fixed_accessories": ["none"],
+        "signature_effect_anchors": ["soft amber pulse"],
+        "reference_asset_ids": [
+            "REF-character-01-front",
+            "REF-character-01-profile",
+        ],
+        "forbidden_drift": [
+            "face change",
+            "age change",
+            "body proportion change",
+            "hair change",
+        ],
+    }
     package["project_brief"]["target_duration_seconds"] = 30
     package["project_brief"]["cinematic_mode"] = {
         "input_mode": "concept_mode",
@@ -181,6 +200,26 @@ def cinematic_package():
     landscape_job["duration_seconds"] = 30
     landscape_job["aspect"] = "16:9"
     landscape_job["approval_status"] = "approved"
+    landscape_job["reference_inputs"].extend(
+        [
+            "REF-character-01-front",
+            "REF-character-01-profile",
+        ]
+    )
+    landscape_job["character_model_bindings"] = [
+        {
+            "character_id": "character-01",
+            "identity_profile_id": "IDP-character-01",
+            "model_family": "video-model",
+            "model_version": "video-model-v1",
+            "identity_binding_method": "multi-reference-subject-binding",
+            "reference_input_ids": [
+                "REF-character-01-front",
+                "REF-character-01-profile",
+            ],
+            "lock_status": "locked",
+        }
+    ]
     landscape_job["prompt_source"] = {
         "global_lock_source": (
             "shot_prompts[shot_id=shot-01].global_lock_block"
@@ -213,6 +252,11 @@ def cinematic_package():
             "continuity_integrity": {
                 "status": "pass",
                 "unresolved_conflicts": [],
+            },
+            "identity_integrity": {
+                "status": "pass",
+                "unresolved_conflicts": [],
+                "evidence_refs": ["identity-audit-character-01"],
             },
         }
     )
@@ -900,6 +944,350 @@ class ValidatePackageTests(unittest.TestCase):
 class CinematicBriefValidationTests(unittest.TestCase):
     def test_valid_cinematic_package_has_no_errors(self):
         self.assertEqual(validate_package(cinematic_package()), [])
+
+    def test_cinematic_character_requires_approved_identity_profile(self):
+        package = cinematic_package()
+        package["continuity_bible"]["characters"][0].pop("identity_profile")
+        self.assertIn(
+            "character character-01: missing cinematic identity_profile",
+            validate_package(package),
+        )
+
+    def test_cinematic_job_cannot_drift_model_version_for_same_character(self):
+        package = cinematic_package()
+        package["model_job_manifest"][1]["character_model_bindings"][0][
+            "model_version"
+        ] = "video-model-v2"
+        self.assertIn(
+            "character character-01 model lock: model_version drift within video-model",
+            validate_package(package),
+        )
+
+    def test_cinematic_job_cannot_drift_identity_reference_set(self):
+        package = cinematic_package()
+        package["model_job_manifest"][1]["character_model_bindings"][0][
+            "reference_input_ids"
+        ] = ["REF-character-01-front"]
+        self.assertIn(
+            "character character-01 model lock: reference_input_ids drift within video-model",
+            validate_package(package),
+        )
+
+    def test_ready_cinematic_package_requires_identity_integrity_pass(self):
+        package = cinematic_package()
+        package["quality_report"]["checks"]["identity_integrity"][
+            "status"
+        ] = "fail"
+        self.assertIn(
+            "quality_report.ready: identity_integrity must pass",
+            validate_package(package),
+        )
+
+    def test_identity_profile_requires_every_contract_field(self):
+        fields = (
+            "identity_profile_id",
+            "approval_status",
+            "face_anchors",
+            "body_anchors",
+            "hair_anchors",
+            "fixed_accessories",
+            "signature_effect_anchors",
+            "reference_asset_ids",
+            "forbidden_drift",
+        )
+        for field in fields:
+            with self.subTest(field=field):
+                package = cinematic_package()
+                package["continuity_bible"]["characters"][0][
+                    "identity_profile"
+                ].pop(field)
+                self.assertIn(
+                    f"character character-01 identity_profile: missing required field {field}",
+                    validate_package(package),
+                )
+
+    def test_identity_profile_must_be_an_approved_object(self):
+        package = cinematic_package()
+        package["continuity_bible"]["characters"][0]["identity_profile"] = []
+        self.assertIn(
+            "character character-01: identity_profile must be an object",
+            validate_package(package),
+        )
+
+        package = cinematic_package()
+        package["continuity_bible"]["characters"][0]["identity_profile"][
+            "approval_status"
+        ] = "draft"
+        self.assertIn(
+            "character character-01 identity_profile: approval_status must be approved",
+            validate_package(package),
+        )
+
+    def test_identity_profile_lists_are_non_empty_string_lists(self):
+        list_fields = (
+            "face_anchors",
+            "body_anchors",
+            "hair_anchors",
+            "fixed_accessories",
+            "signature_effect_anchors",
+            "reference_asset_ids",
+            "forbidden_drift",
+        )
+        for field in list_fields:
+            for invalid_value, expected in (
+                ([], f"character character-01 identity_profile: {field} must be a non-empty list"),
+                ("anchor", f"character character-01 identity_profile: {field} must be a non-empty list"),
+                ([None], f"character character-01 identity_profile: {field} item 1 must be a non-empty string"),
+            ):
+                with self.subTest(field=field, invalid_value=invalid_value):
+                    package = cinematic_package()
+                    package["continuity_bible"]["characters"][0][
+                        "identity_profile"
+                    ][field] = invalid_value
+                    self.assertIn(expected, validate_package(package))
+
+    def test_identity_profile_ids_must_be_non_empty_and_unique(self):
+        package = cinematic_package()
+        package["continuity_bible"]["characters"][0]["identity_profile"][
+            "identity_profile_id"
+        ] = ""
+        self.assertIn(
+            "character character-01 identity_profile: identity_profile_id must be a non-empty string",
+            validate_package(package),
+        )
+
+        package = cinematic_package()
+        second_character = copy.deepcopy(
+            package["continuity_bible"]["characters"][0]
+        )
+        second_character["character_id"] = "character-02"
+        package["continuity_bible"]["characters"].append(second_character)
+        self.assertIn(
+            "identity_profile IDP-character-01: duplicate identity_profile_id",
+            validate_package(package),
+        )
+
+    def test_cinematic_job_requires_binding_list_and_object_items(self):
+        package = cinematic_package()
+        package["model_job_manifest"][0].pop("character_model_bindings")
+        self.assertIn(
+            "model_job_manifest job-01: missing required field character_model_bindings",
+            validate_package(package),
+        )
+
+        package = cinematic_package()
+        package["model_job_manifest"][0]["character_model_bindings"] = {}
+        self.assertIn(
+            "model_job_manifest job-01: character_model_bindings must be a list",
+            validate_package(package),
+        )
+
+        package = cinematic_package()
+        package["model_job_manifest"][0]["character_model_bindings"] = [None]
+        self.assertIn(
+            "model_job_manifest job-01: character_model_bindings item 1 must be an object",
+            validate_package(package),
+        )
+
+    def test_character_binding_requires_every_contract_field(self):
+        fields = (
+            "character_id",
+            "identity_profile_id",
+            "model_family",
+            "model_version",
+            "identity_binding_method",
+            "reference_input_ids",
+            "lock_status",
+        )
+        for field in fields:
+            with self.subTest(field=field):
+                package = cinematic_package()
+                package["model_job_manifest"][0]["character_model_bindings"][0].pop(
+                    field
+                )
+                self.assertIn(
+                    f"model_job_manifest job-01 character_model_binding item 1: missing required field {field}",
+                    validate_package(package),
+                )
+
+    def test_character_binding_values_are_consumable_and_locked(self):
+        for field in (
+            "character_id",
+            "identity_profile_id",
+            "model_family",
+            "model_version",
+            "identity_binding_method",
+        ):
+            with self.subTest(field=field):
+                package = cinematic_package()
+                package["model_job_manifest"][0]["character_model_bindings"][0][
+                    field
+                ] = ""
+                self.assertIn(
+                    f"model_job_manifest job-01 character_model_binding item 1: {field} must be a non-empty string",
+                    validate_package(package),
+                )
+
+        package = cinematic_package()
+        package["model_job_manifest"][0]["character_model_bindings"][0][
+            "lock_status"
+        ] = "pending"
+        self.assertIn(
+            "model_job_manifest job-01 character_model_binding item 1: lock_status must be locked",
+            validate_package(package),
+        )
+
+    def test_character_binding_reference_ids_are_non_empty_strings(self):
+        for invalid_value, expected in (
+            ([], "reference_input_ids must be a non-empty list"),
+            ({}, "reference_input_ids must be a non-empty list"),
+            ([None], "reference_input_ids item 1 must be a non-empty string"),
+        ):
+            with self.subTest(invalid_value=invalid_value):
+                package = cinematic_package()
+                package["model_job_manifest"][0]["character_model_bindings"][0][
+                    "reference_input_ids"
+                ] = invalid_value
+                self.assertIn(
+                    "model_job_manifest job-01 character_model_binding item 1: "
+                    + expected,
+                    validate_package(package),
+                )
+
+    def test_character_binding_character_and_profile_must_resolve(self):
+        package = cinematic_package()
+        binding = package["model_job_manifest"][0]["character_model_bindings"][0]
+        binding["character_id"] = "character-99"
+        self.assertIn(
+            "model_job_manifest job-01 character_model_binding item 1: unknown character_id character-99",
+            validate_package(package),
+        )
+
+        package = cinematic_package()
+        binding = package["model_job_manifest"][0]["character_model_bindings"][0]
+        binding["identity_profile_id"] = "IDP-character-99"
+        self.assertIn(
+            "model_job_manifest job-01 character_model_binding item 1: identity_profile_id IDP-character-99 does not resolve to character character-01",
+            validate_package(package),
+        )
+
+    def test_binding_references_must_come_from_profile_and_job_inputs(self):
+        package = cinematic_package()
+        binding = package["model_job_manifest"][0]["character_model_bindings"][0]
+        binding["reference_input_ids"].append("unapproved-reference")
+        package["model_job_manifest"][0]["reference_inputs"].append(
+            "unapproved-reference"
+        )
+        self.assertIn(
+            "model_job_manifest job-01 character_model_binding item 1: reference_input_id unapproved-reference must be declared by identity_profile IDP-character-01",
+            validate_package(package),
+        )
+
+        package = cinematic_package()
+        package["model_job_manifest"][0]["reference_inputs"].remove(
+            "REF-character-01-profile"
+        )
+        self.assertIn(
+            "model_job_manifest job-01 character_model_binding item 1: reference_input_id REF-character-01-profile must exist in job reference_inputs",
+            validate_package(package),
+        )
+
+    def test_job_binding_characters_exactly_match_the_shot(self):
+        package = cinematic_package()
+        package["model_job_manifest"][0]["character_model_bindings"] = []
+        self.assertIn(
+            "model_job_manifest job-01: character_model_bindings character_ids must exactly match shot shot-01 character_ids; expected [character-01], got []",
+            validate_package(package),
+        )
+
+        package = cinematic_package()
+        package["storyboard"][0]["character_ids"] = []
+        for job in package["model_job_manifest"]:
+            job["character_model_bindings"] = []
+        self.assertEqual(validate_package(package), [])
+
+    def test_character_binding_profile_and_method_cannot_drift(self):
+        for field, value in (
+            ("identity_profile_id", "IDP-character-other"),
+            ("identity_binding_method", "identity-adapter"),
+        ):
+            with self.subTest(field=field):
+                package = cinematic_package()
+                package["model_job_manifest"][1]["character_model_bindings"][0][
+                    field
+                ] = value
+                self.assertIn(
+                    f"character character-01 model lock: {field} drift within video-model",
+                    validate_package(package),
+                )
+
+    def test_character_binding_reference_order_is_normalized_for_model_lock(self):
+        package = cinematic_package()
+        package["model_job_manifest"][1]["character_model_bindings"][0][
+            "reference_input_ids"
+        ].reverse()
+        self.assertEqual(validate_package(package), [])
+
+    def test_approved_job_also_requires_identity_integrity_gate(self):
+        package = cinematic_package()
+        package["quality_report"]["ready"] = False
+        package["shot_prompts"][0]["approval_status"] = "draft"
+        package["model_job_manifest"][1]["approval_status"] = "blocked"
+        identity = package["quality_report"]["checks"]["identity_integrity"]
+        identity["status"] = "fail"
+        identity["unresolved_conflicts"] = ["face mismatch"]
+        identity["evidence_refs"] = []
+        errors = validate_package(package)
+        self.assertIn(
+            "approved cinematic job: identity_integrity must pass", errors
+        )
+        self.assertIn(
+            "approved cinematic job: identity_integrity unresolved_conflicts must be empty",
+            errors,
+        )
+        self.assertIn(
+            "approved cinematic job: identity_integrity evidence_refs must be a non-empty list",
+            errors,
+        )
+
+    def test_ready_identity_integrity_requires_empty_conflicts_and_evidence(self):
+        package = cinematic_package()
+        identity = package["quality_report"]["checks"]["identity_integrity"]
+        identity["unresolved_conflicts"] = ["hair drift"]
+        identity["evidence_refs"] = []
+        errors = validate_package(package)
+        self.assertIn(
+            "quality_report.ready: identity_integrity unresolved_conflicts must be empty",
+            errors,
+        )
+        self.assertIn(
+            "quality_report.ready: identity_integrity evidence_refs must be a non-empty list",
+            errors,
+        )
+
+    def test_identity_contract_malformed_collections_do_not_crash(self):
+        cases = (
+            ("characters", "not-a-list"),
+            ("storyboard", {}),
+            ("model_job_manifest", {}),
+            ("quality_report", []),
+        )
+        for field, invalid_value in cases:
+            with self.subTest(field=field):
+                package = cinematic_package()
+                if field == "characters":
+                    package["continuity_bible"][field] = invalid_value
+                else:
+                    package[field] = invalid_value
+                errors = validate_package(package)
+                self.assertIsInstance(errors, list)
+
+        package = cinematic_package()
+        package["quality_report"]["checks"]["identity_integrity"] = []
+        self.assertIn(
+            "quality_report.checks.identity_integrity: expected object",
+            validate_package(package),
+        )
 
     def test_cinematic_mode_requires_all_brief_fields(self):
         for field in (

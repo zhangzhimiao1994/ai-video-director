@@ -10,6 +10,8 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+from identity_validation import validate_identity_locks
+
 
 MAX_JSON_INTEGER_DIGITS = 4300
 
@@ -1496,6 +1498,27 @@ def validate_package(package: Any) -> list[str]:
                 cinematic_job_statuses,
                 errors,
             )
+
+    if cinematic_mode is not None:
+        continuity_bible = package.get("continuity_bible")
+        raw_characters = (
+            continuity_bible.get("characters")
+            if isinstance(continuity_bible, dict)
+            else None
+        )
+        characters = raw_characters if isinstance(raw_characters, list) else []
+        errors.extend(
+            validate_identity_locks(
+                characters=characters,
+                shots=storyboard,
+                jobs=jobs,
+                quality_report=quality_report,
+                ready=(
+                    isinstance(quality_report, dict)
+                    and quality_report.get("ready") is True
+                ),
+            )
+        )
 
     return errors
 
