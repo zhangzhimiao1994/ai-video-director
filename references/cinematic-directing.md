@@ -31,7 +31,7 @@
 
 `genre-aware shot density` 按题材、动作复杂度、表演可读性和因果覆盖决定，不按固定镜头数或固定秒数误杀。30–60 秒的 7–12 个 active 镜头只是初排参考：动作奇观可能需要更多动作/反应覆盖，表演片可以用更少但更有证据的镜头。每镜仍只保留一个主要动作、一个主要运镜、一个情绪转折和一个视觉关注点。
 
-每个关键事件必须由逐镜 `coverage_role` 覆盖 `action`、`reaction`、`consequence`；同一镜可以承担多个角色，但审计必须能引用实际镜头或 edit unit。只拍动作、不拍角色或世界如何响应，就不能把事件判为电影化完成。
+每个 active 镜头的 `coverage_role` 是非空、去重的字符串数组，元素只能来自 `setup`、`anticipation`、`action`、`impact`、`reaction`、`consequence`、`transition`、`aftermath`。全部 active 镜头的并集至少覆盖 `action`、`reaction`、`consequence`；三者可以分布在不同镜头，也可以由同一镜同时承担，不要求凑齐八种。只拍动作、不拍角色或世界如何响应，就不能把事件判为电影化完成。
 
 每镜的 `kinetic_profile` 分别用 `subject_motion`、`performance_change`、`camera_motion`、`environment_motion` 声明运动层，并用非空字符串 `acceptance_evidence` 声明未来成片的可观察证据。普通运动镜头至少有两个有效运动层；粒子、云、光斑或背景漂移不能替代主体路径、表演变化或作用力反馈。`intentional_hold` 可以通过，但必须同时记录非空 `hold_reason` 与 `acceptance_evidence`；静止本身、固定秒数或无声本身都不是失败原因。
 

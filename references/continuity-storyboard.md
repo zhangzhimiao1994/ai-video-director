@@ -118,7 +118,7 @@ ID 一经进入下游引用，不因排序、改名或文案润色而变化。
 - `composition_16x9`：非空字符串，记录电影母版构图、人物调度和前中后景关系。
 - `recomposition_9x16`：包含 `strategy`、`composition`、`safe_areas`；`strategy` 只能为 `recompose` 或 `independent_generation`，`composition` 必须为非空字符串，`safe_areas` 必须为非空的字符串数组且每项非空。
 - `platform_capability_needs`：实现该镜所需的参考图、首帧、尾帧、音频或编辑能力，不在此映射厂商字段。
-- `coverage_role`：本镜可承担一个或多个导演覆盖角色，完整枚举只有 `setup`、`anticipation`、`action`、`impact`、`reaction`、`consequence`、`transition`、`aftermath`。关键事件至少让 `action`、`reaction`、`consequence` 能追溯到实际镜头；其他角色按题材和节奏使用，不要求每个事件机械凑齐八类。
+- `coverage_role`：a non-empty, deduplicated string array；本镜可承担一个或多个导演覆盖角色，完整枚举只有 `setup`、`anticipation`、`action`、`impact`、`reaction`、`consequence`、`transition`、`aftermath`。全部 active 电影化镜头的 coverage union 必须至少包含 `action`, `reaction`, and `consequence`，三者可分布在不同镜头，也可由同一镜承担；其他角色按题材和节奏使用，不要求机械凑齐八类。
 - `kinetic_profile`：逐镜声明 `subject_motion`、`performance_change`、`camera_motion`、`environment_motion`、`motion_layers_required`、`intentional_hold`、`hold_reason`、`acceptance_evidence`。前四项分别描述主体路径、表演状态变化、摄影机运动和环境响应；`motion_layers_required` 声明验收所需层，不把粒子或背景运动当成主体/表演证据；`acceptance_evidence` 是未来成片应观察到的证据目标，不是已完成验收的声明。`intentional_hold: true` 时不按固定秒数误杀，但 `hold_reason` 与 `acceptance_evidence` 必须非空。
 - `transition_contract`：每个镜头边界只声明 `type`、`visual_precondition`、`incoming_match`、`duration_frames`、`audio_bridge_cue_id`、`story_reason`、`fallback`。`incoming_match` 说明下一镜如何接住画面、动作或状态，`duration_frames` 是目标帧数；hard cut 可为 0 帧，只要动机与前提明确。
 

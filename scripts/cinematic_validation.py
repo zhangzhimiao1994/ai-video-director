@@ -487,6 +487,109 @@ def _requested_delivery_ids(plan: dict[str, object]) -> list[str]:
     ]
 
 
+def _valid_review_evidence(
+    plan: dict[str, object], requested_ids: set[str]
+) -> dict[str, dict[str, object]]:
+    execution = plan.get("execution")
+    if not isinstance(execution, dict):
+        return {}
+    raw_tools = execution.get("tool_evidence")
+    verified_tools = {
+        item.get("tool_evidence_id")
+        for item in raw_tools
+        if isinstance(item, dict)
+        and _nonempty_string(item.get("tool_evidence_id"))
+        and item.get("status") == "verified"
+    } if isinstance(raw_tools, list) else set()
+    raw_evidence = execution.get("review_evidence")
+    if not isinstance(raw_evidence, list):
+        return {}
+
+    required_fields = {
+        "review_evidence_id",
+        "delivery_id",
+        "evidence_type",
+        "artifact_ref",
+        "status",
+        "tool_evidence_ref",
+    }
+    valid: dict[str, dict[str, object]] = {}
+    duplicates: set[str] = set()
+    for item in raw_evidence:
+        if not isinstance(item, dict) or set(item) != required_fields:
+            continue
+        evidence_id = item.get("review_evidence_id")
+        delivery_id = item.get("delivery_id")
+        evidence_type = item.get("evidence_type")
+        tool_ref = item.get("tool_evidence_ref")
+        if (
+            not _nonempty_string(evidence_id)
+            or not _nonempty_string(delivery_id)
+            or delivery_id not in requested_ids
+            or not isinstance(evidence_type, str)
+            or evidence_type not in {
+                "frame_change",
+                "contact_sheet",
+            }
+            or not _nonempty_string(item.get("artifact_ref"))
+            or item.get("status") != "passed"
+            or not _nonempty_string(tool_ref)
+            or tool_ref not in verified_tools
+        ):
+            continue
+        if evidence_id in valid:
+            duplicates.add(evidence_id)
+            valid.pop(evidence_id, None)
+        elif evidence_id not in duplicates:
+            valid[evidence_id] = item
+    return valid
+
+
+def _validate_typed_review_refs(
+    source: dict[str, object],
+    field: str,
+    evidence_type: str,
+    requested_ids: set[str],
+    review_evidence: dict[str, dict[str, object]],
+    errors: list[str],
+) -> None:
+    label = f"cinematic_validation.source_motion_review.{field}"
+    refs = _string_list(
+        source.get(field), label, errors, nonempty=True
+    )
+    if refs is None:
+        return
+    seen_refs: set[str] = set()
+    referenced_deliveries: set[str] = set()
+    for evidence_id in refs:
+        if evidence_id in seen_refs:
+            errors.append(
+                f"{label}: duplicate review_evidence_id {evidence_id}"
+            )
+            continue
+        seen_refs.add(evidence_id)
+        evidence = review_evidence.get(evidence_id)
+        if evidence is None:
+            errors.append(
+                f"{label}: unknown review_evidence_id {evidence_id}"
+            )
+            continue
+        if evidence.get("evidence_type") != evidence_type:
+            errors.append(
+                f"{label}: review evidence {evidence_id} must have "
+                f"evidence_type {evidence_type}"
+            )
+            continue
+        delivery_id = evidence.get("delivery_id")
+        if isinstance(delivery_id, str):
+            referenced_deliveries.add(delivery_id)
+    if referenced_deliveries != requested_ids:
+        errors.append(
+            f"{label}: referenced delivery IDs must match requested delivery "
+            "IDs exactly"
+        )
+
+
 def _validate_actual_output_review(
     source: dict[str, object], plan: dict[str, object], errors: list[str]
 ) -> None:
@@ -508,16 +611,24 @@ def _validate_actual_output_review(
             f"{label}.reviewed_delivery_ids: must match requested delivery "
             "IDs exactly"
         )
-    for field in (
+    requested_id_set = set(requested_ids)
+    review_evidence = _valid_review_evidence(plan, requested_id_set)
+    _validate_typed_review_refs(
+        source,
         "frame_change_evidence_refs",
+        "frame_change",
+        requested_id_set,
+        review_evidence,
+        errors,
+    )
+    _validate_typed_review_refs(
+        source,
         "contact_sheet_evidence_refs",
-    ):
-        _string_list(
-            source.get(field),
-            f"{label}.{field}",
-            errors,
-            nonempty=True,
-        )
+        "contact_sheet",
+        requested_id_set,
+        review_evidence,
+        errors,
+    )
 
 
 def _validate_ready_execution_claim(

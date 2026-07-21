@@ -254,6 +254,13 @@ class CinematicModeDocsTests(unittest.TestCase):
     def test_storyboard_coverage_role_lists_the_complete_directing_vocabulary(self):
         reference = self.read("references/continuity-storyboard.md")
         coverage_contract = self.contract_line(reference, "`coverage_role`")
+        for phrase in (
+            "non-empty",
+            "deduplicated string array",
+            "coverage union",
+            "`action`, `reaction`, and `consequence`",
+        ):
+            self.assertIn(phrase, coverage_contract)
         for role in (
             "setup",
             "anticipation",
@@ -312,6 +319,8 @@ class CinematicModeDocsTests(unittest.TestCase):
             with self.subTest(field=field):
                 self.assertIn(f"`{field}`", storyboard_section)
         self.assertIn("`acceptance_evidence` is a non-empty string", storyboard_section)
+        self.assertIn("`coverage_role` is a non-empty, deduplicated string array", storyboard_section)
+        self.assertIn("coverage union", storyboard_section)
         self.assertNotIn("`fulfillment_status`", storyboard_section)
 
     def test_continuity_identity_distinguishes_concept_draft_from_production(self):

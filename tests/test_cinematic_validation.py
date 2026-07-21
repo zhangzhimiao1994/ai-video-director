@@ -87,6 +87,7 @@ def rendered_cinematic_plan():
             "authorized_version_directory": "edit/v001",
             "tool_evidence": [],
             "probe_evidence": [],
+            "review_evidence": [],
             "rendered_outputs": [],
         }
     )
@@ -124,6 +125,21 @@ def rendered_cinematic_plan():
                 "probe_status": "passed",
             }
         )
+        for evidence_type, prefix in (
+            ("frame_change", "FRAME-CHANGE"),
+            ("contact_sheet", "CONTACT-SHEET"),
+        ):
+            evidence_id = f"{prefix}-{delivery_id}"
+            plan["execution"]["review_evidence"].append(
+                {
+                    "review_evidence_id": evidence_id,
+                    "delivery_id": delivery_id,
+                    "evidence_type": evidence_type,
+                    "artifact_ref": f"reviews/{delivery_id}/{evidence_type}.json",
+                    "status": "passed",
+                    "tool_evidence_ref": tool_id,
+                }
+            )
     for result in plan["edit_validation"]["per_delivery_results"]:
         result["status"] = "passed"
         result["validation_status"] = "passed"
@@ -133,8 +149,12 @@ def rendered_cinematic_plan():
         {
             "actual_output_review_status": "passed",
             "reviewed_delivery_ids": delivery_ids,
-            "frame_change_evidence_refs": ["FRAME-CHANGE-D16", "FRAME-CHANGE-D9"],
-            "contact_sheet_evidence_refs": ["CONTACT-16", "CONTACT-9"],
+            "frame_change_evidence_refs": [
+                f"FRAME-CHANGE-{delivery_id}" for delivery_id in delivery_ids
+            ],
+            "contact_sheet_evidence_refs": [
+                f"CONTACT-SHEET-{delivery_id}" for delivery_id in delivery_ids
+            ],
         }
     )
     plan["cinematic_validation"]["cinematic_ready"] = True
@@ -1340,6 +1360,164 @@ class CinematicValidationTests(unittest.TestCase):
                     expected,
                     validate_edit_plan(plan, require_cinematic=True),
                 )
+
+    def test_ready_review_refs_must_resolve_to_typed_execution_evidence(self):
+        cases = (
+            (
+                "fake_frame_ref",
+                lambda plan: plan["cinematic_validation"]["source_motion_review"].update(
+                    frame_change_evidence_refs=["TOTALLY-FAKE-FRAME"]
+                ),
+                "cinematic_validation.source_motion_review."
+                "frame_change_evidence_refs: unknown review_evidence_id "
+                "TOTALLY-FAKE-FRAME",
+            ),
+            (
+                "wrong_type",
+                lambda plan: plan["cinematic_validation"]["source_motion_review"].update(
+                    frame_change_evidence_refs=["CONTACT-SHEET-D16", "CONTACT-SHEET-D9"]
+                ),
+                "cinematic_validation.source_motion_review."
+                "frame_change_evidence_refs: review evidence CONTACT-SHEET-D16 "
+                "must have evidence_type frame_change",
+            ),
+            (
+                "missing_delivery",
+                lambda plan: plan["cinematic_validation"]["source_motion_review"].update(
+                    frame_change_evidence_refs=["FRAME-CHANGE-D16"]
+                ),
+                "cinematic_validation.source_motion_review."
+                "frame_change_evidence_refs: referenced delivery IDs must match "
+                "requested delivery IDs exactly",
+            ),
+            (
+                "duplicate_ref",
+                lambda plan: plan["cinematic_validation"]["source_motion_review"].update(
+                    frame_change_evidence_refs=[
+                        "FRAME-CHANGE-D16",
+                        "FRAME-CHANGE-D16",
+                    ]
+                ),
+                "cinematic_validation.source_motion_review."
+                "frame_change_evidence_refs: duplicate review_evidence_id "
+                "FRAME-CHANGE-D16",
+            ),
+        )
+        for case, mutate, expected in cases:
+            with self.subTest(case=case):
+                plan = rendered_cinematic_plan()
+                mutate(plan)
+                self.assertIn(
+                    expected,
+                    validate_edit_plan(plan, require_cinematic=True),
+                )
+
+    def test_review_evidence_records_are_strict_and_resolve_verified_tools(self):
+        cases = (
+            (
+                "non_object",
+                lambda plan: plan["execution"]["review_evidence"].append(None),
+                "execution.review_evidence item 5: expected object",
+            ),
+            (
+                "missing_field",
+                lambda plan: plan["execution"]["review_evidence"][0].pop("artifact_ref"),
+                "execution.review_evidence FRAME-CHANGE-D16: missing required "
+                "field artifact_ref",
+            ),
+            (
+                "unexpected_field",
+                lambda plan: plan["execution"]["review_evidence"][0].update(
+                    freeform_note="trust me"
+                ),
+                "execution.review_evidence FRAME-CHANGE-D16: unexpected field "
+                "freeform_note",
+            ),
+            (
+                "duplicate_id",
+                lambda plan: plan["execution"]["review_evidence"].append(
+                    copy.deepcopy(plan["execution"]["review_evidence"][0])
+                ),
+                "execution.review_evidence: duplicate review_evidence_id "
+                "FRAME-CHANGE-D16",
+            ),
+            (
+                "unknown_delivery",
+                lambda plan: plan["execution"]["review_evidence"][0].update(
+                    delivery_id="D404"
+                ),
+                "execution.review_evidence FRAME-CHANGE-D16: unknown delivery_id D404",
+            ),
+            (
+                "bad_type",
+                lambda plan: plan["execution"]["review_evidence"][0].update(
+                    evidence_type="visual_review"
+                ),
+                "execution.review_evidence FRAME-CHANGE-D16: evidence_type must "
+                "be frame_change or contact_sheet",
+            ),
+            (
+                "malformed_type_shape",
+                lambda plan: plan["execution"]["review_evidence"][0].update(
+                    evidence_type={"frame_change": True}
+                ),
+                "execution.review_evidence FRAME-CHANGE-D16: evidence_type must "
+                "be frame_change or contact_sheet",
+            ),
+            (
+                "empty_artifact",
+                lambda plan: plan["execution"]["review_evidence"][0].update(
+                    artifact_ref=""
+                ),
+                "execution.review_evidence FRAME-CHANGE-D16: artifact_ref must "
+                "be a non-empty string",
+            ),
+            (
+                "failed_status",
+                lambda plan: plan["execution"]["review_evidence"][0].update(
+                    status="failed"
+                ),
+                "execution.review_evidence FRAME-CHANGE-D16: status must be passed",
+            ),
+            (
+                "unknown_tool",
+                lambda plan: plan["execution"]["review_evidence"][0].update(
+                    tool_evidence_ref="TOOL-404"
+                ),
+                "execution.review_evidence FRAME-CHANGE-D16: tool_evidence_ref "
+                "TOOL-404 does not resolve to verified evidence",
+            ),
+            (
+                "malformed_tool_ref_shape",
+                lambda plan: plan["execution"]["review_evidence"][0].update(
+                    tool_evidence_ref=[]
+                ),
+                "execution.review_evidence FRAME-CHANGE-D16: tool_evidence_ref "
+                "must be a non-empty string",
+            ),
+        )
+        for case, mutate, expected in cases:
+            with self.subTest(case=case):
+                plan = rendered_cinematic_plan()
+                mutate(plan)
+                first = validate_edit_plan(plan, require_cinematic=True)
+                second = validate_edit_plan(copy.deepcopy(plan), require_cinematic=True)
+                self.assertEqual(first, second)
+                self.assertIn(expected, first)
+
+    def test_dry_run_cinematic_plan_may_omit_review_evidence(self):
+        plan = load_plan("cinematic_valid_plan.json")
+        plan["execution"].pop("review_evidence", None)
+        self.assertFalse(plan["cinematic_validation"]["cinematic_ready"])
+        self.assertEqual(validate_edit_plan(plan, require_cinematic=True), [])
+
+    def test_optional_review_evidence_is_validated_when_present_on_dry_run(self):
+        plan = load_plan("cinematic_valid_plan.json")
+        plan["execution"]["review_evidence"] = ["not-an-object"]
+        self.assertIn(
+            "execution.review_evidence item 1: expected object",
+            validate_edit_plan(plan, require_cinematic=True),
+        )
 
     def test_cli_require_cinematic_rejects_legacy_and_accepts_complete_plan(self):
         legacy_code, legacy_stdout, legacy_stderr = run_cli(

@@ -228,6 +228,10 @@ class EditingFinishDocsTests(unittest.TestCase):
                 self.assertIn(f"`{field}`", actual_acceptance)
                 self.assertNotIn(f"`{field}`", plan_acceptance)
         self.assertIn("`plan_status: rendered`", actual_acceptance)
+        self.assertIn("`execution.review_evidence`", actual_acceptance)
+        self.assertIn("not free-form strings", actual_acceptance)
+        self.assertIn("verified `tool_evidence_ref`", actual_acceptance)
+        self.assertIn("each requested delivery", actual_acceptance)
 
     def test_skill_only_activates_cinematic_gate_for_declared_cinematic_intent(self):
         skill = self.read_required("SKILL.md")

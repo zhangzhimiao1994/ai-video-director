@@ -54,6 +54,38 @@ def _shot_label(shot: dict[str, Any], index: int) -> str:
     return shot_id if _nonempty_string(shot_id) else f"item-{index}"
 
 
+def _validate_coverage_roles(
+    shot_id: str, value: object, errors: list[str]
+) -> set[str]:
+    label = f"shot {shot_id}: coverage_role"
+    if not isinstance(value, list) or not value:
+        errors.append(
+            f"{label} must be a non-empty, deduplicated string array"
+        )
+        return set()
+
+    valid_roles: set[str] = set()
+    seen_roles: set[str] = set()
+    for index, role in enumerate(value, start=1):
+        if not _nonempty_string(role):
+            errors.append(
+                f"{label} item {index} must be a non-empty string"
+            )
+            continue
+        if role in seen_roles:
+            errors.append(f"{label} contains duplicate role {role}")
+            continue
+        seen_roles.add(role)
+        if role not in COVERAGE_ROLES:
+            errors.append(
+                f"{label} item {index} must be setup, anticipation, action, "
+                "impact, reaction, consequence, transition, or aftermath"
+            )
+            continue
+        valid_roles.add(role)
+    return valid_roles
+
+
 def _validate_acceptance_evidence(
     value: object, label: str, errors: list[str]
 ) -> bool:
@@ -188,12 +220,13 @@ def validate_cinematic_storyboard(storyboard: object) -> list[str]:
     active_shots.sort(key=lambda entry: (entry[0], entry[1]))
 
     errors: list[str] = []
+    coverage_union: set[str] = set()
     for position, (_, _, shot_id, shot) in enumerate(active_shots):
-        if shot.get("coverage_role") not in COVERAGE_ROLES:
-            errors.append(
-                f"shot {shot_id}: coverage_role must be setup, anticipation, "
-                "action, impact, reaction, consequence, transition, or aftermath"
+        coverage_union.update(
+            _validate_coverage_roles(
+                shot_id, shot.get("coverage_role"), errors
             )
+        )
         _validate_kinetic_profile(shot_id, shot.get("kinetic_profile"), errors)
 
         has_next = position < len(active_shots) - 1
@@ -206,5 +239,13 @@ def validate_cinematic_storyboard(storyboard: object) -> list[str]:
             )
         elif transition is not None:
             _validate_transition_contract(shot_id, transition, errors)
+
+    if active_shots and not {"action", "reaction", "consequence"}.issubset(
+        coverage_union
+    ):
+        errors.append(
+            "storyboard: active cinematic coverage_role union must include "
+            "action, reaction, and consequence"
+        )
 
     return list(dict.fromkeys(errors))

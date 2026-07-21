@@ -167,7 +167,7 @@ def cinematic_package():
     shot["duration_seconds"] = 30
     shot.update(
         {
-            "coverage_role": "consequence",
+            "coverage_role": ["action", "reaction", "consequence"],
             "kinetic_profile": {
                 "subject_motion": "lead draws the red book toward their chest",
                 "performance_change": "resolve settles into guarded concern",
@@ -971,14 +971,43 @@ class CinematicBriefValidationTests(unittest.TestCase):
     def test_valid_cinematic_package_has_no_errors(self):
         self.assertEqual(validate_package(cinematic_package()), [])
 
-    def test_cinematic_storyboard_requires_legal_coverage_role(self):
-        package = cinematic_package()
-        package["storyboard"][0]["coverage_role"] = "beauty_pose"
+    def test_cinematic_storyboard_requires_coverage_role_array(self):
+        for value in ("action", [], ["action", ""], ["action", "action"], ["beauty_pose"]):
+            with self.subTest(value=value):
+                package = cinematic_package()
+                package["storyboard"][0]["coverage_role"] = value
+                errors = validate_package(package)
+                self.assertTrue(
+                    any("shot shot-01: coverage_role" in error for error in errors),
+                    errors,
+                )
+
+    def test_cinematic_coverage_union_requires_action_reaction_consequence(self):
+        package = cinematic_chain(3)
+        for shot in package["storyboard"]:
+            shot["coverage_role"] = ["setup"]
         self.assertIn(
-            "shot shot-01: coverage_role must be setup, anticipation, action, "
-            "impact, reaction, consequence, transition, or aftermath",
+            "storyboard: active cinematic coverage_role union must include "
+            "action, reaction, and consequence",
             validate_package(package),
         )
+
+    def test_cinematic_coverage_may_be_split_across_shots(self):
+        package = cinematic_chain(3)
+        for shot, role in zip(
+            package["storyboard"], ("action", "reaction", "consequence")
+        ):
+            shot["coverage_role"] = [role]
+        self.assertEqual(validate_package(package), [])
+
+    def test_one_shot_may_cover_action_reaction_and_consequence(self):
+        package = cinematic_package()
+        package["storyboard"][0]["coverage_role"] = [
+            "action",
+            "reaction",
+            "consequence",
+        ]
+        self.assertEqual(validate_package(package), [])
 
     def test_cinematic_storyboard_requires_complete_kinetic_profile(self):
         for field in (

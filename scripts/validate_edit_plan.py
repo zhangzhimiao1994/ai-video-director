@@ -179,6 +179,15 @@ EXECUTION_FIELDS = (
     "rendered_outputs",
 )
 
+REVIEW_EVIDENCE_FIELDS = (
+    "review_evidence_id",
+    "delivery_id",
+    "evidence_type",
+    "artifact_ref",
+    "status",
+    "tool_evidence_ref",
+)
+
 
 def parse_bounded_json_int(value: str) -> int:
     """Keep JSON integer parsing deterministic across supported Python versions."""
@@ -1277,6 +1286,82 @@ def _validate_execution_paths(
             )
 
 
+def _validate_review_evidence(
+    execution: dict[str, Any],
+    delivery_ids: set[str],
+    errors: list[str],
+) -> None:
+    raw_review_evidence = execution.get("review_evidence")
+    if raw_review_evidence is None:
+        return
+    if not isinstance(raw_review_evidence, list):
+        errors.append("execution.review_evidence: expected list")
+        return
+
+    raw_tools = execution.get("tool_evidence")
+    verified_tool_ids = {
+        evidence.get("tool_evidence_id")
+        for evidence in raw_tools
+        if isinstance(evidence, dict)
+        and _is_nonempty_string(evidence.get("tool_evidence_id"))
+        and evidence.get("status") == "verified"
+    } if isinstance(raw_tools, list) else set()
+    seen_review_ids: set[str] = set()
+    for index, evidence in enumerate(raw_review_evidence, start=1):
+        if not isinstance(evidence, dict):
+            errors.append(
+                f"execution.review_evidence item {index}: expected object"
+            )
+            continue
+        raw_id = evidence.get("review_evidence_id")
+        evidence_id = (
+            raw_id if _is_nonempty_string(raw_id) else f"item-{index}"
+        )
+        label = f"execution.review_evidence {evidence_id}"
+        _require_fields(evidence, REVIEW_EVIDENCE_FIELDS, label, errors)
+        for field in sorted(set(evidence) - set(REVIEW_EVIDENCE_FIELDS)):
+            errors.append(f"{label}: unexpected field {field}")
+
+        valid_id = _validate_id(
+            raw_id, f"{label}: review_evidence_id", errors
+        )
+        if valid_id is not None and valid_id in seen_review_ids:
+            errors.append(
+                "execution.review_evidence: duplicate review_evidence_id "
+                f"{valid_id}"
+            )
+        elif valid_id is not None:
+            seen_review_ids.add(valid_id)
+
+        delivery_id = evidence.get("delivery_id")
+        if not _is_nonempty_string(delivery_id):
+            errors.append(f"{label}: delivery_id must be a non-empty string")
+        elif delivery_id not in delivery_ids:
+            errors.append(f"{label}: unknown delivery_id {delivery_id}")
+        evidence_type = evidence.get("evidence_type")
+        if not isinstance(evidence_type, str) or evidence_type not in {
+            "frame_change",
+            "contact_sheet",
+        }:
+            errors.append(
+                f"{label}: evidence_type must be frame_change or contact_sheet"
+            )
+        if not _is_nonempty_string(evidence.get("artifact_ref")):
+            errors.append(f"{label}: artifact_ref must be a non-empty string")
+        if evidence.get("status") != "passed":
+            errors.append(f"{label}: status must be passed")
+        tool_ref = evidence.get("tool_evidence_ref")
+        if not _is_nonempty_string(tool_ref):
+            errors.append(
+                f"{label}: tool_evidence_ref must be a non-empty string"
+            )
+        elif isinstance(tool_ref, str) and tool_ref not in verified_tool_ids:
+            errors.append(
+                f"{label}: tool_evidence_ref {tool_ref} does not resolve to "
+                "verified evidence"
+            )
+
+
 def _validate_execution(
     execution: dict[str, Any],
     deliveries: dict[str, dict[str, Any]],
@@ -1287,6 +1372,7 @@ def _validate_execution(
 ) -> tuple[set[str], bool]:
     delivery_ids = set(deliveries)
     _require_fields(execution, EXECUTION_FIELDS, "execution", errors)
+    _validate_review_evidence(execution, delivery_ids, errors)
     for field in (
         "dry_run_status",
         "operation_authorization",
@@ -1301,6 +1387,7 @@ def _validate_execution(
         "authorized_media_roots",
         "tool_evidence",
         "executed_commands",
+        "review_evidence",
         "rendered_outputs",
     ):
         if field in execution and not isinstance(execution.get(field), list):
