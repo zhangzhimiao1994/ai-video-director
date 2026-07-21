@@ -15,6 +15,15 @@ class EditingFinishDocsTests(unittest.TestCase):
         missing = [token for token in tokens if token not in text]
         self.assertFalse(missing, f"missing contract tokens: {missing}")
 
+    def section(self, text, heading):
+        self.assertIn(heading, text, f"missing required section: {heading}")
+        start = text.index(heading) + len(heading)
+        next_heading = text.find("\n### ", start)
+        next_major_heading = text.find("\n## ", start)
+        candidates = [index for index in (next_heading, next_major_heading) if index >= 0]
+        end = min(candidates) if candidates else len(text)
+        return text[start:end]
+
     def test_skill_routes_finished_film_requests(self):
         skill = self.read_required("SKILL.md")
         self.assert_contract_tokens(
@@ -135,6 +144,55 @@ class EditingFinishDocsTests(unittest.TestCase):
                 "legacy compatibility",
             ),
         )
+
+    def test_cinematic_acceptance_separates_plan_checks_from_actual_film_evidence(self):
+        reference = self.read_required("references/editing-finish.md")
+        plan_acceptance = self.section(reference, "### Plan acceptance")
+        self.assert_contract_tokens(
+            plan_acceptance,
+            (
+                "timeline structure",
+                "coverage",
+                "cut points",
+                "transitions",
+                "audio",
+                "prohibited items",
+            ),
+        )
+
+        actual_acceptance = self.section(reference, "### Actual-film acceptance")
+        self.assert_contract_tokens(
+            actual_acceptance,
+            (
+                "ffprobe",
+                "FFmpeg or equivalent output probe",
+                "streams",
+                "duration",
+                "cut/frame change",
+                "contact sheet",
+                "visual review",
+                "character action",
+                "performance change",
+                "repeated poses",
+                "actual transitions",
+            ),
+        )
+
+    def test_actual_motion_review_rejects_decorative_pixel_change(self):
+        reference = self.read_required("references/editing-finish.md")
+        actual_acceptance = self.section(reference, "### Actual-film acceptance")
+        self.assertIn("pixel change is not performance", actual_acceptance)
+        for false_positive in ("particles", "light beams", "background motion"):
+            with self.subTest(false_positive=false_positive):
+                self.assertIn(false_positive, actual_acceptance)
+        self.assertIn("cannot alone pass `source_motion_review`", actual_acceptance)
+
+    def test_actual_master_blocks_when_required_review_tools_are_unavailable(self):
+        reference = self.read_required("references/editing-finish.md")
+        actual_acceptance = self.section(reference, "### Actual-film acceptance")
+        self.assertIn("tooling is unavailable", actual_acceptance)
+        self.assertIn("`blocked` or `manual_review_required`", actual_acceptance)
+        self.assertIn("never claim actual-film acceptance", actual_acceptance)
 
 
 if __name__ == "__main__":

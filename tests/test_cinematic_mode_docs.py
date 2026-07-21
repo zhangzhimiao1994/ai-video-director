@@ -9,6 +9,9 @@ class CinematicModeDocsTests(unittest.TestCase):
     def read(self, relative_path):
         return (ROOT / relative_path).read_text(encoding="utf-8")
 
+    def contract_line(self, text, field):
+        return next((line for line in text.splitlines() if field in line), "")
+
     def test_skill_identity_is_aibiandao(self):
         skill = self.read("SKILL.md")
         agent_metadata = self.read("agents/openai.yaml")
@@ -247,6 +250,58 @@ class CinematicModeDocsTests(unittest.TestCase):
                 row = next((line for line in skill_lines if trigger in line), "")
                 self.assertIn(repair, row)
                 self.assertIn(blocked_outcome, row)
+
+    def test_storyboard_coverage_role_lists_the_complete_directing_vocabulary(self):
+        reference = self.read("references/continuity-storyboard.md")
+        coverage_contract = self.contract_line(reference, "`coverage_role`")
+        for role in (
+            "setup",
+            "anticipation",
+            "action",
+            "impact",
+            "reaction",
+            "consequence",
+            "transition",
+            "aftermath",
+        ):
+            with self.subTest(role=role):
+                self.assertIn(f"`{role}`", coverage_contract)
+
+    def test_storyboard_kinetic_profile_names_every_declared_motion_field(self):
+        reference = self.read("references/continuity-storyboard.md")
+        kinetic_contract = self.contract_line(reference, "`kinetic_profile`")
+        for field in (
+            "subject_motion",
+            "performance_change",
+            "camera_motion",
+            "environment_motion",
+            "motion_layers_required",
+            "intentional_hold",
+            "hold_reason",
+            "acceptance_evidence",
+        ):
+            with self.subTest(field=field):
+                self.assertIn(f"`{field}`", kinetic_contract)
+
+    def test_storyboard_transition_contract_declares_intent_not_edit_fulfillment(self):
+        reference = self.read("references/continuity-storyboard.md")
+        transition_contract = self.contract_line(reference, "`transition_contract`")
+        for field in (
+            "type",
+            "visual_precondition",
+            "incoming_match",
+            "duration_frames",
+            "audio_bridge_cue_id",
+            "story_reason",
+            "fallback",
+        ):
+            with self.subTest(field=field):
+                self.assertIn(f"`{field}`", transition_contract)
+        self.assertNotIn("fulfillment_status", transition_contract)
+        self.assertNotIn("evidence_refs", transition_contract)
+        self.assertIn("storyboard declaration layer", reference)
+        self.assertIn("editing fulfillment layer", reference)
+        self.assertIn("`fulfillment_status` and `evidence_refs`", reference)
 
 
 if __name__ == "__main__":

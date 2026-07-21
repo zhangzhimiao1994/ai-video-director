@@ -118,11 +118,11 @@ ID 一经进入下游引用，不因排序、改名或文案润色而变化。
 - `composition_16x9`：非空字符串，记录电影母版构图、人物调度和前中后景关系。
 - `recomposition_9x16`：包含 `strategy`、`composition`、`safe_areas`；`strategy` 只能为 `recompose` 或 `independent_generation`，`composition` 必须为非空字符串，`safe_areas` 必须为非空的字符串数组且每项非空。
 - `platform_capability_needs`：实现该镜所需的参考图、首帧、尾帧、音频或编辑能力，不在此映射厂商字段。
-- `coverage_role`：本镜对事件承担的 `action`、`reaction`、`consequence` 角色数组；关键事件的三类角色必须都能追溯到实际镜头。
-- `kinetic_profile`：声明 `subject`、`performance`、`camera`、`environment` 运动层、是否 `intentional_hold`、`hold_reason` 与 `evidence_refs`。非 hold 镜头至少两种有效运动层；有意 hold 不按固定时长判罚，但理由与证据不能为空。
-- `transition_contract`：对每个镜头边界声明 `type`、`story_reason`、`visual_precondition`、`audio_bridge_cue_id`、`fallback`、`fulfillment_status` 和 `evidence_refs`。交接给剪辑时，履约状态与证据必须按实际相邻 edit unit 审计；storyboard 转场不可被静默丢弃。
+- `coverage_role`：本镜可承担一个或多个导演覆盖角色，完整枚举只有 `setup`、`anticipation`、`action`、`impact`、`reaction`、`consequence`、`transition`、`aftermath`。关键事件至少让 `action`、`reaction`、`consequence` 能追溯到实际镜头；其他角色按题材和节奏使用，不要求每个事件机械凑齐八类。
+- `kinetic_profile`：逐镜声明 `subject_motion`、`performance_change`、`camera_motion`、`environment_motion`、`motion_layers_required`、`intentional_hold`、`hold_reason`、`acceptance_evidence`。前四项分别描述主体路径、表演状态变化、摄影机运动和环境响应；`motion_layers_required` 声明验收所需层，不把粒子或背景运动当成主体/表演证据；`acceptance_evidence` 是未来成片应观察到的证据目标，不是已完成验收的声明。`intentional_hold: true` 时不按固定秒数误杀，但 `hold_reason` 与 `acceptance_evidence` 必须非空。
+- `transition_contract`：每个镜头边界只声明 `type`、`visual_precondition`、`incoming_match`、`duration_frames`、`audio_bridge_cue_id`、`story_reason`、`fallback`。`incoming_match` 说明下一镜如何接住画面、动作或状态，`duration_frames` 是目标帧数；hard cut 可为 0 帧，只要动机与前提明确。
 
-`transition_contract` 可以声明 hard cut、声音桥、动作匹配、叠化或其他有动机的边界。硬切本身不是失败；只有缺少故事理由、视觉前提、声音桥/明确 none、fallback 或履约证据时才阻塞。若目标 NLE 不支持原转场，必须先声明 fallback 并重新 dry-run，不得把所有边界默认为硬切。
+The `storyboard declaration layer` states intent and acceptance targets only. It must not claim that an edit or rendered film already fulfilled them. The `editing fulfillment layer` owns `fulfillment_status` and `evidence_refs` after the boundary is implemented and reviewed; these fields are not part of the storyboard `transition_contract`. 若目标 NLE 不支持原转场，剪辑层必须采用已声明 `fallback` 并重新 dry-run，不得把所有边界默认为硬切。由动作、状态或声音动机支持的 hard cut 仍可通过。
 
 两种画幅共享 `story_function`、角色 ID、事件、对白意义、`opening_state`、`closing_state`、`state_before` 和 `state_after`。16:9 导演文本必须包含 `composition_16x9`，9:16 导演文本必须包含 `recomposition_9x16.composition`；无论策略是 `recompose` 还是 `independent_generation`，两份文本都必须不同。9:16 不得写成对 16:9 的机械裁切。完整制作包必须为每个镜头和每个 `delivery_aspects` 值生成可追踪 job。
 
