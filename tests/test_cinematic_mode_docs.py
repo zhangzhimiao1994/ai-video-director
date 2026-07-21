@@ -33,6 +33,35 @@ class CinematicModeDocsTests(unittest.TestCase):
         self.assertIn("references/cinematic-directing.md", skill)
         self.assertIn("rhythm preset A", skill)
 
+    def test_cinematic_full_output_request_continues_as_one_pass_draft(self):
+        skill = self.read("SKILL.md")
+        router = self.section(
+            skill,
+            "## Cinematic Mode Router",
+            "## Finished-Film Editing Router",
+        )
+        for token in (
+            "complete output",
+            "does not ask to pause for direction selection",
+            "continue as a `one-pass draft`",
+            "exactly three directions and a recommendation",
+            "character, wardrobe, prop, location, and state IDs",
+            "story and Shot Graph dependencies",
+            "`composition_16x9`",
+            "`recomposition_9x16`",
+            "screenplay, storyboard, prompts, and jobs",
+            "Kling and Seedance",
+            "manual-only",
+            "HappyHorse",
+            "verified fields",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, router)
+        direction_position = router.find("exactly three directions and a recommendation")
+        downstream_position = router.find("screenplay, storyboard, prompts, and jobs")
+        self.assertGreaterEqual(direction_position, 0)
+        self.assertGreater(downstream_position, direction_position)
+
     def test_cinematic_reference_contains_approved_contract(self):
         reference = self.read("references/cinematic-directing.md")
         required_tokens = (

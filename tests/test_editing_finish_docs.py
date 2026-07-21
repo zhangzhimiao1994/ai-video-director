@@ -41,6 +41,34 @@ class EditingFinishDocsTests(unittest.TestCase):
             ),
         )
 
+    def test_skill_names_independent_ai_editor_handoff(self):
+        skill = self.read_required("SKILL.md")
+        router = self.section(skill, "## Finished-Film Editing Router")
+        self.assert_contract_tokens(
+            router,
+            (
+                "`ai_editor_plan.json`",
+                "separate named derivative",
+                "`edit_master_plan` remains the sole source",
+                "edit-unit",
+                "timeline",
+                "transition",
+                "audio",
+                "text",
+                "look",
+                "export",
+                "evidence",
+                "authorization",
+                "OTIO",
+                "FCPXML",
+                "SRT",
+                "construction sheet",
+                "FFmpeg plan",
+                "Jianying/CapCut private project schema",
+                "never fabricate",
+            ),
+        )
+
     def test_editing_reference_exposes_complete_contract(self):
         reference = self.read_required("references/editing-finish.md")
         self.assert_contract_tokens(
