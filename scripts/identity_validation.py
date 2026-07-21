@@ -52,6 +52,10 @@ def _nonempty_string(value: object) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
 
+def _canonical_string(value: object) -> bool:
+    return _nonempty_string(value) and value == value.strip()
+
+
 def _required_fields(
     value: dict[str, Any], fields: tuple[str, ...], owner: str, errors: list[str]
 ) -> None:
@@ -171,17 +175,48 @@ def validate_identity_locks(
     errors: list[str] = []
     profiles_by_character: dict[str, tuple[str, set[str]]] = {}
     seen_profile_ids: set[str] = set()
+    raw_character_id_by_canonical: dict[str, str] = {}
+    raw_profile_id_by_canonical: dict[str, str] = {}
 
     for index, character in enumerate(characters, start=1):
         if not isinstance(character, dict):
             continue
         raw_character_id = character.get("character_id")
-        character_id = (
+        normalized_character_id = (
             raw_character_id.strip()
             if _nonempty_string(raw_character_id)
+            else None
+        )
+        character_id = (
+            raw_character_id
+            if _canonical_string(raw_character_id)
             else f"item-{index}"
         )
         character_owner = f"character {character_id}"
+        if (
+            normalized_character_id is not None
+            and not _canonical_string(raw_character_id)
+        ):
+            errors.append(
+                f"{character_owner}: character_id must be canonical without "
+                "surrounding whitespace"
+            )
+        if normalized_character_id is not None:
+            prior_raw_character_id = raw_character_id_by_canonical.get(
+                normalized_character_id
+            )
+            if (
+                prior_raw_character_id is not None
+                and prior_raw_character_id != raw_character_id
+            ):
+                errors.append(
+                    "continuity_bible.characters: canonical character_id "
+                    f"collision {normalized_character_id}"
+                )
+            else:
+                raw_character_id_by_canonical[normalized_character_id] = (
+                    raw_character_id
+                )
         if "identity_profile" not in character:
             errors.append(
                 f"{character_owner}: missing cinematic identity_profile"
@@ -195,18 +230,42 @@ def validate_identity_locks(
         owner = f"{character_owner} identity_profile"
         _required_fields(profile, IDENTITY_PROFILE_REQUIRED_FIELDS, owner, errors)
         raw_profile_id = profile.get("identity_profile_id")
-        profile_id = (
+        normalized_profile_id = (
             raw_profile_id.strip() if _nonempty_string(raw_profile_id) else None
         )
-        if profile_id is None:
+        profile_id = raw_profile_id if _canonical_string(raw_profile_id) else None
+        if normalized_profile_id is None:
             errors.append(
                 f"{owner}: identity_profile_id must be a non-empty string"
             )
-        elif profile_id in seen_profile_ids:
+        elif profile_id is None:
+            errors.append(
+                f"{owner}: identity_profile_id must be canonical without "
+                "surrounding whitespace"
+            )
+
+        if normalized_profile_id is not None:
+            prior_raw_profile_id = raw_profile_id_by_canonical.get(
+                normalized_profile_id
+            )
+            if (
+                prior_raw_profile_id is not None
+                and prior_raw_profile_id != raw_profile_id
+            ):
+                errors.append(
+                    "identity_profiles: canonical identity_profile_id collision "
+                    f"{normalized_profile_id}"
+                )
+            else:
+                raw_profile_id_by_canonical[normalized_profile_id] = (
+                    raw_profile_id
+                )
+
+        if profile_id in seen_profile_ids:
             errors.append(
                 f"identity_profile {profile_id}: duplicate identity_profile_id"
             )
-        else:
+        elif profile_id is not None:
             seen_profile_ids.add(profile_id)
 
         if profile.get("approval_status") != "approved":
@@ -219,19 +278,27 @@ def validate_identity_locks(
             )
 
         if (
-            _nonempty_string(raw_character_id)
+            _canonical_string(raw_character_id)
             and profile_id is not None
             and normalized_lists["reference_asset_ids"] is not None
         ):
-            profiles_by_character[raw_character_id.strip()] = (
+            profiles_by_character[raw_character_id] = (
                 profile_id,
                 set(normalized_lists["reference_asset_ids"] or []),
             )
 
     shots_by_id: dict[str, dict[str, Any]] = {}
-    for shot in shots:
-        if isinstance(shot, dict) and _nonempty_string(shot.get("shot_id")):
-            shots_by_id[shot["shot_id"].strip()] = shot
+    for shot_index, shot in enumerate(shots, start=1):
+        if not isinstance(shot, dict):
+            continue
+        raw_shot_id = shot.get("shot_id")
+        if _nonempty_string(raw_shot_id) and not _canonical_string(raw_shot_id):
+            errors.append(
+                f"storyboard item {shot_index}: shot_id must be canonical "
+                "without surrounding whitespace"
+            )
+        if _canonical_string(raw_shot_id):
+            shots_by_id[raw_shot_id] = shot
 
     lock_baselines: dict[tuple[str, str], dict[str, object]] = {}
     any_approved_job = False
@@ -247,6 +314,16 @@ def validate_identity_locks(
         job_owner = f"model_job_manifest {job_id}"
         if job.get("approval_status") == "approved":
             any_approved_job = True
+        raw_job_model_family = job.get("model_family")
+        job_model_family = (
+            raw_job_model_family
+            if _canonical_string(raw_job_model_family)
+            else None
+        )
+        if job_model_family is None:
+            errors.append(
+                f"{job_owner}: model_family must be a canonical non-empty string"
+            )
 
         if "character_model_bindings" not in job:
             errors.append(
@@ -274,6 +351,7 @@ def validate_identity_locks(
             if _nonempty_string(value)
         }
         bound_character_ids: list[str] = []
+        raw_binding_character_id_by_canonical: dict[str, str] = {}
 
         for binding_index, binding in enumerate(bindings, start=1):
             if not isinstance(binding, dict):
@@ -297,8 +375,14 @@ def validate_identity_locks(
                 if not _nonempty_string(value):
                     errors.append(f"{owner}: {field} must be a non-empty string")
                     normalized_strings[field] = None
+                elif not _canonical_string(value):
+                    errors.append(
+                        f"{owner}: {field} must be canonical without "
+                        "surrounding whitespace"
+                    )
+                    normalized_strings[field] = None
                 else:
-                    normalized_strings[field] = value.strip()
+                    normalized_strings[field] = value
 
             lock_status = binding.get("lock_status")
             if (
@@ -325,6 +409,26 @@ def validate_identity_locks(
             character_id = normalized_strings["character_id"]
             profile_id = normalized_strings["identity_profile_id"]
             model_family = normalized_strings["model_family"]
+            raw_binding_character_id = binding.get("character_id")
+            if _nonempty_string(raw_binding_character_id):
+                canonical_binding_character_id = raw_binding_character_id.strip()
+                prior_raw_binding_character_id = (
+                    raw_binding_character_id_by_canonical.get(
+                        canonical_binding_character_id
+                    )
+                )
+                if (
+                    prior_raw_binding_character_id is not None
+                    and prior_raw_binding_character_id != raw_binding_character_id
+                ):
+                    errors.append(
+                        f"{job_owner}: canonical character_model_binding "
+                        f"character_id collision {canonical_binding_character_id}"
+                    )
+                else:
+                    raw_binding_character_id_by_canonical[
+                        canonical_binding_character_id
+                    ] = raw_binding_character_id
             if character_id is not None:
                 if character_id in bound_character_ids:
                     errors.append(
@@ -346,15 +450,14 @@ def validate_identity_locks(
                     f"does not resolve to character {character_id}"
                 )
 
-            job_model_family = job.get("model_family")
             if (
                 model_family is not None
-                and _nonempty_string(job_model_family)
-                and model_family != job_model_family.strip()
+                and job_model_family is not None
+                and model_family != job_model_family
             ):
                 errors.append(
                     f"{owner}: model_family must match job model_family "
-                    f"{job_model_family.strip()}"
+                    f"{job_model_family}"
                 )
 
             if reference_ids is not None:
@@ -401,20 +504,54 @@ def validate_identity_locks(
                             )
 
         shot_id = job.get("shot_id")
-        shot = (
-            shots_by_id.get(shot_id.strip())
-            if _nonempty_string(shot_id)
-            else None
-        )
+        if _nonempty_string(shot_id) and not _canonical_string(shot_id):
+            errors.append(
+                f"{job_owner}: shot_id must be canonical without surrounding "
+                "whitespace"
+            )
+        shot = shots_by_id.get(shot_id) if _canonical_string(shot_id) else None
         if shot is not None:
             raw_character_ids = shot.get("character_ids")
-            expected_character_ids = {
-                value.strip()
-                for value in (
-                    raw_character_ids if isinstance(raw_character_ids, list) else []
+            character_id_entries = (
+                raw_character_ids if isinstance(raw_character_ids, list) else []
+            )
+            expected_character_ids: set[str] = set()
+            raw_shot_character_id_by_canonical: dict[str, str] = {}
+            for character_index, value in enumerate(character_id_entries, start=1):
+                if not _nonempty_string(value):
+                    continue
+                canonical_character_id = value.strip()
+                if not _canonical_string(value):
+                    errors.append(
+                        f"shot {shot_id}: character_ids item {character_index} "
+                        "must be canonical without surrounding whitespace"
+                    )
+                prior_raw_shot_character_id = (
+                    raw_shot_character_id_by_canonical.get(
+                        canonical_character_id
+                    )
                 )
-                if _nonempty_string(value)
-            }
+                if (
+                    prior_raw_shot_character_id is not None
+                    and prior_raw_shot_character_id != value
+                ):
+                    errors.append(
+                        f"shot {shot_id}: canonical character_id collision "
+                        f"{canonical_character_id}"
+                    )
+                else:
+                    raw_shot_character_id_by_canonical[
+                        canonical_character_id
+                    ] = value
+                if _canonical_string(value):
+                    expected_character_ids.add(value)
+
+            if len(bindings) != len(character_id_entries):
+                errors.append(
+                    f"{job_owner}: character_model_bindings must contain exactly "
+                    f"{len(character_id_entries)} entries for shot {shot_id}, got "
+                    f"{len(bindings)}"
+                )
             actual_character_ids = set(bound_character_ids)
             if (
                 actual_character_ids != expected_character_ids
@@ -422,7 +559,7 @@ def validate_identity_locks(
             ):
                 errors.append(
                     f"{job_owner}: character_model_bindings character_ids must "
-                    f"exactly match shot {shot_id.strip()} character_ids; expected "
+                    f"exactly match shot {shot_id} character_ids; expected "
                     f"{_display_ids(expected_character_ids)}, got "
                     f"{_display_ids(actual_character_ids)}"
                 )

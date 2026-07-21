@@ -1067,6 +1067,80 @@ class CinematicBriefValidationTests(unittest.TestCase):
             validate_package(package),
         )
 
+    def test_canonical_character_collision_cannot_bypass_binding_coverage(self):
+        package = cinematic_package()
+        second_character = copy.deepcopy(
+            package["continuity_bible"]["characters"][0]
+        )
+        second_character["character_id"] = " character-01 "
+        second_character["identity_profile"]["identity_profile_id"] = (
+            "IDP-character-02"
+        )
+        package["continuity_bible"]["characters"].append(second_character)
+        package["storyboard"][0]["character_ids"].append(" character-01 ")
+        for job in package["model_job_manifest"]:
+            job["character_model_bindings"][0]["identity_profile_id"] = (
+                "IDP-character-02"
+            )
+
+        errors = validate_package(package)
+        self.assertIn(
+            "character item-2: character_id must be canonical without surrounding whitespace",
+            errors,
+        )
+        self.assertIn(
+            "continuity_bible.characters: canonical character_id collision character-01",
+            errors,
+        )
+        self.assertIn(
+            "model_job_manifest job-01: character_model_bindings must contain exactly 2 entries for shot shot-01, got 1",
+            errors,
+        )
+
+    def test_identity_mapping_ids_must_be_canonical_strings(self):
+        cases = (
+            (
+                "profile_id",
+                lambda package: package["continuity_bible"]["characters"][0][
+                    "identity_profile"
+                ].update({"identity_profile_id": " IDP-character-01 "}),
+                "character character-01 identity_profile: identity_profile_id must be canonical without surrounding whitespace",
+            ),
+            (
+                "binding_character_id",
+                lambda package: package["model_job_manifest"][0][
+                    "character_model_bindings"
+                ][0].update({"character_id": " character-01 "}),
+                "model_job_manifest job-01 character_model_binding item 1: character_id must be canonical without surrounding whitespace",
+            ),
+            (
+                "binding_profile_id",
+                lambda package: package["model_job_manifest"][0][
+                    "character_model_bindings"
+                ][0].update({"identity_profile_id": " IDP-character-01 "}),
+                "model_job_manifest job-01 character_model_binding item 1: identity_profile_id must be canonical without surrounding whitespace",
+            ),
+            (
+                "shot_character_id",
+                lambda package: package["storyboard"][0].update(
+                    {"character_ids": [" character-01 "]}
+                ),
+                "shot shot-01: character_ids item 1 must be canonical without surrounding whitespace",
+            ),
+            (
+                "job_shot_id",
+                lambda package: package["model_job_manifest"][0].update(
+                    {"shot_id": " shot-01 "}
+                ),
+                "model_job_manifest job-01: shot_id must be canonical without surrounding whitespace",
+            ),
+        )
+        for name, mutate, expected in cases:
+            with self.subTest(name=name):
+                package = cinematic_package()
+                mutate(package)
+                self.assertIn(expected, validate_package(package))
+
     def test_cinematic_job_requires_binding_list_and_object_items(self):
         package = cinematic_package()
         package["model_job_manifest"][0].pop("character_model_bindings")
@@ -1136,6 +1210,35 @@ class CinematicBriefValidationTests(unittest.TestCase):
             "model_job_manifest job-01 character_model_binding item 1: lock_status must be locked",
             validate_package(package),
         )
+
+    def test_cinematic_job_model_family_must_be_canonical_and_non_empty(self):
+        for invalid_value in ([], {}, None, 7, "", " ", " video-model "):
+            with self.subTest(invalid_value=invalid_value):
+                package = cinematic_package()
+                package["model_job_manifest"][0]["model_family"] = invalid_value
+                self.assertIn(
+                    "model_job_manifest job-01: model_family must be a canonical non-empty string",
+                    validate_package(package),
+                )
+
+    def test_binding_model_family_must_be_canonical_and_match_the_job(self):
+        cases = (
+            (
+                " video-model ",
+                "model_job_manifest job-01 character_model_binding item 1: model_family must be canonical without surrounding whitespace",
+            ),
+            (
+                "other-video-model",
+                "model_job_manifest job-01 character_model_binding item 1: model_family must match job model_family video-model",
+            ),
+        )
+        for binding_family, expected in cases:
+            with self.subTest(binding_family=binding_family):
+                package = cinematic_package()
+                package["model_job_manifest"][0]["character_model_bindings"][0][
+                    "model_family"
+                ] = binding_family
+                self.assertIn(expected, validate_package(package))
 
     def test_pending_identity_lock_is_allowed_until_job_approval(self):
         package = cinematic_package()
@@ -1767,6 +1870,20 @@ class CinematicBriefValidationTests(unittest.TestCase):
     def test_legacy_job_aspect_remains_unrestricted(self):
         package = valid_package()
         package["model_job_manifest"][0]["aspect"] = "1:1"
+        self.assertEqual(validate_package(package), [])
+
+    def test_legacy_identity_extensions_do_not_enable_canonical_rules(self):
+        package = valid_package()
+        package["continuity_bible"]["characters"][0]["identity_profile"] = {
+            "identity_profile_id": " padded-profile "
+        }
+        package["model_job_manifest"][0]["character_model_bindings"] = [
+            {
+                "character_id": " padded-character ",
+                "identity_profile_id": " padded-profile ",
+                "model_family": " padded-family ",
+            }
+        ]
         self.assertEqual(validate_package(package), [])
 
     def test_cinematic_manifest_requires_each_delivery_aspect_per_shot(self):
