@@ -27,6 +27,12 @@
 
 `quality_report.checks.intent_fidelity` 与 `quality_report.checks.director_quality` 是 director hard gates。前者证明没有用无关奇观替代用户想表达的内容；后者证明场面调度不是机械正反打、等长卡片、图片滑动或背景粒子凑运动。
 
+### Inner-life and subtext hard gate
+
+文戏必须先有“内心线”，再有台词。每个 `scene_directing_plan` 除了潜台词，还必须记录 `inner_state_arc`、`unsaid_thoughts`、`psychological_externalization`、`dialogue_subtext_strategy`、`silence_and_pause_plan`。每个 active shot 必须把这条心理线落到 `inner_state_ref`、`visible_psychological_evidence`、`subtext_action`、`emotional_leak` 和 `dialogue_or_silence_function`。可见证据包括眼神方向变化、呼吸、停顿、手部动作、身体后退/前倾、遮掩、迟疑、反应镜头、沉默的音响空间；不可只写“他很痛苦/她很坚定”。
+
+`quality_report.checks.inner_life_audit` 是第三个 director hard gate；它必须包含 `status`、`unresolved_conflicts`、非空 `evidence_refs`，且在 `ready: true` 前通过。剪辑阶段还必须用 `cinematic_validation.subtext_fidelity` 覆盖每个实际 edit unit，证明文戏、沉默、反应和心理转折没有被剪成说明性 PPT。
+
 ## Series continuity handoff
 
 短剧/连续剧只在读到外部剧集控制器快照时启用 `series_context`。它必须包含 `series_project_id`、`episode_id`、`series_snapshot_id`、`asset_registry_version`、`episode_opening_state_ref`、`foreshadow_refs` 和 `payoff_refs`。本 Skill 可以输出 `quality_report.series_handoff` 作为下一集草稿，包括 closing state delta、continuity evidence、foreshadow/payoff status changes、`commit_eligibility` 和 `handoff_status`，但 `commit_eligibility` 必须是 `external_series_controller_required`，`handoff_status` 只能是 `draft` 或 `unresolved`。不得声称已写入或同步外部剧集总账。

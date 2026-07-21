@@ -17,6 +17,7 @@ CINEMATIC_FIELDS = (
     "static_hold_audit",
     "source_motion_review",
     "director_quality",
+    "subtext_fidelity",
     "ppt_risk_flags",
     "evidence_refs",
     "cinematic_ready",
@@ -34,6 +35,7 @@ AUDIT_FIELDS = (
     "static_hold_audit",
     "source_motion_review",
     "director_quality",
+    "subtext_fidelity",
 )
 
 VISUAL_AUDIT_FIELDS = tuple(
@@ -820,6 +822,60 @@ def _validate_director_quality(
     )
 
 
+def _validate_subtext_fidelity(
+    audit: dict[str, object], real_unit_ids: list[str], errors: list[str]
+) -> None:
+    label = "cinematic_validation.subtext_fidelity"
+    reviewed_ids = _string_list(
+        audit.get("reviewed_edit_unit_ids"),
+        f"{label}.reviewed_edit_unit_ids",
+        errors,
+        nonempty=True,
+    )
+    real_unit_id_set = set(real_unit_ids)
+    reviewed_id_set: set[str] = set()
+    if reviewed_ids is not None:
+        for unit_id in reviewed_ids:
+            if unit_id in reviewed_id_set:
+                errors.append(
+                    f"{label}.reviewed_edit_unit_ids: duplicate edit_unit_id "
+                    f"{unit_id}"
+                )
+            elif unit_id not in real_unit_id_set:
+                errors.append(
+                    f"{label}.reviewed_edit_unit_ids: unknown edit_unit_id "
+                    f"{unit_id}"
+                )
+            reviewed_id_set.add(unit_id)
+        for unit_id in real_unit_ids:
+            if unit_id not in reviewed_id_set:
+                errors.append(
+                    f"{label}.reviewed_edit_unit_ids: missing edit_unit_id "
+                    f"{unit_id}"
+                )
+
+    _string_list(
+        audit.get("inner_life_refs"),
+        f"{label}.inner_life_refs",
+        errors,
+        nonempty=True,
+    )
+    _string_list(
+        audit.get("evidence_refs"),
+        f"{label}.evidence_refs",
+        errors,
+        nonempty=True,
+    )
+    conflicts = _string_list(
+        audit.get("unresolved_conflicts"),
+        f"{label}.unresolved_conflicts",
+        errors,
+        nonempty=False,
+    )
+    if conflicts:
+        errors.append(f"{label}.unresolved_conflicts: must be empty")
+
+
 def _validate_ready_execution_claim(
     plan: dict[str, object], errors: list[str]
 ) -> None:
@@ -957,6 +1013,9 @@ def validate_cinematic_plan(
     director = audits.get("director_quality")
     if director is not None:
         _validate_director_quality(director, real_unit_ids, errors)
+    subtext = audits.get("subtext_fidelity")
+    if subtext is not None:
+        _validate_subtext_fidelity(subtext, real_unit_ids, errors)
     cinematic_ready = cinematic.get("cinematic_ready") is True
     _validate_supporting_audit_arrays(
         audits, plan, cinematic_ready, errors

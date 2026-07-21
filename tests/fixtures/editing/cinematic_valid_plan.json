@@ -675,6 +675,24 @@
       "evidence_refs": [
         "DIRECTOR-QUALITY-REVIEW-01"
       ]
+    },
+    "subtext_fidelity": {
+      "status": "passed",
+      "reviewed_edit_unit_ids": [
+        "E16-01",
+        "E16-02",
+        "E9-01",
+        "E9-02"
+      ],
+      "inner_life_refs": [
+        "S01.inner_state_arc",
+        "SH001.visible_psychological_evidence",
+        "SH002.emotional_leak"
+      ],
+      "evidence_refs": [
+        "SUBTEXT-FIDELITY-REVIEW-01"
+      ],
+      "unresolved_conflicts": []
     }
   }
 }

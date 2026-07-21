@@ -1600,6 +1600,36 @@
       "evidence_refs": [
         "DIRECTOR-QUALITY-PPT-REVIEW-01"
       ]
+    },
+    "subtext_fidelity": {
+      "status": "failed",
+      "reviewed_edit_unit_ids": [
+        "E16-01",
+        "E16-02",
+        "E16-03",
+        "E16-04",
+        "E16-05",
+        "E16-06",
+        "E16-07",
+        "E16-08",
+        "E9-01",
+        "E9-02",
+        "E9-03",
+        "E9-04",
+        "E9-05",
+        "E9-06",
+        "E9-07",
+        "E9-08"
+      ],
+      "inner_life_refs": [
+        "S01.inner_state_arc"
+      ],
+      "evidence_refs": [
+        "SUBTEXT-FIDELITY-PPT-REVIEW-01"
+      ],
+      "unresolved_conflicts": [
+        "dialogue explains emotion but edit units lack visible behavioral leaks"
+      ]
     }
   }
 }

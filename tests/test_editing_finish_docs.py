@@ -158,6 +158,7 @@ class EditingFinishDocsTests(unittest.TestCase):
                 "edit-unit `intent_refs`",
                 "intent_fidelity",
                 "director_quality",
+                "subtext_fidelity",
                 "transition_fulfillment",
                 "audio_presence_and_structure",
                 "cinematic_validation",
@@ -174,9 +175,10 @@ class EditingFinishDocsTests(unittest.TestCase):
             output_contract,
             (
                 "optional `cinematic_validation`",
-                "16 required fields",
+                "17 required fields",
                 "intent_fidelity",
                 "director_quality",
+                "subtext_fidelity",
                 "character_identity_integrity",
                 "identity_integrity",
                 "action_reaction_coverage",
@@ -193,7 +195,7 @@ class EditingFinishDocsTests(unittest.TestCase):
         output_contract = self.read_required("references/output-contract.md")
         extension = self.section(output_contract, "## Optional Finished-Film Extension")
         field_sentence = next(
-            line for line in extension.splitlines() if "exactly 16 required fields" in line
+            line for line in extension.splitlines() if "exactly 17 required fields" in line
         )
         documented = tuple(
             token

@@ -216,6 +216,18 @@ def cinematic_package():
         "dramatic_turn": "the lead chooses the cost",
         "character_objectives": ["lead protects", "companion escapes"],
         "subtext_and_playable_actions": ["hide the shaking hand"],
+        "inner_state_arc": [
+            "fear is suppressed into resolve",
+            "resolve cracks into visible pain",
+        ],
+        "unsaid_thoughts": ["do not let the companion see the wound"],
+        "psychological_externalization": [
+            "swallowed breath and tightening fingers reveal the hidden cost"
+        ],
+        "dialogue_subtext_strategy": [
+            "shorten dialogue as pain rises; let action answer emotion"
+        ],
+        "silence_and_pause_plan": ["hold one breath before revealing pain"],
         "blocking_map": "lead crosses from rear right to block the path",
         "reveal_strategy": "show the choice before revealing the wound",
         "camera_rule": "move only to reveal the protected companion",
@@ -238,6 +250,15 @@ def cinematic_package():
             "blocking_change": "crosses into the threat path",
             "camera_necessity": "lateral move reveals who is protected",
             "performance_verb": "intercept",
+            "inner_state_ref": "scene-01.inner_state_arc[0]",
+            "visible_psychological_evidence": (
+                "swallowed breath, delayed blink, and tightening fingers"
+            ),
+            "subtext_action": "hides the wound while protecting the companion",
+            "emotional_leak": "a tiny stumble exposes pain under composure",
+            "dialogue_or_silence_function": (
+                "silence makes the cost legible before any line explains it"
+            ),
             "shot_relation": "answers the prior threat setup",
             "director_rejection_reason": "",
             "coverage_role": ["action", "reaction", "consequence"],
@@ -349,6 +370,11 @@ def cinematic_package():
                 "status": "pass",
                 "unresolved_conflicts": [],
                 "evidence_refs": ["DIRECTOR-REVIEW-scene-01"],
+            },
+            "inner_life_audit": {
+                "status": "pass",
+                "unresolved_conflicts": [],
+                "evidence_refs": ["INNER-LIFE-scene-01", "INNER-LIFE-shot-01"],
             },
             "identity_integrity": {
                 "status": "pass",

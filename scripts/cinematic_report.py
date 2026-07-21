@@ -17,6 +17,7 @@ AUDIT_FIELDS = (
     "static_hold_audit",
     "source_motion_review",
     "director_quality",
+    "subtext_fidelity",
 )
 
 _MARKDOWN_CONTROL_CHARACTERS = frozenset("`*_{}[]()#+-.!|~=^")

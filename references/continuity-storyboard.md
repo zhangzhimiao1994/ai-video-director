@@ -379,3 +379,6 @@ When cinematic mode is active, every active storyboard shot must inherit the scr
 - `blocking_change` states what bodies or forces do in space; `camera_necessity` explains why this camera position or move is needed.
 - `performance_verb` is playable by an actor, and `shot_relation` explains how the shot answers, escalates, or prepares neighboring shots.
 - `director_rejection_reason` records why a tempting but unrelated spectacle, image-slide-only composition, or mechanical coverage pattern was rejected; it may be empty only when no rejected alternative is material.
+## Inner-life storyboard addendum
+
+Every active cinematic shot carries `inner_state_ref`, `visible_psychological_evidence`, `subtext_action`, `emotional_leak`, and `dialogue_or_silence_function`. These fields translate psychology into what the camera can see or hear: gaze shift, breath, swallow, hesitation, hand pressure, concealment, recoil, reaction, silence, or motivated sound. Do not use abstract feelings as acceptance evidence.

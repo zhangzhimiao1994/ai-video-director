@@ -31,6 +31,7 @@ CINEMATIC_FIELDS = (
     "static_hold_audit",
     "source_motion_review",
     "director_quality",
+    "subtext_fidelity",
     "ppt_risk_flags",
     "evidence_refs",
     "cinematic_ready",
@@ -48,6 +49,7 @@ AUDIT_FIELDS = (
     "static_hold_audit",
     "source_motion_review",
     "director_quality",
+    "subtext_fidelity",
 )
 
 
@@ -426,6 +428,22 @@ class CinematicValidationTests(unittest.TestCase):
                 ("director_quality", "evidence_refs"),
                 "cinematic_validation.director_quality.evidence_refs",
             ),
+            (
+                ("subtext_fidelity", "reviewed_edit_unit_ids"),
+                "cinematic_validation.subtext_fidelity.reviewed_edit_unit_ids",
+            ),
+            (
+                ("subtext_fidelity", "inner_life_refs"),
+                "cinematic_validation.subtext_fidelity.inner_life_refs",
+            ),
+            (
+                ("subtext_fidelity", "evidence_refs"),
+                "cinematic_validation.subtext_fidelity.evidence_refs",
+            ),
+            (
+                ("subtext_fidelity", "unresolved_conflicts"),
+                "cinematic_validation.subtext_fidelity.unresolved_conflicts",
+            ),
         )
         for path, label in collection_paths:
             for value in ({}, "items", 7, None):
@@ -444,7 +462,7 @@ class CinematicValidationTests(unittest.TestCase):
                     )
 
     def test_all_cinematic_fields_are_required(self):
-        self.assertEqual(len(CINEMATIC_FIELDS), 16)
+        self.assertEqual(len(CINEMATIC_FIELDS), 17)
         for field in CINEMATIC_FIELDS:
             with self.subTest(field=field):
                 plan = copy.deepcopy(load_plan("cinematic_valid_plan.json"))
@@ -541,8 +559,8 @@ class CinematicValidationTests(unittest.TestCase):
 
                 self.assert_deterministic_errors(plan, (expected,))
 
-    def test_cinematic_edit_requires_intent_and_director_audits(self):
-        for field in ("intent_fidelity", "director_quality"):
+    def test_cinematic_edit_requires_intent_director_and_subtext_audits(self):
+        for field in ("intent_fidelity", "director_quality", "subtext_fidelity"):
             with self.subTest(field=field):
                 plan = copy.deepcopy(load_plan("cinematic_valid_plan.json"))
                 del plan["cinematic_validation"][field]
@@ -596,6 +614,38 @@ class CinematicValidationTests(unittest.TestCase):
             plan,
             (
                 "cinematic_validation.director_quality.rejected_pattern_flags: "
+                "must be empty",
+            ),
+        )
+
+    def test_subtext_fidelity_reviews_every_actual_edit_unit(self):
+        plan = rendered_cinematic_plan()
+        plan["cinematic_validation"]["subtext_fidelity"][
+            "reviewed_edit_unit_ids"
+        ] = ["E16-01"]
+
+        self.assert_deterministic_errors(
+            plan,
+            (
+                "cinematic_validation.subtext_fidelity.reviewed_edit_unit_ids: "
+                "missing edit_unit_id E16-02",
+                "cinematic_validation.subtext_fidelity.reviewed_edit_unit_ids: "
+                "missing edit_unit_id E9-01",
+                "cinematic_validation.subtext_fidelity.reviewed_edit_unit_ids: "
+                "missing edit_unit_id E9-02",
+            ),
+        )
+
+    def test_subtext_fidelity_rejects_unresolved_inner_life_conflicts(self):
+        plan = rendered_cinematic_plan()
+        plan["cinematic_validation"]["subtext_fidelity"][
+            "unresolved_conflicts"
+        ] = ["dialogue explains emotion but no visible behavioral leak"]
+
+        self.assert_deterministic_errors(
+            plan,
+            (
+                "cinematic_validation.subtext_fidelity.unresolved_conflicts: "
                 "must be empty",
             ),
         )
@@ -1069,6 +1119,9 @@ class CinematicValidationTests(unittest.TestCase):
             "INT-EV01"
         ]
         plan["cinematic_validation"]["director_quality"][
+            "reviewed_edit_unit_ids"
+        ] = sorted(retained_ids)
+        plan["cinematic_validation"]["subtext_fidelity"][
             "reviewed_edit_unit_ids"
         ] = sorted(retained_ids)
         plan["cinematic_validation"]["transition_fulfillment"][

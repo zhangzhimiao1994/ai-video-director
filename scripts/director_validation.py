@@ -23,6 +23,11 @@ SCENE_DIRECTING_FIELDS = (
     "dramatic_turn",
     "character_objectives",
     "subtext_and_playable_actions",
+    "inner_state_arc",
+    "unsaid_thoughts",
+    "psychological_externalization",
+    "dialogue_subtext_strategy",
+    "silence_and_pause_plan",
     "blocking_map",
     "reveal_strategy",
     "camera_rule",
@@ -43,6 +48,11 @@ SHOT_DIRECTING_FIELDS = (
     "blocking_change",
     "camera_necessity",
     "performance_verb",
+    "inner_state_ref",
+    "visible_psychological_evidence",
+    "subtext_action",
+    "emotional_leak",
+    "dialogue_or_silence_function",
     "shot_relation",
     "director_rejection_reason",
 )
@@ -57,12 +67,17 @@ DIRECTOR_DELTA_FIELDS = (
 _SCENE_LIST_FIELDS = {
     "character_objectives",
     "subtext_and_playable_actions",
+    "inner_state_arc",
+    "unsaid_thoughts",
+    "psychological_externalization",
+    "dialogue_subtext_strategy",
+    "silence_and_pause_plan",
     "rejected_choices",
     "intent_refs",
 }
 _OPTIONAL_EMPTY_SCENE_LIST_FIELDS = {"rejected_choices"}
 _OPTIONAL_EMPTY_SHOT_FIELDS = {"director_rejection_reason", *DIRECTOR_DELTA_FIELDS}
-_QUALITY_GATE_FIELDS = ("intent_fidelity", "director_quality")
+_QUALITY_GATE_FIELDS = ("intent_fidelity", "director_quality", "inner_life_audit")
 _QUALITY_STATUSES = {"pass", "fail"}
 SERIES_CONTEXT_FIELDS = (
     "series_project_id",

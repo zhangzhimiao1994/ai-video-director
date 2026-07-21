@@ -70,6 +70,23 @@ def valid_director_package():
                         "subtext_and_playable_actions": [
                             "hide the shaking hand"
                         ],
+                        "inner_state_arc": [
+                            "fear hidden behind resolve",
+                            "resolve cracks into pain",
+                        ],
+                        "unsaid_thoughts": [
+                            "do not let the companion see the wound"
+                        ],
+                        "psychological_externalization": [
+                            "late blink, swallowed breath, fingers tighten "
+                            "over the hidden wound"
+                        ],
+                        "dialogue_subtext_strategy": [
+                            "speak less as pain rises; answer with action"
+                        ],
+                        "silence_and_pause_plan": [
+                            "one held breath before the impact reveal"
+                        ],
                         "blocking_map": (
                             "lead crosses from rear right to block the "
                             "central path"
@@ -108,6 +125,15 @@ def valid_director_package():
                 "blocking_change": "crosses into the threat path",
                 "camera_necessity": "lateral move reveals who is protected",
                 "performance_verb": "intercept",
+                "inner_state_ref": "S01.inner_state_arc[0]",
+                "visible_psychological_evidence": (
+                    "delayed blink, swallowed breath, grip tightens"
+                ),
+                "subtext_action": "hides the wound from the companion",
+                "emotional_leak": "a half-step stumble breaks the brave mask",
+                "dialogue_or_silence_function": (
+                    "silence makes the hidden cost legible"
+                ),
                 "shot_relation": "answers the prior threat setup",
                 "director_rejection_reason": "",
             }
@@ -125,6 +151,11 @@ def valid_director_package():
                     "status": "pass",
                     "unresolved_conflicts": [],
                     "evidence_refs": ["DIRECTOR-REVIEW-S01"],
+                },
+                "inner_life_audit": {
+                    "status": "pass",
+                    "unresolved_conflicts": [],
+                    "evidence_refs": ["INNER-LIFE-S01", "INNER-LIFE-SH001"],
                 },
             },
         },
@@ -220,6 +251,40 @@ class DirectorValidationTests(unittest.TestCase):
         errors, blocked = validate_director_package(package, required=True)
         self.assertIn(
             "quality_report: ready cannot be true while director hard gates fail",
+            errors,
+        )
+        self.assertTrue(blocked)
+
+    def test_scene_directing_plan_requires_inner_life_externalization(self):
+        package = valid_director_package()
+        del package["screenplay"]["scenes"][0]["scene_directing_plan"][
+            "psychological_externalization"
+        ]
+        errors, blocked = validate_director_package(package, required=True)
+        self.assertIn(
+            "scene S01.scene_directing_plan: missing required field "
+            "psychological_externalization",
+            errors,
+        )
+        self.assertTrue(blocked)
+
+    def test_active_shot_requires_visible_psychological_evidence(self):
+        package = valid_director_package()
+        package["storyboard"][0]["visible_psychological_evidence"] = ""
+        errors, blocked = validate_director_package(package, required=True)
+        self.assertIn(
+            "shot SH001.visible_psychological_evidence: must be a "
+            "non-empty string",
+            errors,
+        )
+        self.assertTrue(blocked)
+
+    def test_inner_life_audit_is_a_director_hard_gate(self):
+        package = valid_director_package()
+        del package["quality_report"]["checks"]["inner_life_audit"]
+        errors, blocked = validate_director_package(package, required=True)
+        self.assertIn(
+            "quality_report.checks.inner_life_audit: must be an object",
             errors,
         )
         self.assertTrue(blocked)

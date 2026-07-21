@@ -304,7 +304,8 @@ When cinematic mode is active, story direction also creates the trace that later
 
 - `project_brief.intent_contract` is the source of truth for core message, audience takeaway, emotional destination, must-show claims, preserved events, must-not-imply items, metaphor policy, and source fidelity.
 - Every `story_structure.beats[]` item carries non-empty `intent_refs` resolving to that contract.
-- Every `screenplay.scenes[]` item carries non-empty `intent_refs` and a full `scene_directing_plan` with POV, audience knowledge before/after, dramatic turn, objectives, subtext/playable actions, blocking map, reveal strategy, camera rule, coverage strategy, motif progression, editorial consequence, rejected choices, and `intent_refs`.
+- Every `screenplay.scenes[]` item carries non-empty `intent_refs` and a full `scene_directing_plan` with POV, audience knowledge before/after, dramatic turn, objectives, subtext/playable actions, `inner_state_arc`, `unsaid_thoughts`, `psychological_externalization`, `dialogue_subtext_strategy`, `silence_and_pause_plan`, blocking map, reveal strategy, camera rule, coverage strategy, motif progression, editorial consequence, rejected choices, and `intent_refs`.
+- 文戏不靠解释心理过关。每场戏都要把主角心理变化翻译成可表演、可拍摄、可剪辑的证据：停顿、呼吸、眼神、手部动作、遮掩、迟疑、反应镜头、沉默或音响空间；台词只负责压迫或反讽，不得替代内心线。
 - A scene cannot be handed to storyboard if it only names mood or spectacle. It must state the playable conflict, the information change, and what a camera move or hold would reveal.
 
 禁止在这三个顶层对象中提前编译厂商专用提示词、镜头 API 参数、随机种子、采样参数、运动强度数值或队列配置。`continuity-storyboard` 不得反向改写已批准故事决定；共同批准门通过后，再交执行层编译。

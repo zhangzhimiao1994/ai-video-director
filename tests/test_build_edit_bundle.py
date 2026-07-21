@@ -352,6 +352,7 @@ class BuildEditBundleTests(unittest.TestCase):
             "static_hold_audit",
             "source_motion_review",
             "director_quality",
+            "subtext_fidelity",
         )
         source_plan = load_plan(CINEMATIC_FIXTURE)
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -612,16 +613,17 @@ class BuildEditBundleTests(unittest.TestCase):
             "static_hold_audit",
             "source_motion_review",
             "director_quality",
+            "subtext_fidelity",
         ):
             payload[field]["status"] = malicious
 
         markdown = cinematic_report_markdown(payload)
 
-        self.assertEqual(markdown.count("DYNAMIC\\`"), 16)
+        self.assertEqual(markdown.count("DYNAMIC\\`"), 17)
         self.assertNotIn("\n## Forged section", markdown)
         self.assertNotIn("<script>", markdown)
-        self.assertEqual(markdown.count("\\r\\n\\#\\# Forged section"), 16)
-        self.assertEqual(markdown.count("&lt;script&gt;&amp;"), 16)
+        self.assertEqual(markdown.count("\\r\\n\\#\\# Forged section"), 17)
+        self.assertEqual(markdown.count("&lt;script&gt;&amp;"), 17)
         self.assertTrue(markdown.endswith("\n"))
 
     def test_cinematic_report_writer_failure_preserves_version_recovery(self):

@@ -71,6 +71,8 @@ class CinematicModeDocsTests(unittest.TestCase):
             "`intent_refs`",
             "`intent_fidelity`",
             "`director_quality`",
+            "`inner_life_audit`",
+            "`subtext_fidelity`",
             "`series_context`",
             "`series_handoff`",
             "external_series_controller_required",
