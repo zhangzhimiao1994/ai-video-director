@@ -454,6 +454,190 @@
 - 只有 t2v 正文中逐字段核实的字段可以进入可执行 `documented_parameters`。i2v/r2v job 在独立 schema 核实前保持 manual-only。
 - Skill 只交付任务清单，不提交、轮询或下载真实任务。
 
+## ToAPIs Video Gateway
+
+**official_docs**
+
+- https://docs.toapis.com/docs/en/api-reference/videos/veo3-official/generation
+- https://docs.toapis.com/docs/en/api-reference/videos/kling-v3/generation
+- https://docs.toapis.com/docs/en/api-reference/videos/happyhorse/generation
+- https://docs.toapis.com/docs/cn/api-reference/videos/seedance-2/generation
+- https://docs.toapis.com/docs/cn/api-reference/videos/doubao-seedance-1-5/generation
+- https://docs.toapis.com/docs/cn/api-reference/videos/sora-2-official/generation
+- https://docs.toapis.com/docs/cn/api-reference/videos/minimax-hailuo-2.3/generation
+- https://docs.toapis.com/docs/cn/api-reference/videos/wan2.6/generation
+- https://docs.toapis.com/docs/en/api-reference/videos/viduq3/generation
+- https://docs.toapis.com/docs/en/api-reference/videos/gemini-omni-flash/generation
+- https://docs.toapis.com/docs/en/api-reference/tasks/video-status
+- https://docs.toapis.com/docs/cn/api-reference/uploads/images
+
+**verified_at**: 2026-07-22
+
+**verified_models**
+
+- `Veo3.1-quality-official`
+- `Veo3.1-fast-official`
+- `kling-v3`
+- `happyhorse-1.1`
+- `seedance-2`
+- `seedance-2-fast`
+- `seedance-2-mini`
+- `doubao-seedance-1-5-pro`
+- `sora-2-official`
+- `MiniMax-Hailuo-2.3`
+- `MiniMax-Hailuo-2.3-Fast`
+- `wan2.6`
+- `viduq3-pro`
+- `viduq3-turbo`
+- `viduq3`
+- `gemini_omni_flash`
+
+**supported_generation_modes**
+
+- Shared video gateway: submit async jobs with `POST /v1/videos/generations`, then poll with `GET /v1/videos/generations/{task_id}`.
+- Veo3 Official: text-to-video, image-to-video, and keyframe-style generation only through the documented Veo3 Official fields.
+- Kling v3: text-to-video, image-to-video, explicit first/last frame control, and audio-video generation only through the documented Kling v3 fields.
+- HappyHorse 1.1: `text-to-video`, `image-to-video`, `reference-to-video`, and `video-edit` through the documented HappyHorse `action` field.
+- Seedance 2: text-to-video, first-frame, first/last-frame, and multi-modal reference generation through `image_with_roles`, `video_with_roles`, and `audio_with_roles`.
+- Doubao Seedance 1.5 Pro: text-to-video and first/last-frame image-to-video; do not use reference-image mode because the official page directs that use case to Seedance 2.
+- Sora 2 Official: text-to-video and one-image image-to-video through `image_urls`.
+- MiniMax Hailuo 2.3: text-to-video and image-to-video; `MiniMax-Hailuo-2.3-Fast` requires `image_urls`.
+- Wan2.6: text-to-video, one-image image-to-video, and reference-video routing through `metadata.reference_urls`.
+- Vidu Q3: text-to-video, image-to-video, first/last-frame, and reference-to-video through Vidu Q3 model-specific image counts and `metadata.generation_type`.
+- Gemini Omni Flash: text-to-video, single-image video, and three-image reference fusion through `image_urls`.
+
+**prompt_language**
+
+- Compile the director-approved `universal_prompt_en` into `prompt`. Do not translate story facts at adapter time. If the user requires another language, keep it as a provider-specific prompt variant with the same `intent_refs`.
+
+**reference_inputs**
+
+- ToAPIs video endpoints require URL references. Local reference images must be uploaded first with `POST /v1/uploads/images` or left in `requires_manual_configuration`.
+- Do not place base64 image data in `image_urls`.
+- Veo3 Official uses `image_urls` for image inputs and `metadata.referenceImages` / `referenceImages` for reference image metadata.
+- Kling v3 uses `reference_images` and `image_with_roles` for documented reference and first/last-frame control.
+- HappyHorse 1.1 uses `image_urls` for image-to-video inputs and `reference_images` for reference-to-video or video-edit inputs.
+- Seedance 2 uses `image_with_roles` for `first_frame`, `last_frame`, and `reference_image`; `video_with_roles` for `reference_video`; and `audio_with_roles` for `reference_audio`.
+- Doubao Seedance 1.5 Pro uses `image_with_roles` or compatible `image_urls` for first/last-frame inputs; `reference_image` is not supported by that 1.5 Pro page.
+- Sora 2 Official uses `image_urls` and only the first image is used as the reference.
+- MiniMax Hailuo 2.3 uses `image_urls` for first-frame image-to-video.
+- Wan2.6 uses `image_urls` for one-image i2v, or `metadata.reference_urls` for reference-video r2v; do not mix those two modes.
+- Vidu Q3 uses `image_urls`: 0 images for t2v, 1 image for i2v, 2 images for first/last-frame with `viduq3-pro` or `viduq3-turbo`, and up to 7 reference images for `viduq3`.
+- Gemini Omni Flash uses `image_urls`: omit/empty for t2v, 1 image for single-image video, 3 images for reference-image fusion; 2 images is unsupported.
+
+**first_last_frame_support**
+
+- Veo3 Official: use `image_urls` plus documented `metadata.lastFrame` only when the selected shot explicitly needs a last-frame lock.
+- Kling v3: use `image_with_roles` when first/last frame roles are required.
+- HappyHorse 1.1: first-frame image-to-video can use `image_urls`; last-frame control is not promoted unless the selected action and official fields support it.
+- Seedance 2: use `image_with_roles` with `first_frame` and `last_frame`.
+- Doubao Seedance 1.5 Pro: use `image_with_roles` with `first_frame` and `last_frame`; `image_urls` compatibility may infer roles but should not be preferred.
+- Sora 2 Official, MiniMax Hailuo 2.3, Wan2.6, and Gemini Omni Flash: no first/last-frame capability is promoted beyond documented image-reference behavior.
+- Vidu Q3: `viduq3-pro` and `viduq3-turbo` can use two `image_urls` as first and last frame.
+
+**audio_support**
+
+- Veo3 Official: `metadata.generateAudio`.
+- Kling v3: `audio`.
+- HappyHorse 1.1: `audio_setting` only where its selected action supports it.
+- Seedance 2: `generate_audio`; Seedance 2 mini can also use `audio_with_roles` in the documented multi-modal reference flow.
+- Doubao Seedance 1.5 Pro: `metadata.audio`.
+- Wan2.6: `audio`.
+- Vidu Q3: `audio` for `viduq3-pro` and `viduq3-turbo`.
+- Do not promise lip-sync, dialogue fidelity, music licensing, or finished-film sound design from model audio alone; keep final sound obligations in the edit plan.
+
+**documented_durations**
+
+- Veo3 Official: `4`, `6`, or `8` seconds.
+- Kling v3: `3` to `15` seconds.
+- HappyHorse 1.1: `3` to `15` seconds.
+- Seedance 2 / Fast / Mini: `4` to `15` seconds; `0` or `-1` auto-duration only for `seedance-2` and `seedance-2-fast`.
+- Doubao Seedance 1.5 Pro: `4` to `12` seconds.
+- Sora 2 Official: `4`, `8`, or `12` seconds.
+- MiniMax Hailuo 2.3: `6` or `10` seconds; `1080P` only supports `6` seconds.
+- Wan2.6: `5`, `10`, or `15` seconds.
+- Vidu Q3: `viduq3-pro` / `viduq3-turbo` support `1` to `16` seconds; `viduq3` supports `3` to `16` seconds.
+- Gemini Omni Flash: `4`, `6`, or `10` seconds.
+
+**documented_aspect_ratios_or_sizes**
+
+- Veo3 Official uses `size`: `16:9` or `9:16`, with `resolution` such as `720p`, `1080p`, or documented preview options.
+- Kling v3 uses `aspect_ratio`; `mode` controls documented quality tier such as `std` or `pro`.
+- HappyHorse 1.1 uses `aspect_ratio`: `16:9`, `9:16`, `1:1`, `4:3`, `3:4`, with `resolution` such as `720P` or `1080P`.
+- Seedance 2 uses `aspect_ratio`: `21:9`, `16:9`, `4:3`, `1:1`, `3:4`, `9:16`, or `adaptive`, plus documented `resolution`.
+- Doubao Seedance 1.5 Pro uses `aspect_ratio`: `16:9`, `9:16`, `1:1`, `4:3`, `3:4`, `21:9`, with `metadata.resolution`: `480p`, `720p`, or `1080p`.
+- Sora 2 Official uses `aspect_ratio`: `16:9` or `9:16`; image references must match the documented 1280x720 or 720x1280 frame size.
+- MiniMax Hailuo 2.3 uses `resolution`: `768P` or `1080P`; `1080P` only supports 6 seconds.
+- Wan2.6 uses `aspect_ratio`: `16:9`, `9:16`, `1:1`, `4:3`, `3:4`, and `resolution`: `720p` or `1080p`.
+- Vidu Q3 uses `aspect_ratio` for text-to-video and `resolution`: `540p`, `720p`, or `1080p`.
+- Gemini Omni Flash uses `aspect_ratio`: `16:9` or `9:16`; `resolution`: `720P` or `1080p` where documented.
+
+**documented_parameters**
+
+- Shared submit route: `POST /v1/videos/generations`; common fields include `model`, `prompt`, and model-specific duration fields.
+- Shared status route: `GET /v1/videos/generations/{task_id}`; status values include queued, in_progress, completed, and failed.
+- Shared image upload route: `POST /v1/uploads/images`; use the returned URL for video reference fields.
+- Veo3 Official: `model`, `prompt`, `duration`, `size`, `resolution`, `image_urls`, `metadata.generateAudio`, `metadata.negativePrompt`, `metadata.personGeneration`, `metadata.lastFrame`, `metadata.referenceImages`, `metadata.compressionQuality`, `metadata.resizeMode`.
+- Kling v3: `model`, `prompt`, `mode`, `duration`, `aspect_ratio`, `reference_images`, `image_with_roles`, `audio`, `metadata.negative_prompt`, `metadata.watermark`.
+- HappyHorse 1.1: `model`, `action`, `prompt`, `image_urls`, `reference_images`, `url`, `audio_setting`, `duration`, `resolution`, `aspect_ratio`, `seed`, `watermark`.
+- Seedance 2: `model`, `client_business_id`, `prompt`, `duration`, `aspect_ratio`, `resolution`, `generate_audio`, `image_with_roles`, `video_with_roles`, `audio_with_roles`.
+- Doubao Seedance 1.5 Pro: `model`, `prompt`, `duration`, `aspect_ratio`, `image_urls`, `image_with_roles`, `metadata.resolution`, `metadata.seed`, `metadata.audio`, `metadata.camerafixed`.
+- Sora 2 Official: `model`, `prompt`, `duration`, `aspect_ratio`, `image_urls`.
+- MiniMax Hailuo 2.3: `model`, `prompt`, `duration`, `resolution`, `image_urls`, `metadata.prompt_optimizer`, `metadata.fast_pretreatment`.
+- Wan2.6: `model`, `prompt`, `image_urls`, `aspect_ratio`, `resolution`, `duration`, `negative_prompt`, `seed`, `prompt_extend`, `audio`, `shot_type`, `watermark`, `metadata.reference_urls`.
+- Vidu Q3: `model`, `prompt`, `duration`, `resolution`, `aspect_ratio`, `image_urls`, `audio`, `metadata.generation_type`, `metadata.seed`.
+- Gemini Omni Flash: `model`, `prompt`, `duration`, `aspect_ratio`, `resolution`, `image_urls`.
+
+**async_job_model**: `submit_then_poll_then_download`
+
+- `operation_state` is the required lifecycle container for every executable ToAPI job.
+- `operation_state.submit.endpoint`: `POST /v1/videos/generations`.
+- `operation_state.poll.endpoint`: `GET /v1/videos/generations/{task_id}`.
+- `operation_state.upload_image.endpoint`: `POST /v1/uploads/images` when local image references must become URLs.
+- `operation_state.status`: pending authorization, credential_check, uploaded_references, submitted, queued, in_progress, completed, failed, canceled, downloaded, or blocked.
+- `operation_state.credential_env`: default `TOAPIS_API_KEY`; aliases may be added only by user instruction.
+- `operation_state.credential_status`: present, missing, or unreadable. Never print or persist the secret value.
+
+**result_expiry**
+
+- Veo3 Official states generated video links are valid for 24 hours.
+- Status responses can include `expires_at`; persist results promptly after authorized download.
+- For other ToAPIs model families, record the returned expiry if present instead of assuming a universal expiry window.
+
+**unsupported_or_unverified**
+
+- A single universal ToAPI request body across all video models.
+- Mixing Veo3 Official `size` with Kling/HappyHorse `aspect_ratio` in one job.
+- Mixing `metadata.negativePrompt` and `metadata.negative_prompt` without selecting the model family.
+- Using base64 image data in `image_urls`, except where a selected model page explicitly allows base64 inside role-based asset fields; prefer upload URLs or `asset://` records.
+- Treating Seedance 2 role-based fields, Wan2.6 reference-video routing, Vidu image-count routing, or Gemini image-count routing as interchangeable.
+- Arbitrary durations, aspect ratios, resolutions, audio promises, lip-sync, model availability, pricing, credits, or account quotas.
+- Reading or displaying API keys; only environment-variable presence may be checked.
+- Uploading, submitting, polling, downloading, overwriting, or publishing without explicit operation authorization.
+
+**requires_manual_configuration**
+
+- `toapis_api_key_env`: default `TOAPIS_API_KEY`
+- `selected_toapis_model`
+- `toapis_model_family`: `veo3_official`, `kling_v3`, `happyhorse_1_1`, `seedance_2`, `doubao_seedance_1_5`, `sora_2_official`, `minimax_hailuo_2_3`, `wan_2_6`, `vidu_q3`, or `gemini_omni_flash`
+- `generation_mode`
+- `duration`
+- `size_or_aspect_ratio`
+- `resolution_or_mode`
+- `reference_image_uploads`
+- `audio_generation_policy`
+- `negative_prompt_policy`
+- `result_download_path`
+- `operation_authorization`
+
+**adaptation_notes**
+
+- ToAPI/ToAPIs is a gateway, not a director. The story, identity locks, and shot intent must come from Canon before adapter compilation.
+- Select the exact `toapis_model_family` before emitting provider JSON. If the family is unknown, emit a generic/manual job and mark the ToAPI job manual-only.
+- Map `universal_prompt_en` to `prompt`; never let adapter fields add new story facts.
+- If the storyboard supplies local reference images, prepare upload-image tasks first or block execution until public URLs exist.
+- Keep every job non-executable until `credential_status` is present and the user gives operation authorization for the exact manifest.
+
 ## Generic fallback
 
 **official_docs**：空；它不是 provider API，而是安全的未绑定任务格式。

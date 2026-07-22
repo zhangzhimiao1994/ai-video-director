@@ -52,6 +52,7 @@ class CinematicModeDocsTests(unittest.TestCase):
             "screenplay, storyboard, prompts, and jobs",
             "Kling and Seedance",
             "manual-only",
+            "ToAPI",
             "HappyHorse",
             "verified fields",
         ):
@@ -82,6 +83,7 @@ class CinematicModeDocsTests(unittest.TestCase):
             "retry/cancel",
             "Kling",
             "Seedance",
+            "ToAPI",
             "HappyHorse",
             "Jianying/CapCut",
         ):
@@ -222,6 +224,71 @@ class CinematicModeDocsTests(unittest.TestCase):
             "`manual_only_until_official_request_schema_is_readable`。"
         )
         self.assertEqual(adapters.count(manual_only_status), 2)
+
+    def test_toapis_adapter_uses_model_specific_gateway_fields_and_env_key(self):
+        skill = self.read("SKILL.md")
+        self.assertIn("ToAPI", skill)
+        self.assertIn("TOAPIS_API_KEY", skill)
+
+        adapters = self.read("references/model-adapters.md")
+        section = self.section(
+            adapters,
+            "## ToAPIs Video Gateway",
+            "## Generic fallback",
+        )
+        for token in (
+            "https://docs.toapis.com/docs/en/api-reference/videos/veo3-official/generation",
+            "https://docs.toapis.com/docs/en/api-reference/videos/kling-v3/generation",
+            "https://docs.toapis.com/docs/en/api-reference/videos/happyhorse/generation",
+            "https://docs.toapis.com/docs/cn/api-reference/videos/seedance-2/generation",
+            "https://docs.toapis.com/docs/cn/api-reference/videos/doubao-seedance-1-5/generation",
+            "https://docs.toapis.com/docs/cn/api-reference/videos/sora-2-official/generation",
+            "https://docs.toapis.com/docs/cn/api-reference/videos/minimax-hailuo-2.3/generation",
+            "https://docs.toapis.com/docs/cn/api-reference/videos/wan2.6/generation",
+            "https://docs.toapis.com/docs/en/api-reference/videos/viduq3/generation",
+            "https://docs.toapis.com/docs/en/api-reference/videos/gemini-omni-flash/generation",
+            "https://docs.toapis.com/docs/en/api-reference/tasks/video-status",
+            "https://docs.toapis.com/docs/cn/api-reference/uploads/images",
+            "POST /v1/videos/generations",
+            "GET /v1/videos/generations/{task_id}",
+            "POST /v1/uploads/images",
+            "Veo3.1-quality-official",
+            "Veo3.1-fast-official",
+            "kling-v3",
+            "happyhorse-1.1",
+            "seedance-2",
+            "seedance-2-fast",
+            "seedance-2-mini",
+            "doubao-seedance-1-5-pro",
+            "sora-2-official",
+            "MiniMax-Hailuo-2.3",
+            "MiniMax-Hailuo-2.3-Fast",
+            "wan2.6",
+            "viduq3-pro",
+            "viduq3-turbo",
+            "viduq3",
+            "gemini_omni_flash",
+            "`size`",
+            "`aspect_ratio`",
+            "`image_with_roles`",
+            "`video_with_roles`",
+            "`audio_with_roles`",
+            "`metadata.reference_urls`",
+            "`metadata.generation_type`",
+            "`generate_audio`",
+            "`metadata.generateAudio`",
+            "`metadata.negativePrompt`",
+            "`metadata.negative_prompt`",
+            "`image_urls`",
+            "`referenceImages`",
+            "`reference_images`",
+            "base64",
+            "`TOAPIS_API_KEY`",
+            "`operation_state`",
+            "manual-only",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, section)
 
     def test_cinematic_direction_defines_genre_aware_motion_and_coverage(self):
         reference = self.read("references/cinematic-directing.md")
