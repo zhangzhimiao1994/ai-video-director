@@ -597,6 +597,8 @@
 - `operation_state.status`: pending authorization, credential_check, uploaded_references, submitted, queued, in_progress, completed, failed, canceled, downloaded, or blocked.
 - `operation_state.credential_env`: default `TOAPIS_API_KEY`; aliases may be added only by user instruction.
 - `operation_state.credential_status`: present, missing, or unreadable. Never print or persist the secret value.
+- `TOAPIS_API_KEY` must be read from the process or user environment when execution is authorized; the Skill must not ask the user to paste the API key.
+- The authorization header is constructed only at execution time from the environment value. Any preview, log, manifest, or error report may show only `Authorization: Bearer <redacted>`.
 
 **result_expiry**
 

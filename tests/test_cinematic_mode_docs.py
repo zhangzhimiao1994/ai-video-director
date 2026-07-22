@@ -284,6 +284,10 @@ class CinematicModeDocsTests(unittest.TestCase):
             "`reference_images`",
             "base64",
             "`TOAPIS_API_KEY`",
+            "read from the process or user environment",
+            "must not ask the user to paste the API key",
+            "authorization header is constructed only at execution time",
+            "`Authorization: Bearer <redacted>`",
             "`operation_state`",
             "manual-only",
         ):
